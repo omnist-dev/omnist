@@ -14,14 +14,25 @@ This module implements the **OML-Core** grammar in full, plus the
 See ``docs/formats/oml.md`` for the user-facing guide and
 ``docs/design/OML-spec.md`` (design-time artifact, not shipped) for the full
 normative grammar this implementation follows.
+
+Performance note (issue #168): the reader is a single-pass scanner/parser
+built around one compiled "master" regex with named groups. There is no
+``Token`` class and no materialized token list — the parser drives a
+``master.match(s, pos)`` loop directly off ``Match`` objects and dispatches
+on ``m.lastgroup``. Per-token line/col is *not* computed during scanning;
+it's derived lazily, only when a ``ParseError`` is actually raised, by
+counting newlines in ``s[:pos]``. Scalar values (``int()``/``float()``/date
+parsing) are likewise computed only when a token is consumed by the parser,
+not when it's scanned. This is what makes the single-pass design pay off:
+per-token Python-level object construction was the dominant cost, not regex
+matching itself (see the PR for the profile that motivated this).
 """
 
 from __future__ import annotations
 
 import datetime as _dt
 import re as _re
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Match, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
 from .document import _MAX_INT_DIGITS
 from .errors import ParseError
@@ -34,307 +45,393 @@ _MAX_DEPTH = 200          # matches Document's own nesting bound (document.py)
 
 
 # ---------------------------------------------------------------------------
-# Tokens
+# Token kind names (used as the master regex's named groups and as the
+# `.lastgroup` values the parser dispatches on -- there is no Token class;
+# a "token" here is just (kind: str, match: Match[str]) handled inline).
 # ---------------------------------------------------------------------------
 
-class Tok:
-    SEP = "SEP"
-    STRING = "STRING"
-    INTEGER = "INTEGER"
-    NUMBER = "NUMBER"
-    DATE = "DATE"
-    TIME = "TIME"
-    DATETIME = "DATETIME"
-    IDENT = "IDENT"
-    LBRACE = "LBRACE"
-    RBRACE = "RBRACE"
-    COLON = "COLON"
-    EOF = "EOF"
-
-
-@dataclass
-class Token:
-    kind: str
-    text: str          # raw source text (for STRING-family: the unescaped value)
-    value: Any = None  # evaluated value (for scalars)
-    pos: int = 0        # 1-based line, for error messages
-    col: int = 0
-
+SEPWS = "SEPWS"        # hspace / comment / newline / ';' run (may or may not
+                        # contain a separator-worthy newline/';' -- checked
+                        # in Python after the match, see _is_sep)
+DQFAST = "DQFAST"       # no-escape, single-line, control-char-free string
+DQUOTE3 = "DQUOTE3"     # opening of a """ multiline string (slow path)
+DQUOTE = "DQUOTE"       # opening of a plain string that needs the escape
+                        # decoder (contains \ and/or control chars) or is
+                        # simply not a DQFAST match for some other reason
+RAW = "RAW"             # 'raw string' (E2) -- fully regex-expressible since
+                        # a raw string can never contain its own delimiter
+SQUOTE = "SQUOTE"       # a lone "'" that couldn't extend to RAW (i.e. no
+                        # closing "'" before EOF) -- unterminated raw string
+LBRACE = "LBRACE"
+RBRACE = "RBRACE"
+COLON = "COLON"
+DATETIME = "DATETIME"
+DATE = "DATE"
+TIME = "TIME"
+NUMDEC = "NUMDEC"       # decimal-num (and decimal-num + exponent)
+NUMEXP = "NUMEXP"       # exponent-num (integer mantissa + exponent)
+NEGINF = "NEGINF"
+NANLIT = "NANLIT"
+POSINF = "POSINF"
+INTEGER = "INTEGER"
+IDENT = "IDENT"
 
 _RESERVED = {"null", "true", "false"}
 _RESERVED_NUMBER = {"nan", "inf", "-inf"}
 
-_IDENT_RE = _re.compile(r"[A-Za-z_][A-Za-z0-9_\-]*")
 # _DATE_RE / _TIME_RE / _DATETIME_RE: the one shared definition of the
-# documented temporal spellings now lives in schema.py (imported above) --
-# see its comment there for why (validate()/materialize() need to agree with
-# this tokenizer's own notion of "looks like a date/time/datetime").
-_NUMDEC_RE = _re.compile(r"-?\d+\.\d+([eE][+\-]?\d+)?")
-_NUMEXP_RE = _re.compile(r"-?\d+[eE][+\-]?\d+")
-_INTEGER_RE = _re.compile(r"-?\d+")
+# documented temporal spellings lives in schema.py (imported above) -- see
+# its comment there for why (validate()/materialize() need to agree with
+# this tokenizer's own notion of "looks like a date/time/datetime"). We
+# splice their *source patterns* (unanchored, no flags) into the master
+# regex below rather than re-deriving them, so the two can never drift.
+_DATE_SRC = _DATE_RE.pattern
+_TIME_SRC = _TIME_RE.pattern
+_DATETIME_SRC = _DATETIME_RE.pattern
+
+# ---------------------------------------------------------------------------
+# The master regex.
+#
+# One compiled alternation covering every token the grammar's lexical
+# section (docs/design/oml-grammar.md §1) documents, in the *exact* priority
+# order the grammar specifies: STRING-family and punctuation are pinned to
+# their own leading character so they never compete with anything else,
+# then DATETIME, DATE, TIME, NUMBER (decimal/exponent forms), the three
+# reserved float spellings, INTEGER, then IDENT.
+#
+# Python's `re` alternation is *ordered*, not POSIX-longest-match: the first
+# alternative that matches at the current position wins, even if a later
+# alternative would consume more text. This is exactly the grammar's
+# "maximal munch within a rule, first rule wins between rules" semantics --
+# in particular it's what makes DATETIME-before-DATE correctly implement
+# the DATE-vs-DATETIME disambiguation (see grammar doc §1.1) with no
+# separate lookahead check needed: at `2024-01-01T10:30`, DATETIME matches
+# first and wins; at `2024-01-01T99`, DATETIME's pattern fails to match (T99
+# isn't TIME-shaped) so the alternation falls through to DATE, which matches
+# just the date part, leaving `T99` for the next call to match as IDENT.
+#
+# SEPWS folds whitespace/comment/newline/';' skipping into the regex engine
+# (C-level), covering both "pure hspace/comment, no token" and "a run
+# containing a newline/';' collapses into one SEP" in a single alternative;
+# the two cases are distinguished cheaply in Python by checking membership
+# of '\n' / '\r' / ';' in the matched span (see _is_sep_span).
+#
+# DQUOTE3 (the """ opener) is tried before DQFAST even though DQFAST is the
+# common case, because DQFAST's pattern ("[^"\\control]*") would otherwise
+# happily match the *empty* string formed by the first two quotes of a
+# """ run (e.g. at `"""body"""`, DQFAST would match just `""` and leave a
+# dangling `"body"""`) -- ordering DQUOTE3 first avoids that trap. DQFAST is
+# a fast path for the common remaining case: a double-quoted string with no
+# backslash and no control character (the overwhelming majority of
+# real-world string content). Only when DQFAST fails to match a leading '"'
+# does the scanner fall back to DQUOTE, which needs the char-by-char escape
+# decoder (see _scan_string_slow).
+# ---------------------------------------------------------------------------
+
+_MASTER_SRC = rf"""
+(?P<{SEPWS}>
+    (?: [ \t] | \#[^\n]* | \r\n | \n | ; )+
+)
+|
+(?P<{DQUOTE3}> \x22\x22\x22 )
+|
+(?P<{DQFAST}> \x22 [^\x22\\\x00-\x1f]* \x22 )
+|
+(?P<{DQUOTE}> \x22 )
+|
+(?P<{RAW}> ' [^']* ' )
+|
+(?P<{SQUOTE}> ' )
+|
+(?P<{LBRACE}> \{{ )
+|
+(?P<{RBRACE}> \}} )
+|
+(?P<{COLON}> : )
+|
+(?P<{DATETIME}> {_DATETIME_SRC} )
+|
+(?P<{DATE}> {_DATE_SRC} )
+|
+(?P<{TIME}> {_TIME_SRC} )
+|
+(?P<{NUMDEC}> -?\d+\.\d+(?:[eE][+\-]?\d+)? )
+|
+(?P<{NUMEXP}> -?\d+[eE][+\-]?\d+ )
+|
+(?P<{NEGINF}> -inf(?![A-Za-z0-9\-]) )
+|
+(?P<{NANLIT}> nan(?![A-Za-z0-9\-]) )
+|
+(?P<{POSINF}> inf(?![A-Za-z0-9\-]) )
+|
+(?P<{INTEGER}> -?\d+ )
+|
+(?P<{IDENT}> [A-Za-z_][A-Za-z0-9_\-]* )
+"""
+
+_MASTER: Pattern[str] = _re.compile(_MASTER_SRC, _re.VERBOSE)
 
 _ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f",
             "n": "\n", "r": "\r", "t": "\t"}
 
+_HEX4_RE = _re.compile(r"[0-9A-Fa-f]{4}")
+
+
+def _is_sep_span(text: str) -> bool:
+    """Does a SEPWS match contain at least one newline/';' (-> SEP token),
+    or is it pure hspace/comment (-> skipped, no token emitted)?"""
+    return "\n" in text or ";" in text or "\r" in text
+
+
+# ---------------------------------------------------------------------------
+# Scanner -- single pass, driven by the parser (no Token class, no list).
+# ---------------------------------------------------------------------------
 
 class _Scanner:
-    """Tokenizes OML source by maximal munch with the spec's priority order:
-    STRING-family, DATETIME, DATE, TIME, NUMBER, INTEGER, IDENT, punctuation."""
+    """Wraps the source text and the master-regex matching loop.
+
+    There is no ``tokens()`` that materializes a list: the parser calls
+    :meth:`next` to pull one token at a time, receiving ``(kind, Match)``
+    (or ``(EOF, None)`` at end of input). Values are *not* computed here --
+    ``int()``/``float()``/date parsing happens only when the parser actually
+    consumes a scalar token (see ``_Parser.parse_scalar``), and line/col are
+    computed only when :meth:`error_at` is actually called to build a
+    ``ParseError``.
+    """
+
+    __slots__ = ("s", "n", "pos")
 
     def __init__(self, text: str) -> None:
         if text.startswith("﻿"):
             text = text[1:]
         self.s = text
         self.n = len(text)
-        self.i = 0
-        self.line = 1
-        self.col = 1
+        self.pos = 0
 
-    def error(self, msg: str) -> ParseError:
-        return ParseError(f"line {self.line}, col {self.col}: {msg}")
+    def line_col(self, pos: int) -> Tuple[int, int]:
+        """1-based (line, col) for byte offset ``pos``, computed lazily --
+        only ever called while building a ParseError message."""
+        s = self.s
+        line = s.count("\n", 0, pos) + 1
+        nl = s.rfind("\n", 0, pos)
+        col = pos - nl if nl != -1 else pos + 1
+        return line, col
 
-    def _advance(self, k: int) -> None:
-        for ch in self.s[self.i:self.i + k]:
-            if ch == "\n":
-                self.line += 1
-                self.col = 1
-            else:
-                self.col += 1
-        self.i += k
+    def error_at(self, pos: int, msg: str) -> ParseError:
+        line, col = self.line_col(pos)
+        return ParseError(f"line {line}, col {col}: {msg}")
 
-    def tokens(self) -> List[Token]:
-        out: List[Token] = []
+    def error_eof(self, msg: str) -> ParseError:
+        # Quirk preserved from the original scanner: its EOF token was
+        # constructed with no pos=/col= args (`Token(Tok.EOF, "")`), so any
+        # error naming "got EOF" always reported line 0, col 0 rather than
+        # the source's actual end position. Used only where the *current
+        # token* being reported in the message is EOF itself -- byte-
+        # identical to v0.2.26, verified by differential fuzzing (see PR).
+        return ParseError(f"line 0, col 0: {msg}")
+
+    def next(self) -> Tuple[str, int, int]:
+        """Advance past (and return) the next significant token as
+        ``(kind, start, end)``. Skips pure hspace/comment runs silently and
+        collapses newline/';'-bearing runs into a single SEP. Raw values
+        (text slices) are available via ``self.s[start:end]``; scalar
+        conversion happens later, on demand, in the parser."""
+        s, n = self.s, self.n
+        pos = self.pos
         while True:
-            tok = self._next()
-            out.append(tok)
-            if tok.kind == Tok.EOF:
-                return out
+            if pos >= n:
+                self.pos = pos
+                return ("EOF", pos, pos)
+            m = _MASTER.match(s, pos)
+            if m is None:
+                raise self.error_at(pos, f"stray character {s[pos]!r}")
+            kind = m.lastgroup
+            end = m.end()
+            if kind == SEPWS:
+                if _is_sep_span(m.group()):
+                    self.pos = end
+                    return ("SEP", pos, end)
+                pos = end
+                continue
+            if kind == DQUOTE3:
+                start, end = self._scan_multiline(pos)
+                self.pos = end
+                return ("STRING", start, end)
+            if kind == DQUOTE:
+                start, end = self._scan_string_slow(pos)
+                self.pos = end
+                return ("STRING", start, end)
+            if kind == DQFAST or kind == RAW:
+                self.pos = end
+                return ("STRING", pos, end)
+            if kind == SQUOTE:
+                raise self.error_at(pos, "unterminated raw string (missing closing ')")
+            self.pos = end
+            assert kind is not None
+            return (kind, pos, end)
 
-    def _next(self) -> Token:
-        # 1. skip hspace / comments; collapse a run of newlines/`;` (with
-        #    folded ws/comments) into one SEP token.
-        sep_seen = False
-        while self.i < self.n:
-            ch = self.s[self.i]
-            if ch in " \t":
-                self._advance(1)
-            elif ch == "#":
-                end = self.s.find("\n", self.i)
-                end = self.n if end == -1 else end
-                self._advance(end - self.i)
-            elif ch == "\r" and self.s[self.i + 1:self.i + 2] == "\n":
-                self._advance(2)
-                sep_seen = True
-            elif ch == "\n" or ch == ";":
-                self._advance(1)
-                sep_seen = True
-            else:
-                break
-        if sep_seen:
-            return Token(Tok.SEP, ";")
-        if self.i >= self.n:
-            return Token(Tok.EOF, "")
+    # -- strings: slow paths -------------------------------------------
+    #
+    # These mirror the original char-by-char scanner exactly (semantics
+    # unchanged); they're reached only when the DQFAST fast path can't
+    # match at a '"' position (a backslash escape, a control character, or
+    # a """ multiline opener is present).
 
-        line, col = self.line, self.col
-        ch = self.s[self.i]
-
-        if ch == '"':
-            return self._scan_dquote(line, col)
-        if ch == "'":
-            return self._scan_raw(line, col)
-        if ch == "{":
-            self._advance(1)
-            return Token(Tok.LBRACE, "{", pos=line, col=col)
-        if ch == "}":
-            self._advance(1)
-            return Token(Tok.RBRACE, "}", pos=line, col=col)
-        if ch == ":":
-            self._advance(1)
-            return Token(Tok.COLON, ":", pos=line, col=col)
-
-        m = _DATETIME_RE.match(self.s, self.i)
-        if m:
-            return self._emit_datetime(m, line, col)
-        m = _DATE_RE.match(self.s, self.i)
-        if m and not (m.end() < self.n and self.s[m.end()] == "T"
-                      and _TIME_RE.match(self.s, m.end() + 1)):
-            return self._emit_date(m, line, col)
-        m = _TIME_RE.match(self.s, self.i)
-        if m:
-            return self._emit_time(m, line, col)
-        m = _NUMDEC_RE.match(self.s, self.i) or _NUMEXP_RE.match(self.s, self.i)
-        if m:
-            return self._emit_number(m, line, col)
-        if self.s.startswith("-inf", self.i) and not self._alnum_at(self.i + 4):
-            self._advance(4)
-            return Token(Tok.NUMBER, "-inf", value=float("-inf"), pos=line, col=col)
-        if (self.s.startswith("nan", self.i) and not self._alnum_at(self.i + 3)
-                and self.s[self.i + 3:self.i + 4] != "-"):
-            self._advance(3)
-            return Token(Tok.NUMBER, "nan", value=float("nan"), pos=line, col=col)
-        if (self.s.startswith("inf", self.i) and not self._alnum_at(self.i + 3)
-                and self.s[self.i + 3:self.i + 4] != "-"):
-            self._advance(3)
-            return Token(Tok.NUMBER, "inf", value=float("inf"), pos=line, col=col)
-        m = _INTEGER_RE.match(self.s, self.i)
-        if m:
-            return self._emit_integer(m, line, col)
-        m = _IDENT_RE.match(self.s, self.i)
-        if m:
-            self._advance(m.end() - self.i)
-            return Token(Tok.IDENT, m.group(), pos=line, col=col)
-
-        raise self.error(f"stray character {ch!r}")
-
-    def _alnum_at(self, i: int) -> bool:
-        ch = self.s[i:i + 1]
-        return bool(ch) and ch.isalnum()
-
-    # -- numeric / temporal emission ----------------------------------
-    def _emit_integer(self, m: Match[str], line: int, col: int) -> Token:
-        text = m.group()
-        digits = text.lstrip("-")
-        if len(digits) > _MAX_INT_DIGITS:
-            raise self.error(
-                f"integer literal has {len(digits)} digits, exceeding the "
-                f"{_MAX_INT_DIGITS}-digit limit (security: unbounded-digit "
-                "int-to-str conversion is superlinear)")
-        self._advance(m.end() - m.start())
-        return Token(Tok.INTEGER, text, value=int(text), pos=line, col=col)
-
-    def _emit_number(self, m: Match[str], line: int, col: int) -> Token:
-        text = m.group()
-        self._advance(m.end() - m.start())
-        return Token(Tok.NUMBER, text, value=float(text), pos=line, col=col)
-
-    def _emit_date(self, m: Match[str], line: int, col: int) -> Token:
-        text = m.group()
-        self._advance(m.end() - m.start())
-        try:
-            value = _dt.date.fromisoformat(text)
-        except ValueError as exc:
-            raise self.error(f"invalid date {text!r}: {exc}") from exc
-        return Token(Tok.DATE, text, value=value, pos=line, col=col)
-
-    def _emit_time(self, m: Match[str], line: int, col: int) -> Token:
-        text = m.group()
-        self._advance(m.end() - m.start())
-        try:
-            value = _dt.time.fromisoformat(text)
-        except ValueError as exc:
-            raise self.error(f"invalid time {text!r}: {exc}") from exc
-        return Token(Tok.TIME, text, value=value, pos=line, col=col)
-
-    def _emit_datetime(self, m: Match[str], line: int, col: int) -> Token:
-        text = m.group()
-        self._advance(m.end() - m.start())
-        try:
-            value = _dt.datetime.fromisoformat(text)
-        except ValueError as exc:
-            raise self.error(f"invalid datetime {text!r}: {exc}") from exc
-        return Token(Tok.DATETIME, text, value=value, pos=line, col=col)
-
-    # -- strings ---------------------------------------------------------
-    def _scan_raw(self, line: int, col: int) -> Token:
-        end = self.s.find("'", self.i + 1)
-        if end == -1:
-            raise self.error("unterminated raw string (missing closing ')")
-        text = self.s[self.i + 1:end]
-        self._advance(end + 1 - self.i)
-        return Token(Tok.STRING, text, value=text, pos=line, col=col)
-
-    def _scan_dquote(self, line: int, col: int) -> Token:
-        if self.s[self.i:self.i + 3] == '"""':
-            return self._scan_multiline(line, col)
-        return self._scan_string(line, col)
-
-    def _scan_string(self, line: int, col: int) -> Token:
-        start = self.i
-        i = self.i + 1
-        out = []
+    def _scan_string_slow(self, start: int) -> Tuple[int, int]:
+        # NOTE on error positions: every ParseError raised while scanning a
+        # token reports the *token's start* position (`start`), matching the
+        # original scanner exactly -- it only ever advanced its line/col
+        # bookkeeping between tokens, never mid-token, so a mid-string error
+        # (bad escape, control char, unterminated) always pointed at the
+        # opening quote, not the offending character. Preserved verbatim
+        # here since tests assert exact messages/positions.
+        s, n = self.s, self.n
+        i = start + 1
         while True:
-            if i >= self.n:
-                raise self.error("unterminated string (missing closing \")")
-            ch = self.s[i]
+            if i >= n:
+                raise self.error_at(start, "unterminated string (missing closing \")")
+            ch = s[i]
             if ch == '"':
-                i += 1
-                break
+                return start, i + 1
             if ch == "\\":
-                esc, i = self._read_escape(i)
-                out.append(esc)
+                i = self._skip_escape(start, i)
                 continue
             if ord(ch) < 0x20:
-                raise self.error(f"control character U+{ord(ch):04X} in string")
-            out.append(ch)
+                raise self.error_at(start, f"control character U+{ord(ch):04X} in string")
             i += 1
-        self._advance(i - start)
-        return Token(Tok.STRING, self.s[start:i], value="".join(out), pos=line, col=col)
 
-    def _scan_multiline(self, line: int, col: int) -> Token:
-        start = self.i
-        i = self.i + 3
-        if self.s[i:i + 1] == "\n":
+    def _scan_multiline(self, start: int) -> Tuple[int, int]:
+        s, n = self.s, self.n
+        i = start + 3
+        if s[i:i + 1] == "\n":
             i += 1
-        elif self.s[i:i + 2] == "\r\n":
+        elif s[i:i + 2] == "\r\n":
             i += 2
-        out = []
         while True:
-            if i >= self.n:
-                raise self.error('unterminated multiline string (missing closing """)')
-            if self.s[i] == '"':
+            if i >= n:
+                raise self.error_at(
+                    start, 'unterminated multiline string (missing closing """)')
+            ch = s[i]
+            if ch == '"':
                 run = 0
                 j = i
-                while j < self.n and self.s[j] == '"':
+                while j < n and s[j] == '"':
                     run += 1
                     j += 1
                 if run >= 3:
-                    # the terminator is the *first* three of this run (§5.2
-                    # rule 2a); any further quotes are outside this token and
-                    # left for the main tokenizer to scan next (D.4).
-                    i = i + 3
-                    break
-                out.append('"' * run)
+                    return start, i + 3
                 i = j
                 continue
-            ch = self.s[i]
             if ch == "\\":
-                esc, i = self._read_escape(i)
-                out.append(esc)
+                i = self._skip_escape(start, i)
                 continue
             if ch == "\t" or ch == "\n" or ord(ch) >= 0x20:
-                out.append(ch)
                 i += 1
                 continue
-            raise self.error(f"control character U+{ord(ch):04X} in multiline string")
-        self._advance(i - start)
-        return Token(Tok.STRING, self.s[start:i], value="".join(out), pos=line, col=col)
+            raise self.error_at(start, f"control character U+{ord(ch):04X} in multiline string")
 
-    def _read_escape(self, i: int) -> tuple[str, int]:
-        if i + 1 >= self.n:
-            raise self.error("unterminated escape sequence")
-        c = self.s[i + 1]
+    def _skip_escape(self, tok_start: int, i: int) -> int:
+        """Validate (but don't decode) one escape sequence starting at the
+        backslash `s[i]`; return the position just past it. Decoding happens
+        later in ``_decode_dquote``/``_decode_multiline`` when the token is
+        actually consumed by the parser. Errors report `tok_start` (the
+        enclosing string token's opening quote), not `i` -- see the note in
+        ``_scan_string_slow``."""
+        s, n = self.s, self.n
+        if i + 1 >= n:
+            raise self.error_at(tok_start, "unterminated escape sequence")
+        c = s[i + 1]
         if c in _ESCAPES:
-            return _ESCAPES[c], i + 2
+            return i + 2
         if c == "u":
-            hexs = self.s[i + 2:i + 6]
-            if len(hexs) != 4 or not _re.fullmatch(r"[0-9A-Fa-f]{4}", hexs):
-                raise self.error(r"invalid \u escape (need 4 hex digits)")
+            hexs = s[i + 2:i + 6]
+            if len(hexs) != 4 or not _HEX4_RE.fullmatch(hexs):
+                raise self.error_at(tok_start, r"invalid \u escape (need 4 hex digits)")
             cp = int(hexs, 16)
             j = i + 6
             if 0xD800 <= cp <= 0xDBFF:
-                hex2 = self.s[j + 2:j + 6]
-                if self.s[j:j + 2] == "\\u" and _re.fullmatch(r"[0-9A-Fa-f]{4}", hex2):
+                hex2 = s[j + 2:j + 6]
+                if s[j:j + 2] == "\\u" and _HEX4_RE.fullmatch(hex2):
                     low = int(hex2, 16)
                     if 0xDC00 <= low <= 0xDFFF:
-                        combined = 0x10000 + (cp - 0xD800) * 0x400 + (low - 0xDC00)
-                        return chr(combined), j + 6
-                raise self.error(
-                    f"unpaired high surrogate \\u{hexs} (needs a following "
+                        return j + 6
+                raise self.error_at(
+                    tok_start, f"unpaired high surrogate \\u{hexs} (needs a following "
                     r"low-surrogate \uDC00-\uDFFF escape)")
             if 0xDC00 <= cp <= 0xDFFF:
-                raise self.error(f"unpaired low surrogate \\u{hexs}")
-            return chr(cp), j
-        raise self.error(rf"invalid escape \{c}")
+                raise self.error_at(tok_start, f"unpaired low surrogate \\u{hexs}")
+            return j
+        raise self.error_at(tok_start, rf"invalid escape \{c}")
+
+
+# ---------------------------------------------------------------------------
+# Value decoding -- deferred until the parser actually consumes a token.
+# ---------------------------------------------------------------------------
+
+def _decode_dquote(text: str) -> str:
+    """Decode a dquote-string token's *raw source text* (including the
+    surrounding quotes) into its value. Used for both the DQUOTE (slow-scan)
+    and DQFAST tokens -- DQFAST's text is guaranteed escape-free, but running
+    it through the same decoder keeps this one code path (the escape-free
+    case just never enters the backslash branch)."""
+    if "\\" not in text:
+        return text[1:-1]
+    out = []
+    i = 1
+    n = len(text) - 1  # stop before the closing quote
+    while i < n:
+        ch = text[i]
+        if ch == "\\":
+            esc, i = _decode_escape(text, i)
+            out.append(esc)
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def _decode_multiline(text: str) -> str:
+    # text is `"""` + body + `"""`; strip the 3+3 delimiters, then an
+    # immediately-following single \n or \r\n (opening-newline elision).
+    body = text[3:-3]
+    if body[:1] == "\n":
+        body = body[1:]
+    elif body[:2] == "\r\n":
+        body = body[2:]
+    if "\\" not in body:
+        return body
+    out = []
+    i = 0
+    n = len(body)
+    while i < n:
+        ch = body[i]
+        if ch == "\\":
+            esc, i = _decode_escape(body, i)
+            out.append(esc)
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def _decode_escape(s: str, i: int) -> Tuple[str, int]:
+    """Decode one escape sequence at ``s[i] == '\\\\'``. Validation already
+    happened during scanning (``_Scanner._skip_escape``); this just repeats
+    the (cheap) parse to produce the value, so the scanner never needs to
+    allocate output on the hot path."""
+    c = s[i + 1]
+    if c in _ESCAPES:
+        return _ESCAPES[c], i + 2
+    # c == "u" (only remaining valid case, already validated)
+    hexs = s[i + 2:i + 6]
+    cp = int(hexs, 16)
+    j = i + 6
+    if 0xD800 <= cp <= 0xDBFF:
+        low = int(s[j + 2:j + 6], 16)
+        combined = 0x10000 + (cp - 0xD800) * 0x400 + (low - 0xDC00)
+        return chr(combined), j + 6
+    return chr(cp), j
 
 
 # ---------------------------------------------------------------------------
@@ -342,127 +439,213 @@ class _Scanner:
 # ---------------------------------------------------------------------------
 
 class _Parser:
-    def __init__(self, toks: List[Token]) -> None:
-        self.toks = toks
-        self.i = 0
+    """Recursive-descent parser driven directly off the scanner's
+    ``(kind, start, end)`` triples -- no Token objects, no token list."""
 
-    def peek(self) -> Token:
-        return self.toks[self.i]
+    def __init__(self, scanner: _Scanner) -> None:
+        self.sc = scanner
+        self.kind, self.start, self.end = scanner.next()
 
-    def advance(self) -> Token:
-        t = self.toks[self.i]
-        self.i += 1
-        return t
+    def _advance(self) -> Tuple[str, int, int]:
+        cur = (self.kind, self.start, self.end)
+        self.kind, self.start, self.end = self.sc.next()
+        return cur
 
     def skip_sep(self) -> None:
-        while self.peek().kind == Tok.SEP:
-            self.advance()
+        while self.kind == "SEP":
+            self._advance()
+
+    def _error_for(self, kind: str, pos: int, msg: str) -> ParseError:
+        """Build a ParseError positioned at `pos`, *unless* the token being
+        reported is EOF, in which case it uses the line-0/col-0 quirk (see
+        ``_Scanner.error_eof``) -- centralizes the "is this token EOF"
+        branch so every call site doesn't have to repeat it."""
+        if kind == "EOF":
+            return self.sc.error_eof(msg)
+        return self.sc.error_at(pos, msg)
 
     def parse_document(self) -> Any:
         self.skip_sep()
-        if self.peek().kind == Tok.EOF:
+        if self.kind == "EOF":
             return []
-        if self.peek().kind == Tok.LBRACE:
+        if self.kind == LBRACE:
             node = self.parse_value(depth=0)
+        elif self._looks_like_edge():
+            node = self.parse_node_edges(depth=0)
         else:
-            save = self.i
-            if self._looks_like_edge():
-                self.i = save
-                node = self.parse_node_edges(depth=0)
-            else:
-                self.i = save
-                node = self.parse_scalar()
+            node = self.parse_scalar()
         self.skip_sep()
-        if self.peek().kind != Tok.EOF:
-            t = self.peek()
-            raise ParseError(
-                f"line {t.pos}, col {t.col}: unexpected trailing content "
-                f"after the document body (token {t.kind} {t.text!r})")
+        if self.kind != "EOF":
+            text = self._tok_text(self.kind, self.start, self.end)
+            raise self.sc.error_at(
+                self.start,
+                f"unexpected trailing content after the document body "
+                f"(token {self.kind} {text!r})")
         return node
 
     def _looks_like_edge(self) -> bool:
-        t = self.peek()
-        if t.kind == Tok.STRING:
-            nxt = self.toks[self.i + 1]
-            return nxt.kind == Tok.COLON
-        if t.kind == Tok.IDENT:
-            if t.text in _RESERVED:
+        kind = self.kind
+        if kind == "STRING":
+            return self._peek_kind_after_current() == COLON
+        if kind == IDENT:
+            text = self.sc.s[self.start:self.end]
+            if text in _RESERVED:
                 return False
-            nxt = self.toks[self.i + 1]
-            return nxt.kind == Tok.COLON
+            return self._peek_kind_after_current() == COLON
         return False
+
+    def _peek_kind_after_current(self) -> str:
+        """One token of lookahead *past* the current token, without
+        consuming the current token or materializing a list: save scanner
+        position, pull the next token, restore. Only called at the very
+        start of a document/value (§2.1 of the grammar), so this is O(1)
+        amortized, not O(n) re-scanning."""
+        saved_pos = self.sc.pos
+        kind, _start, _end = self.sc.next()
+        self.sc.pos = saved_pos
+        return kind
 
     def parse_node_edges(self, depth: int) -> List[Tuple[str, Any]]:
         edges: List[Tuple[str, Any]] = []
         self.skip_sep()
-        while self.peek().kind not in (Tok.RBRACE, Tok.EOF):
+        while self.kind not in (RBRACE, "EOF"):
             label = self.parse_label()
-            colon = self.advance()
-            if colon.kind != Tok.COLON:
-                raise ParseError(
-                    f"line {colon.pos}, col {colon.col}: expected ':' after "
-                    f"label {label!r}, got {colon.kind} {colon.text!r}")
+            colon_kind, colon_start, colon_end = self._advance()
+            if colon_kind != COLON:
+                text = self._tok_text(colon_kind, colon_start, colon_end)
+                raise self._error_for(
+                    colon_kind, colon_start,
+                    f"expected ':' after label {label!r}, got {colon_kind} {text!r}")
             value = self.parse_value(depth)
             edges.append((label, value))
-            nxt = self.peek()
-            if nxt.kind in (Tok.RBRACE, Tok.EOF):
+            if self.kind in (RBRACE, "EOF"):
                 break
-            if nxt.kind != Tok.SEP:
-                raise ParseError(
-                    f"line {nxt.pos}, col {nxt.col}: expected a separator "
-                    f"(newline or ';') or '}}' after the value for {label!r}, "
-                    f"got {nxt.kind} {nxt.text!r}")
+            if self.kind != "SEP":
+                text = self._tok_text(self.kind, self.start, self.end)
+                raise self.sc.error_at(
+                    self.start,
+                    f"expected a separator (newline or ';') or '}}' after "
+                    f"the value for {label!r}, got {self.kind} {text!r}")
             self.skip_sep()
         return edges
 
+    def _tok_text(self, kind: str, start: int, end: int) -> str:
+        """A token's display text for error messages. For every kind except
+        STRING this is a plain source slice (EOF's start == end == n, so
+        that naturally yields ""). STRING is special, and inconsistent in a
+        way preserved verbatim from the original scanner: its ``Token.text``
+        held the *decoded value, no delimiters* for a raw string (E2), but
+        the *raw source slice, delimiters included* for a dquote/multiline
+        string -- e.g. an unterminated raw string's error names the value
+        ``'s broken'``, but a dangling empty dquote-string leftover names
+        the source ``'""'`` (2 literal quote chars), not the decoded value
+        ``''``. Reproduced exactly (not "fixed") since tests assert exact
+        messages and the differential fuzz against v0.2.26 must be silent."""
+        if kind == "STRING" and self.sc.s[start:start + 1] == "'":
+            return self._string_value(start, end)
+        return self.sc.s[start:end]
+
     def parse_label(self) -> str:
-        t = self.advance()
-        if t.kind == Tok.STRING:
-            return str(t.value)
-        if t.kind == Tok.IDENT:
-            if t.text in _RESERVED:
-                raise ParseError(
-                    f"line {t.pos}, col {t.col}: {t.text!r} is a reserved "
-                    f'word and cannot be a bare label; quote it: "{t.text}"')
-            return t.text
-        raise ParseError(f"line {t.pos}, col {t.col}: expected a label, "
-                          f"got {t.kind} {t.text!r}")
+        kind, start, end = self._advance()
+        if kind == "STRING":
+            return self._string_value(start, end)
+        if kind == IDENT:
+            text = self.sc.s[start:end]
+            if text in _RESERVED:
+                raise self.sc.error_at(
+                    start,
+                    f"{text!r} is a reserved word and cannot be a bare "
+                    f'label; quote it: "{text}"')
+            return text
+        text = self._tok_text(kind, start, end)
+        raise self._error_for(kind, start, f"expected a label, got {kind} {text!r}")
 
     def parse_value(self, depth: int) -> Any:
-        t = self.peek()
-        if t.kind == Tok.LBRACE:
+        if self.kind == LBRACE:
             if depth + 1 > _MAX_DEPTH:
+                # No "line X, col Y:" prefix here, matching the original
+                # scanner exactly: it raises a bare ParseError for this one
+                # message rather than going through its usual self.error()
+                # position-prefixing helper.
                 raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
-            self.advance()
+            self._advance()
             self.skip_sep()
             edges = self.parse_node_edges(depth + 1)
             self.skip_sep()
-            close = self.advance()
-            if close.kind != Tok.RBRACE:
-                raise ParseError(
-                    f"line {close.pos}, col {close.col}: expected '}}', "
-                    f"got {close.kind} {close.text!r}")
+            close_kind, close_start, close_end = self._advance()
+            if close_kind != RBRACE:
+                text = self._tok_text(close_kind, close_start, close_end)
+                raise self._error_for(
+                    close_kind, close_start, f"expected '}}', got {close_kind} {text!r}")
             return edges
         return self.parse_scalar()
 
     def parse_scalar(self) -> Any:
-        t = self.advance()
-        if t.kind == Tok.STRING:
-            return t.value
-        if t.kind in (Tok.INTEGER, Tok.NUMBER, Tok.DATE, Tok.TIME, Tok.DATETIME):
-            return t.value
-        if t.kind == Tok.IDENT:
-            if t.text == "null":
+        kind, start, end = self._advance()
+        if kind == "STRING":
+            return self._string_value(start, end)
+        if kind == INTEGER:
+            text = self.sc.s[start:end]
+            digits = text[1:] if text[0] == "-" else text
+            if len(digits) > _MAX_INT_DIGITS:
+                raise self.sc.error_at(
+                    start,
+                    f"integer literal has {len(digits)} digits, exceeding "
+                    f"the {_MAX_INT_DIGITS}-digit limit (security: "
+                    "unbounded-digit int-to-str conversion is superlinear)")
+            return int(text)
+        if kind == NUMDEC or kind == NUMEXP:
+            return float(self.sc.s[start:end])
+        if kind == NANLIT:
+            return float("nan")
+        if kind == POSINF:
+            return float("inf")
+        if kind == NEGINF:
+            return float("-inf")
+        if kind == DATE:
+            text = self.sc.s[start:end]
+            try:
+                return _dt.date.fromisoformat(text)
+            except ValueError as exc:
+                # Position quirk preserved from the original scanner: it
+                # advanced its line/col past the token *before* attempting
+                # fromisoformat(), so an invalid-date error reports the
+                # position right after the token, not its start.
+                raise self.sc.error_at(end, f"invalid date {text!r}: {exc}") from exc
+        if kind == TIME:
+            text = self.sc.s[start:end]
+            try:
+                return _dt.time.fromisoformat(text)
+            except ValueError as exc:
+                raise self.sc.error_at(end, f"invalid time {text!r}: {exc}") from exc
+        if kind == DATETIME:
+            text = self.sc.s[start:end]
+            try:
+                return _dt.datetime.fromisoformat(text)
+            except ValueError as exc:
+                raise self.sc.error_at(end, f"invalid datetime {text!r}: {exc}") from exc
+        if kind == IDENT:
+            text = self.sc.s[start:end]
+            if text == "null":
                 return None
-            if t.text == "true":
+            if text == "true":
                 return True
-            if t.text == "false":
+            if text == "false":
                 return False
-            raise ParseError(
-                f"line {t.pos}, col {t.col}: bare word {t.text!r} is not a "
-                "valid value here; strings must be quoted")
-        raise ParseError(f"line {t.pos}, col {t.col}: expected a value, "
-                          f"got {t.kind} {t.text!r}")
+            raise self.sc.error_at(
+                start,
+                f"bare word {text!r} is not a valid value here; strings "
+                "must be quoted")
+        text = self._tok_text(kind, start, end)
+        raise self._error_for(kind, start, f"expected a value, got {kind} {text!r}")
+
+    def _string_value(self, start: int, end: int) -> str:
+        text = self.sc.s[start:end]
+        if text[0] == "'":
+            return text[1:-1]
+        if text[:3] == '"""':
+            return _decode_multiline(text)
+        return _decode_dquote(text)
 
 
 # ---------------------------------------------------------------------------
@@ -472,8 +655,7 @@ class _Parser:
 def read_oml(text: str, *, schema: Optional[Any] = None) -> Any:
     """Parse OML source into a canonical Document node (edge-list or leaf)."""
     scanner = _Scanner(text)
-    toks = scanner.tokens()
-    node = _Parser(toks).parse_document()
+    node = _Parser(scanner).parse_document()
     if schema is None:
         return node
     from .deserialize import materialize

@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.27] — OML scanner rearchitected around a single-pass master regex
+
+Performance follow-up to the B1 O(n^2) fix in
+[#155](https://github.com/omnist-dev/omnist/issues/155)/v0.2.21 and the
+honest OML-read outlier published in `docs/why-omnist.md#performance`
+(issue [#168](https://github.com/omnist-dev/omnist/issues/168)):
+
+### Changed
+
+- **Performance:** `oml.py`'s reader is now a single pass driven by one
+  compiled master regex (`VERBOSE`, named groups, alternation order mirrors
+  the grammar's documented priority) with `match(s, pos)` + `lastgroup`
+  dispatch, instead of per-token-kind regex attempts feeding a materialized
+  list of `Token` objects. Whitespace/comment/separator skipping happens
+  inside the regex engine; a fast no-escape single-line string pattern
+  handles the common string case in C, falling back to the existing
+  char-by-char scanner only for `"""` multiline strings and strings
+  containing a backslash or control character. Line/col are computed
+  lazily — only when a `ParseError` is actually raised, by counting
+  newlines up to the failing offset — instead of being tracked per token.
+  Scalar conversion (`int()`/`float()`/date parsing) happens only when the
+  parser consumes a token, not when it's scanned. Measured on the two
+  benchmark shapes from `docs/why-omnist.md#performance` (same machine,
+  same run): the string-heavy 33k-record shape improved from 1.06 to 0.48
+  us/char, and the simple k:v shape from 1.04 to 0.53 us/char — both well
+  inside the acceptance floor set for this change. Behavior is byte-for-byte
+  identical to v0.2.26, including several undocumented scanner quirks
+  (exact `ParseError` positions/text in a handful of edge cases) that are
+  now preserved deliberately with inline comments rather than accidentally
+  — verified by differential fuzzing the new scanner against the v0.2.26
+  scanner over the full test corpus, the grammar doc's worked examples,
+  2500 Hypothesis-generated documents, and a battery of adversarial
+  rejects, with zero divergence. `docs/why-omnist.md#performance`'s OML
+  read row and guidance sentence are updated to match.
+
 ## [v0.2.26] — README payoff-first pitch, rigor story, measured performance
 
 Docs-only; closes out the codebase-review plan (issue
