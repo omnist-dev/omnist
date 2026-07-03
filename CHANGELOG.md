@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.2.28] — OML: quote labels ending in a newline
+
+### Fixed
+
+- `write_oml` emitted a label with a trailing newline (e.g. `"A\n"`) as a
+  *bare* label, producing OML that failed to parse back — Python's `$`
+  anchor in `_BARE_LABEL_RE` also matches just before a trailing `"\n"`,
+  so such labels slipped past the "needs quoting" check. The regex now
+  anchors with `\Z` (true end-of-string only), so labels ending in a
+  newline are written as quoted strings with the newline escaped, and the
+  read/write round-trip holds. Found via issue
+  [#168](https://github.com/omnist-dev/omnist/issues/168)'s differential
+  fuzzing but pre-existing and unrelated to the scanner rewrite (the
+  writer was never touched by it). Issue
+  [#170](https://github.com/omnist-dev/omnist/issues/170).
+
 ## [v0.2.27] — OML scanner rearchitected around a single-pass master regex
 
 Performance follow-up to the B1 O(n^2) fix in
