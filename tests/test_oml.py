@@ -730,6 +730,16 @@ def test_write_oml_label_needing_quotes():
     assert write_oml([("a b", 1)]) == '"a b": 1'
 
 
+def test_write_oml_label_with_trailing_newline_is_quoted():
+    # regression for #170: $ in the bare-label regex also matched just
+    # before a trailing "\n", so "A\n" was written as a bare label and the
+    # output failed to parse back. A label ending in a newline must be
+    # quoted (with the newline escaped) and round-trip exactly.
+    written = write_oml([("A\n", 1)])
+    assert written == '"A\\n": 1'
+    assert read_oml(written) == [("A\n", 1)]
+
+
 def test_write_oml_nan():
     assert write_oml([("a", float("nan"))]) == "a: nan"
 

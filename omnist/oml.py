@@ -718,7 +718,9 @@ def _write_edges_compact(edges: List[Tuple[str, Any]]) -> str:
     return "; ".join(parts)
 
 
-_BARE_LABEL_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_\-]*$")
+# \Z, not $: $ also matches just before a trailing "\n", which would let a
+# label like "A\n" be written bare and break the read/write round-trip.
+_BARE_LABEL_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_\-]*\Z")
 
 
 def _write_label(label: str) -> str:
