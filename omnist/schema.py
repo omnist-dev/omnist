@@ -265,7 +265,7 @@ class Schema:
         # lands on a Record once the walk above confirms root.name is known.
 
     # -- validation -----------------------------------------------------
-    def validate(self, doc) -> ValidationResult:
+    def validate(self, doc: Any) -> ValidationResult:
         from .document import Doc
         if not isinstance(doc, Doc):
             raise TypeError("validate() expects a Doc; wrap your data with doc(...)")
@@ -273,17 +273,17 @@ class Schema:
         self._conform(doc, self.root, res)
         return res
 
-    def accepts(self, doc) -> bool:
+    def accepts(self, doc: Any) -> bool:
         return self.validate(doc).ok
 
-    def _conform(self, doc, t: Type, res: ValidationResult) -> None:
+    def _conform(self, doc: Any, t: Type, res: ValidationResult) -> None:
         d = self.resolve(t)
         if isinstance(d, Scalar):
             self._conform_scalar(doc, d, res)
         else:
             self._conform_record(doc, d, res)
 
-    def _conform_scalar(self, doc, s: Scalar, res: ValidationResult) -> None:
+    def _conform_scalar(self, doc: Any, s: Scalar, res: ValidationResult) -> None:
         if not doc.is_leaf:
             res.add(doc.path, f"expected a {s.name} value, got an object", "shape-mismatch")
             return
@@ -295,7 +295,7 @@ class Schema:
         if not matches_kind(v, s.name):
             res.add(doc.path, f"expected {s.name}, got {_typename(v)} ({v!r})", "type-mismatch")
 
-    def _conform_record(self, doc, rec: Record, res: ValidationResult) -> None:
+    def _conform_record(self, doc: Any, rec: Record, res: ValidationResult) -> None:
         if doc.is_leaf:
             res.add(doc.path, "expected an object, got a value", "shape-mismatch")
             return
@@ -402,7 +402,7 @@ def matches_kind(value: Any, name: str) -> bool:
 _SHAPE_RE = {_dt.date: _DATE_RE, _dt.time: _TIME_RE, _dt.datetime: _DATETIME_RE}
 
 
-def _is_iso(value: Any, cls) -> bool:
+def _is_iso(value: Any, cls: type[Any]) -> bool:
     if not isinstance(value, str):
         return False
     if not _SHAPE_RE[cls].fullmatch(value):

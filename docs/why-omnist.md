@@ -192,6 +192,31 @@ Omnist is not trying to be a bigger hammer than it is. Specifically:
   arbitrary, unstructured data, Omnist's schema model isn't going to do
   that for you.
 
+## Performance
+
+Measured on an ordinary laptop (WSL2, Python 3.13), so you can decide
+whether Omnist's pure-Python implementation fits your workload — the point
+is transparency, not benchmarketing. A 100k-edge document (33k records of
+three fields each; ~1.5MB as JSON, ~1.7MB as OML):
+
+| Operation | Time |
+|---|---|
+| build the Document (`doc(...)`) | ~0.3s |
+| `validate` against a schema | ~0.3s |
+| `infer` a schema from it | ~0.1s |
+| JSON write / read | ~0.5s each |
+| OML write | ~0.25s |
+| OML read | ~4s |
+
+Schema operations on a 200-record schema: `normalize` ~0.2s,
+`compatible_with` ~3ms. Everything scales linearly (the one quadratic
+codepath ever found — the original OML tokenizer — was caught by review and
+fixed in v0.2.21; a ratio-bound regression test now guards it). The honest
+outlier is OML *reading*: a hand-written pure-Python scanner is an order of
+magnitude slower than the C-backed `json` module. If you're streaming
+megabytes at latency-sensitive boundaries, use JSON as the wire format and
+OML where humans read the files.
+
 ## See also
 
 - [Model spec](design/model.md) -- the formal Document and Schema

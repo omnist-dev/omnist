@@ -160,6 +160,7 @@ def _cmd_convert(args: argparse.Namespace) -> int:
         raise  # a structural failure (e.g. multi-root XML) -- exit 2 via main()
     _write_output(args.output, text)
     if args.report:
+        assert report is not None
         print(_encode_write_report(report, args.result_format), file=sys.stderr)
     return 0
 
@@ -409,7 +410,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:
-        return args.func(args)
+        return args.func(args)  # type: ignore[no-any-return]
     except (ParseError, SchemaError, WriteError, DocumentError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

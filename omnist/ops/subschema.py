@@ -35,7 +35,7 @@ def equivalent(a: Schema, b: Schema) -> bool:
     return compatible_with(a, b) and compatible_with(b, a)
 
 
-def _sub(sa: Schema, ta, sb: Schema, tb, sat_a: Set[str],
+def _sub(sa: Schema, ta: Ref | Scalar, sb: Schema, tb: Ref | Scalar, sat_a: Set[str],
          memo: Dict[Tuple[int, int], bool]) -> bool:
     if isinstance(ta, Ref) and ta.name not in sat_a:
         return True                       # vacuous: an unsatisfiable A-side record
@@ -83,8 +83,8 @@ def _record_sub(sa: Schema, a: Record, sb: Schema, b: Record, sat_a: Set[str],
     # Every label B *requires* must be guaranteed by A.
     for fb in b.fields:
         if fb.min >= 1:
-            fa = a.field(fb.label)
-            if fa is None or fa.min < fb.min:
+            fa_opt = a.field(fb.label)
+            if fa_opt is None or fa_opt.min < fb.min:
                 return False
     return True
 

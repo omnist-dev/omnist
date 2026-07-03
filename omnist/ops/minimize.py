@@ -36,9 +36,9 @@ pruned schema unchanged.
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Any, Callable, Dict, List
 
-from ..schema import Field, Record, Ref, Schema
+from ..schema import Field, Record, Ref, Scalar, Schema
 from .prune import is_empty, prune
 from .signature import local_signature
 
@@ -88,14 +88,14 @@ def normalize(s: Schema) -> Schema:
     return Schema(new_root, new_env)
 
 
-def _group_by(names: List[str], key) -> List[List[str]]:
-    groups: Dict[Tuple, List[str]] = {}
+def _group_by(names: List[str], key: Callable[[str], Any]) -> List[List[str]]:
+    groups: Dict[Any, List[str]] = {}
     for n in names:
         groups.setdefault(key(n), []).append(n)
     return list(groups.values())
 
 
-def _refine_key(rec: Record, block_of: Dict[str, int]) -> Tuple:
+def _refine_key(rec: Record, block_of: Dict[str, int]) -> tuple[Any, tuple[Any, ...]]:
     """A record's refinement key: its target-blind local signature, plus
     -- for each field in label order -- the current block id of its ref
     target (or ``None`` for a scalar field). Two records land in the same
@@ -116,7 +116,7 @@ def _remap(rec: Record, rep: Dict[str, str]) -> Record:
                    for f in rec.fields])
 
 
-def _remap_type(t, rep: Dict[str, str]):
+def _remap_type(t: Ref | Scalar, rep: Dict[str, str]) -> Ref | Scalar:
     if isinstance(t, Ref):
         return Ref(rep.get(t.name, t.name))
     return t

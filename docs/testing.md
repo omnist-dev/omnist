@@ -280,14 +280,23 @@ run, both find zero definite bugs.
 ## CI
 
 `.github/workflows/test.yml` runs on every push to `master` and every pull
-request targeting `master`. One job (`test`), matrixed over
-**Python 3.11, 3.12, and 3.13**. Each matrix run:
+request targeting `master`. Two jobs:
+
+**`test` job**, matrixed over **Python 3.11, 3.12, and 3.13**. Each matrix run:
 
 1. Checks out the repo (`actions/checkout@v4`).
 2. Sets up the matrix Python version (`actions/setup-python@v5`).
 3. Installs the package with dev extras: `pip install -e .[dev]`.
 4. Lints: `ruff check .`.
 5. Tests: `pytest -q`.
+
+**`typecheck` job** (separate, single run on Python 3.12):
+
+1. Checks out the repo.
+2. Sets up Python 3.12.
+3. Installs the package with dev extras.
+4. Type-checks: `mypy --strict omnist` — all 75 previous errors fixed; passes
+   as a gate to catch type regressions (added in #159).
 
 Coverage is not enforced in CI (no `coverage run`/coverage threshold step in
 the workflow) — the 100% target above is a contributor discipline backed by

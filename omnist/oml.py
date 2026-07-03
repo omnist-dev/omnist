@@ -21,11 +21,14 @@ from __future__ import annotations
 import datetime as _dt
 import re as _re
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Match, Optional, Tuple
 
 from .document import _MAX_INT_DIGITS
 from .errors import ParseError
 from .schema import _DATE_RE, _DATETIME_RE, _TIME_RE
+
+if TYPE_CHECKING:
+    from .report import WriteReport
 
 _MAX_DEPTH = 200          # matches Document's own nesting bound (document.py)
 
@@ -188,7 +191,7 @@ class _Scanner:
         return bool(ch) and ch.isalnum()
 
     # -- numeric / temporal emission ----------------------------------
-    def _emit_integer(self, m, line, col) -> Token:
+    def _emit_integer(self, m: Match[str], line: int, col: int) -> Token:
         text = m.group()
         digits = text.lstrip("-")
         if len(digits) > _MAX_INT_DIGITS:
@@ -199,12 +202,12 @@ class _Scanner:
         self._advance(m.end() - m.start())
         return Token(Tok.INTEGER, text, value=int(text), pos=line, col=col)
 
-    def _emit_number(self, m, line, col) -> Token:
+    def _emit_number(self, m: Match[str], line: int, col: int) -> Token:
         text = m.group()
         self._advance(m.end() - m.start())
         return Token(Tok.NUMBER, text, value=float(text), pos=line, col=col)
 
-    def _emit_date(self, m, line, col) -> Token:
+    def _emit_date(self, m: Match[str], line: int, col: int) -> Token:
         text = m.group()
         self._advance(m.end() - m.start())
         try:
@@ -213,7 +216,7 @@ class _Scanner:
             raise self.error(f"invalid date {text!r}: {exc}") from exc
         return Token(Tok.DATE, text, value=value, pos=line, col=col)
 
-    def _emit_time(self, m, line, col) -> Token:
+    def _emit_time(self, m: Match[str], line: int, col: int) -> Token:
         text = m.group()
         self._advance(m.end() - m.start())
         try:
@@ -222,7 +225,7 @@ class _Scanner:
             raise self.error(f"invalid time {text!r}: {exc}") from exc
         return Token(Tok.TIME, text, value=value, pos=line, col=col)
 
-    def _emit_datetime(self, m, line, col) -> Token:
+    def _emit_datetime(self, m: Match[str], line: int, col: int) -> Token:
         text = m.group()
         self._advance(m.end() - m.start())
         try:
@@ -232,7 +235,7 @@ class _Scanner:
         return Token(Tok.DATETIME, text, value=value, pos=line, col=col)
 
     # -- strings ---------------------------------------------------------
-    def _scan_raw(self, line, col) -> Token:
+    def _scan_raw(self, line: int, col: int) -> Token:
         end = self.s.find("'", self.i + 1)
         if end == -1:
             raise self.error("unterminated raw string (missing closing ')")
@@ -240,12 +243,12 @@ class _Scanner:
         self._advance(end + 1 - self.i)
         return Token(Tok.STRING, text, value=text, pos=line, col=col)
 
-    def _scan_dquote(self, line, col) -> Token:
+    def _scan_dquote(self, line: int, col: int) -> Token:
         if self.s[self.i:self.i + 3] == '"""':
             return self._scan_multiline(line, col)
         return self._scan_string(line, col)
 
-    def _scan_string(self, line, col) -> Token:
+    def _scan_string(self, line: int, col: int) -> Token:
         start = self.i
         i = self.i + 1
         out = []
@@ -267,7 +270,7 @@ class _Scanner:
         self._advance(i - start)
         return Token(Tok.STRING, self.s[start:i], value="".join(out), pos=line, col=col)
 
-    def _scan_multiline(self, line, col) -> Token:
+    def _scan_multiline(self, line: int, col: int) -> Token:
         start = self.i
         i = self.i + 3
         if self.s[i:i + 1] == "\n":
@@ -306,7 +309,7 @@ class _Scanner:
         self._advance(i - start)
         return Token(Tok.STRING, self.s[start:i], value="".join(out), pos=line, col=col)
 
-    def _read_escape(self, i: int) -> Tuple[str, int]:
+    def _read_escape(self, i: int) -> tuple[str, int]:
         if i + 1 >= self.n:
             raise self.error("unterminated escape sequence")
         c = self.s[i + 1]
@@ -415,7 +418,7 @@ class _Parser:
     def parse_label(self) -> str:
         t = self.advance()
         if t.kind == Tok.STRING:
-            return t.value
+            return str(t.value)
         if t.kind == Tok.IDENT:
             if t.text in _RESERVED:
                 raise ParseError(
@@ -496,7 +499,7 @@ def write_oml(node: Any, *, indent: Optional[int] = 2) -> str:
     return _write_edges(node, 0, indent)
 
 
-def check_oml(node: Any):
+def check_oml(node: Any) -> "WriteReport":
     """OML can hold every Document losslessly; always an empty report."""
     from .report import WriteReport
     return WriteReport()

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omnist"
-version = "0.2.24"
+version = "0.2.26"
 description = "One data model, many formats: read, validate, and write JSON, YAML, TOML, XML, and OML."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,7 +31,7 @@ yaml = ["pyyaml"]
 toml = ["tomli_w"]          # writing TOML; reading uses stdlib tomllib (3.11+)
 xml = ["defusedxml"]
 all = ["pyyaml", "tomli_w", "defusedxml"]
-dev = ["pytest", "pyyaml", "tomli_w", "defusedxml", "ruff", "hypothesis", "jsonschema"]
+dev = ["pytest", "pyyaml", "tomli_w", "defusedxml", "ruff", "hypothesis", "jsonschema", "mypy"]
 
 [project.urls]
 Homepage = "https://github.com/omnist-dev/omnist"

@@ -23,7 +23,7 @@ composable value-domain made schema-directed deserialization ambiguous.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from .errors import SchemaError
 from .schema import SCALAR_NAMES, Field, Record, Ref, Scalar, Schema
@@ -46,7 +46,8 @@ class _Tok:
 
 
 def _tokenize(text: str) -> List[_Tok]:
-    toks, i = [], 0
+    toks: List[_Tok] = []
+    i = 0
     while i < len(text):
         m = _TOKEN.match(text, i)
         if not m:
@@ -55,7 +56,7 @@ def _tokenize(text: str) -> List[_Tok]:
         kind = m.lastgroup
         if kind in ("ws", "comment"):
             continue
-        toks.append(_Tok(kind, m.group(), m.start()))
+        toks.append(_Tok(kind or "", m.group() or "", m.start()))
     toks.append(_Tok("eof", "", len(text)))
     return toks
 
@@ -85,7 +86,7 @@ class _Parser:
         return t
 
     def parse(self) -> Schema:
-        env: dict = {}
+        env: dict[str, Record] = {}
         root: Optional[str] = None
         while self._peek().kind != "eof":
             t = self._peek()
@@ -102,7 +103,7 @@ class _Parser:
             raise SchemaError("a schema must declare a root")
         return Schema(Ref(root), env)
 
-    def _define(self, env: dict, name: str, rec: Record) -> None:
+    def _define(self, env: dict[str, Record], name: str, rec: Record) -> None:
         if name in SCALAR_NAMES:
             raise SchemaError(
                 f"{name!r} is a reserved scalar name; a record cannot be "
@@ -113,7 +114,7 @@ class _Parser:
             raise SchemaError(f"duplicate definition {name!r}")
         env[name] = rec
 
-    def _record(self) -> Tuple[str, Record]:
+    def _record(self) -> tuple[str, Record]:
         self._expect("name", "record")
         name = self._expect("name").text
         self._expect("punct", "{")
@@ -133,16 +134,17 @@ class _Parser:
             raise SchemaError(f"expected a quoted field name at {label_tok.pos}, "
                               f"got {label_tok.text!r}")
         label = _unquote(label_tok.text)
-        lo, hi = 1, 1
+        lo: int = 1
+        hi: Optional[int] = 1
         if self._peek().text == "[":
             lo, hi = self._cardinality()
         self._expect("punct", ":")
         typ = self._type()
         return Field(label, typ, lo, hi)
 
-    def _cardinality(self) -> Tuple[int, Optional[int]]:
+    def _cardinality(self) -> tuple[int, Optional[int]]:
         self._expect("punct", "[")
-        first = None
+        first: Optional[int] = None
         if self._peek().kind == "number":
             first = self._cardinality_int()
         if self._peek().text == ",":
@@ -166,7 +168,7 @@ class _Parser:
                               f"at {t.pos}")
         return int(t.text)
 
-    def _type(self):
+    def _type(self) -> Scalar | Ref:
         t = self._next()
         if t.kind != "name":
             raise SchemaError(
@@ -237,7 +239,7 @@ def _card(lo: int, hi: Optional[int]) -> str:
     return f"[{lo},{'' if hi is None else hi}]"
 
 
-def _type(t) -> str:
+def _type(t: Scalar | Ref) -> str:
     if isinstance(t, Ref):
         return t.name
     return f"{t.name}{'?' if t.nullable else ''}"

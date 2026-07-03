@@ -63,8 +63,8 @@ def _materialize_record(node: Any, schema: Schema, rec: Record, path: str,
     if not isinstance(node, list):
         res.add(path, "expected an object, got a value", "shape-mismatch")
         return node
-    out = []
-    counts: dict = {}
+    out: list[tuple[str, Any]] = []
+    counts: dict[str, int] = {}
     for label, child in node:
         i = counts.get(label, 0)
         counts[label] = i + 1
@@ -143,4 +143,4 @@ def _materialize_temporal(value: Any, name: str) -> Any:
     # datetime) outright, it never reaches fromisoformat here at all.
     if not _is_iso(value, cls):
         return _SENTINEL
-    return cls.fromisoformat(value)
+    return cls.fromisoformat(value)  # type: ignore[attr-defined]

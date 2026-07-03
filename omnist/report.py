@@ -19,7 +19,7 @@ anything.
 
 from __future__ import annotations
 
-from typing import List, NamedTuple, Optional
+from typing import Iterator, List, NamedTuple, Optional
 
 from .errors import WriteError
 
@@ -52,7 +52,7 @@ class WriteReport:
     def __bool__(self) -> bool:
         return not self.errors
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Adjustment]:
         return iter(self.adjustments)
 
     def __len__(self) -> int:

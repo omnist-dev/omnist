@@ -12,12 +12,14 @@ by evolving block id during refinement instead).
 
 from __future__ import annotations
 
-from typing import Tuple, Union
+from typing import Union
 
 from ..schema import Record, Ref, Scalar
 
 
-def local_signature(rec: Record) -> Tuple:
+def local_signature(
+    rec: Record,
+) -> tuple[str, tuple[tuple[str, int, int | None, tuple[str, ...] | tuple[str, str, bool]], ...]]:
     """Target-blind structural key for a record: fields sorted by label,
     each keyed by ``(label, min, max, shape)`` where ``shape`` is
     ``("scalar", name, nullable)`` for a scalar field or ``("ref",)`` for a
@@ -40,7 +42,7 @@ def local_signature(rec: Record) -> Tuple:
     return ("record", fields)
 
 
-def _shape_key(t: Union[Ref, Scalar]) -> Tuple:
+def _shape_key(t: Union[Ref, Scalar]) -> tuple[str, ...] | tuple[str, str, bool]:
     if isinstance(t, Ref):
         return ("ref",)
     return ("scalar", t.name, t.nullable)

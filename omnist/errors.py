@@ -1,5 +1,10 @@
 """Exceptions (and one warning) used across omnist."""
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .report import WriteReport
+
 
 class OmnistError(Exception):
     """Base class for all omnist errors."""
@@ -40,7 +45,7 @@ class WriteError(OmnistError):
     been needed, so callers can inspect the structured list, not just the text.
     """
 
-    def __init__(self, message: str, report=None):
+    def __init__(self, message: str, report: "WriteReport | None" = None) -> None:
         super().__init__(message)
         self.report = report
 

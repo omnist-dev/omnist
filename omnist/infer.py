@@ -41,12 +41,12 @@ def infer(samples: List[Any], root_name: str = "Root") -> Schema:
     if any(not isinstance(n, list) for n in nodes):
         raise SchemaError("infer expects object (record) samples at the root")
     env: Dict[str, Any] = {}
-    used: set = set()
+    used: set[str] = set()
     _infer_record(nodes, root_name, env, used)
     return Schema(Ref(root_name), env)
 
 
-def _unique(base: str, used: set) -> str:
+def _unique(base: str, used: set[str]) -> str:
     name = _identifier(base) or "Rec"
     name = name[0].upper() + name[1:]
     cand, i = name, 2
@@ -63,7 +63,7 @@ def _identifier(s: str) -> str:
 
 
 def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
-                  used: set) -> None:
+                  used: set[str]) -> None:
     used.add(name)
     # Pass 1: which labels exist at all, in first-seen order. Pass 2: one
     # count per sample for *every* label, defaulting to 0 for samples that
@@ -73,17 +73,17 @@ def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
     # missing from an early sample but present in a later one must still
     # come out optional, not required.
     order: List[str] = []
-    seen_labels: set = set()
+    seen_labels: set[str] = set()
     for node in nodes:
         for label, _ in node:
             if label not in seen_labels:
                 seen_labels.add(label)
                 order.append(label)
 
-    children: Dict[str, List[Any]] = {label: [] for label in order}
+    children: Dict[str, list[Any]] = {label: [] for label in order}
     per_sample_counts: Dict[str, List[int]] = {label: [] for label in order}
     for node in nodes:
-        counts_here: Dict[str, int] = {}
+        counts_here: dict[str, int] = {}
         for label, child in node:
             children[label].append(child)
             counts_here[label] = counts_here.get(label, 0) + 1
@@ -104,7 +104,7 @@ def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
 
 
 def _infer_type(child_nodes: List[Any], label: str, env: Dict[str, Any],
-                used: set) -> Any:
+                used: set[str]) -> Any:
     is_obj = [isinstance(c, list) for c in child_nodes]
     if all(is_obj):
         rec_name = _unique(label, used)
@@ -114,7 +114,8 @@ def _infer_type(child_nodes: List[Any], label: str, env: Dict[str, Any],
         raise SchemaError(
             f"label {label!r} mixes objects and values; cannot infer one type")
     # all scalars
-    names, null = set(), False
+    names: set[str] = set()
+    null = False
     for v in child_nodes:
         if v is None:
             null = True

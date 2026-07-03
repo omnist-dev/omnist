@@ -29,7 +29,7 @@ from .errors import DocumentError
 
 if TYPE_CHECKING:
     from .report import WriteReport
-    from .schema import Schema
+    from .schema import Schema, ValidationResult
 
 _MAX_DEPTH = 200
 _MAX_INT_DIGITS = 4300    # matches CPython's default sys.get_int_max_str_digits();
@@ -68,7 +68,7 @@ def _check_int_digits(v: Any, path: str) -> None:
 # ---------------------------------------------------------------------------
 
 def build_node(value: Any, path: str = "$", depth: int = 0,
-               seen: Optional[frozenset] = None) -> Any:
+               seen: Optional[frozenset[int]] = None) -> Any:
     """Turn a plain Python value into a canonical node.
 
     A ``dict`` becomes an ordered edge list; a key whose value is a list expands
@@ -100,7 +100,7 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
     raise DocumentError(f"{path}: {type(value).__name__} is not a Document value")
 
 
-def _children(v: Any, path: str, depth: int, seen: frozenset) -> Iterator[Any]:
+def _children(v: Any, path: str, depth: int, seen: frozenset[int]) -> Iterator[Any]:
     if isinstance(v, (list, tuple)):
         for i, item in enumerate(v):
             if isinstance(item, (list, tuple)):
@@ -177,7 +177,8 @@ class Doc:
     def edges(self) -> List[Tuple[str, "Doc"]]:
         if not isinstance(self._node, list):
             raise DocumentError(f"{self.path}: a leaf has no edges")
-        out, counts = [], {}
+        out: List[Tuple[str, "Doc"]] = []
+        counts: dict[str, int] = {}
         for label, child in self._node:
             i = counts.get(label, 0)
             counts[label] = i + 1
@@ -186,7 +187,8 @@ class Doc:
         return out
 
     def labels(self) -> List[str]:
-        seen, out = set(), []
+        seen: set[str] = set()
+        out: List[str] = []
         for label, _ in self._iter():
             if label not in seen:
                 seen.add(label)
@@ -318,17 +320,17 @@ class Doc:
         if fmt.check is None:
             raise DocumentError(
                 f"format {name!r} has no check() -- cannot simulate a write")
-        return fmt.check(self._node)
+        return fmt.check(self._node)  # type: ignore[no-any-return]
 
-    def validate(self, schema):
+    def validate(self, schema: "Schema") -> "ValidationResult":
         return schema.validate(self)
 
     # -- dunders --------------------------------------------------------
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Doc):
-            return self._node == other._node
+            return self._node == other._node  # type: ignore[no-any-return]
         try:
-            return self._node == build_node(other)
+            return self._node == build_node(other)  # type: ignore[no-any-return]
         except DocumentError:
             return NotImplemented
 
@@ -350,10 +352,10 @@ def _copy(node: Any) -> Any:
 def _grouped(node: Any) -> Any:
     if not isinstance(node, list):
         return node
-    counts: dict = {}
+    counts: dict[str, int] = {}
     for label, _ in node:
         counts[label] = counts.get(label, 0) + 1
-    out: dict = {}
+    out: dict[str, Any] = {}
     for label, child in node:
         g = _grouped(child)
         if counts[label] > 1:

@@ -44,7 +44,7 @@ behavior can trivially get it by editing field cardinalities before calling
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, Set
+from typing import Dict, Iterable, Optional, Set
 
 from ..errors import SchemaError
 from ..schema import Record, Ref, Schema
@@ -63,7 +63,7 @@ def extract(s: Schema, keep: Iterable[str]) -> Schema:
     # offending (label, record) pair for the error message.
     trimmed: Dict[str, Record] = {}
     invalidated: Set[str] = set()
-    first_offender = None  # type: ignore[var-annotated]
+    first_offender: Optional[tuple[str, str]] = None
 
     for name, rec in s.env.items():
         kept_fields = []
@@ -97,6 +97,7 @@ def extract(s: Schema, keep: Iterable[str]) -> Schema:
 
     # Step 4: root invalidated -> no valid subschema.
     if s.root.name in invalidated:
+        assert first_offender is not None  # seeded by step 1 before any propagation
         label, record_name = first_offender
         raise SchemaError(
             f"no valid subschema: removing label {label!r} deletes a mandatory "

@@ -37,10 +37,10 @@ def _materialize(node: Any, schema: Optional["Schema"]) -> Any:
     return materialize(node, schema)
 
 
-def _leaves(node: Any, path: str = "$"):
+def _leaves(node: Any, path: str = "$") -> Any:
     """Yield ``(path, value)`` for every scalar leaf in a node."""
     if isinstance(node, list):
-        counts: dict = {}
+        counts: dict[str, int] = {}
         for label, child in node:
             i = counts.get(label, 0)
             counts[label] = i + 1
@@ -152,7 +152,7 @@ def _scan_yaml_labels(node: Any, path: str, rep: WriteReport) -> None:
     which round-trips correctly, but still flag it here for visibility."""
     if not isinstance(node, list):
         return
-    counts: dict = {}
+    counts: dict[str, int] = {}
     for label, child in node:
         i = counts.get(label, 0)
         counts[label] = i + 1
@@ -176,22 +176,22 @@ def _prepare_yaml(node: Any) -> Any:
     return node
 
 
-def _yaml_str_representer(dumper, data: str):
+def _yaml_str_representer(dumper: Any, data: str) -> Any:
     # U+0085 (NEL) is normalized to a space by PyYAML under the default
     # scalar styles; double-quoted style escapes it (as "\N") and round-trips.
     style = '"' if "\x85" in data else None
     return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
 
 
-_YAML_DUMPER_CACHE: dict = {}
+_YAML_DUMPER_CACHE: dict[Any, Any] = {}
 
 
-def _yaml_dumper(yaml):
+def _yaml_dumper(yaml: Any) -> type[Any]:
     """A SafeDumper subclass whose str representer escapes U+0085 safely."""
     dumper = _YAML_DUMPER_CACHE.get(yaml)
     if dumper is None:
         dumper = type("_OmnistYamlDumper", (yaml.SafeDumper,), {})
-        dumper.add_representer(str, _yaml_str_representer)
+        dumper.add_representer(str, _yaml_str_representer)  # type: ignore[attr-defined]
         _YAML_DUMPER_CACHE[yaml] = dumper
     return dumper
 
@@ -232,8 +232,8 @@ def _strip_nulls(node: Any, path: str, rep: WriteReport) -> Any:
     """Drop edges whose value is null (TOML can't hold null), recording each."""
     if not isinstance(node, list):
         return node
-    out = []
-    counts: dict = {}
+    out: list[tuple[str, Any]] = []
+    counts: dict[str, int] = {}
     for label, child in node:
         i = counts.get(label, 0)
         counts[label] = i + 1
@@ -271,7 +271,7 @@ def read_xml(text: str, *, schema: Optional["Schema"] = None) -> Any:
     return _materialize(node, schema)
 
 
-def _xml_to_node(elem, path: str, depth: int) -> Any:
+def _xml_to_node(elem: Any, path: str, depth: int) -> Any:
     if depth > _MAX_DEPTH:
         raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
     children = list(elem)
@@ -320,7 +320,7 @@ def _scan_xml(node: Any, path: str, rep: WriteReport) -> None:
                     "reads back as the empty-string leaf '', not []",
                     "warning")
             return
-        counts: dict = {}
+        counts: dict[str, int] = {}
         for label, child in node:
             i = counts.get(label, 0)
             counts[label] = i + 1
@@ -356,7 +356,7 @@ def _scan_xml(node: Any, path: str, rep: WriteReport) -> None:
                     "warning")
 
 
-def _node_to_xml(content: Any, parent) -> None:
+def _node_to_xml(content: Any, parent: Any) -> None:
     import xml.etree.ElementTree as ET
     if isinstance(content, list):
         for label, child in content:
@@ -416,7 +416,7 @@ def _local(tag: str) -> str:
     return tag.split("}", 1)[1] if tag.startswith("{") else tag
 
 
-def _indent(elem, level: int = 0) -> None:
+def _indent(elem: Any, level: int = 0) -> None:
     pad = "\n" + "  " * level
     children = list(elem)
     if children:
@@ -429,9 +429,9 @@ def _indent(elem, level: int = 0) -> None:
             elem.tail = pad if level else "\n"
 
 
-def _xml_parser():
+def _xml_parser() -> Any:
     try:
-        import defusedxml.ElementTree as ET
+        import defusedxml.ElementTree as ET  # type: ignore[import-untyped]
         return ET
     except ImportError:
         warnings.warn(
@@ -443,7 +443,7 @@ def _xml_parser():
         return ET
 
 
-def _need(module: str, how: str):
+def _need(module: str, how: str) -> Any:
     try:
         return __import__(module)
     except ImportError as exc:  # pragma: no cover
