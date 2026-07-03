@@ -27,8 +27,13 @@ order** at every position: it tries STRING-family and punctuation first
 anything else), then DATETIME, DATE, TIME, NUMBER, the three reserved float
 spellings (`nan`, `inf`, `-inf`), INTEGER, then `IDENT`. The first matching
 rule wins and consumes the *longest* match for its own pattern — there is no
-later backtracking between rules. See `_Scanner._next` for the literal order
-this grammar mirrors:
+later backtracking between rules. Since v0.2.27 this is implemented as one
+compiled "master" regex alternation (`_MASTER`) in that same priority order,
+driven by `_Scanner.next`'s `_MASTER.match(s, pos)` + `lastgroup` dispatch
+loop, rather than a sequence of separate per-kind regex attempts — Python's
+`re` alternation is itself ordered (first match wins, not longest-overall),
+which is what makes one regex correctly implement "first matching rule
+wins." See `_Scanner.next` for the literal order this grammar mirrors:
 
 ```mermaid
 flowchart TD

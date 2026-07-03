@@ -206,16 +206,17 @@ three fields each; ~1.5MB as JSON, ~1.7MB as OML):
 | `infer` a schema from it | ~0.1s |
 | JSON write / read | ~0.5s each |
 | OML write | ~0.25s |
-| OML read | ~4s |
+| OML read | ~1s |
 
 Schema operations on a 200-record schema: `normalize` ~0.2s,
 `compatible_with` ~3ms. Everything scales linearly (the one quadratic
 codepath ever found — the original OML tokenizer — was caught by review and
-fixed in v0.2.21; a ratio-bound regression test now guards it). The honest
-outlier is OML *reading*: a hand-written pure-Python scanner is an order of
-magnitude slower than the C-backed `json` module. If you're streaming
-megabytes at latency-sensitive boundaries, use JSON as the wire format and
-OML where humans read the files.
+fixed in v0.2.21; a ratio-bound regression test now guards it). OML reading
+used to be the one outlier here by an order of magnitude; a single-pass
+rewrite around one master regex (issue #168, v0.2.27) cut it to roughly 2x
+JSON's read time — much closer, though JSON's C-backed parser is still
+faster for latency-sensitive, megabyte-scale streaming. Use JSON as the
+wire format there, and OML where humans read the files.
 
 ## See also
 

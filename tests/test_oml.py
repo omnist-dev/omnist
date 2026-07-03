@@ -157,6 +157,16 @@ def test_high_surrogate_followed_by_non_low_surrogate_rejected():
         read_oml(r'a: "\uD83Dx"')        # not followed by a \u escape at all
 
 
+def test_high_surrogate_followed_by_well_formed_non_low_surrogate_escape_rejected():
+    # a high surrogate followed by a *well-formed* \uXXXX escape (valid 4 hex
+    # digits) whose value simply isn't in the low-surrogate range DC00-DFFF
+    # is still an unpaired-high-surrogate error -- distinct from "not a \u
+    # escape at all" (\uD83DA) and "malformed hex" (\uD83Dx) above.
+    src = 'a: "' + chr(92) + 'uD83D' + chr(92) + 'u0041"'
+    with pytest.raises(ParseError, match="unpaired high surrogate"):
+        read_oml(src)
+
+
 def test_invalid_unicode_escape_needs_four_hex_digits():
     with pytest.raises(ParseError, match=r"invalid \\u escape"):
         read_oml(r'a: "\u12"')
