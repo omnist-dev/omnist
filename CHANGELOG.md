@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.3.0] — The paper's algorithm suite, complete and triple-verified
+
+0.2.x was one continuous arc from "the schema model exists" to "the schema
+model implements everything the underlying research (Lee & Cheung, CIKM
+2010) actually promised." That arc is done, and several of its 0.2.x
+releases changed observable behavior under a patch-version bump (v0.2.15
+`normalize`, v0.2.22 `Doc.set`, v0.2.23 lenient-JSON and temporal
+parsing) — semver debt this 0.3.0 bump settles retroactively, and a point
+where naming a real milestone is honest rather than arbitrary:
+
+- **Every operation the paper describes is implemented**: `validate`,
+  `compatible_with`, `equivalent`, `normalize`, `prune`, `is_empty`,
+  `extract`, `infer` — the full surface of Algorithms 1-5 plus inference,
+  all as `Schema` methods and CLI subcommands.
+- **The algebra is checked three independent ways**, not just tested
+  against examples: bidirectional subschema inclusion (`ops/subschema.py`,
+  the paper's Algorithm 4), minimize-and-isomorphism (`ops/isomorphic.py`,
+  Theorem 4), and brute-force enumeration against set-theoretic ground
+  truth (`tools/semantic_oracle.py`, ~2.5M checks). All three are required
+  to agree, on every CI run.
+- **Rigor gates, not just claims**: 100% line coverage, `mypy --strict`,
+  property-based fuzzing, formal ABNF grammars verified against the
+  parsers, every documentation code example executed as a test.
+- **Performance measured and published**, not implied — see
+  [docs/why-omnist.md#performance](https://omnist.dev/why-omnist/#performance).
+
+**Versioning going forward**: starting with 0.3.0, a behavior change gets
+a minor-version bump and an explicit CHANGELOG callout, not folded silently
+into a patch release — a soft stability commitment, short of leaving
+alpha. Breaking changes are still possible during 0.x; they'll just be
+easier to spot.
+
 ## [v0.2.28] — OML: quote labels ending in a newline
 
 ### Fixed
