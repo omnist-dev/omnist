@@ -26,27 +26,54 @@ s.validate(doc({"name": "Platform",
 
 ## Why Omnist
 
-If your service handles config or payloads in more than one format, you usually
-get a different library — and a different mental model — for each. Omnist
-gives you **one** model and **one** schema language over it, grounded in a small,
-self-contained formal model (inspired by Lee & Cheung, CIKM 2010):
+Three things you can do with Omnist that are genuinely hard anywhere else:
+
+- **Gate schema changes in CI.** `v1.compatible_with(v2)` answers "does every
+  document the old schema accepts still validate under the new one?" with a
+  decidable **yes or no** — an algorithm with a proof behind it, not a
+  heuristic or a sampled guess. Put it in a pipeline and schema evolution
+  stops being a code-review judgment call.
+- **One model across five formats.** Read JSON, YAML, TOML, XML, or
+  [OML](docs/formats/oml.md) into the *same* tree, validate it against the
+  *same* schema, write it back out to any of the others — one library, one
+  mental model, and a written report of anything a lossy format had to
+  adjust.
+- **Cut a big schema down to what one service needs.** `schema.extract(...)`
+  computes the *minimal* subschema recognizing only the labels you keep —
+  the operation that trimmed industrial XML schemas to a fraction of their
+  size in the research this library grew from.
+
+What makes those possible is a deliberately small formal model (inspired by
+Lee & Cheung, CIKM 2010):
 
 - A **Document** is a *tree* — an ordered list of labeled edges. Arrays are
   just repeated labels, so the *same* Document represents JSON, YAML, TOML,
-  XML (including its interleaved repeated elements), and [OML](docs/formats/oml.md)
-  — Omnist's own format, the only one with zero loss in either direction.
-- A **Schema** is named `record` definitions (closed named fields, each with a
-  cardinality), where every field's type is always exactly one fixed scalar
-  (optionally nullable) or one `Ref` to a named record — referenced by name for
-  reuse and recursion. Written as **OSD** (Omnist Schema Definition).
-  **Validate** a Document, **compare** two schemas for
-  backward-compatibility, **infer** a schema from examples, or **extract**
-  the minimal subschema for a subset of labels (paper Algorithm 5).
+  XML (including its interleaved repeated elements), and OML — Omnist's own
+  format, the only one with zero loss in either direction.
+- A **Schema** is named `record` definitions (closed named fields, each with
+  a cardinality), where every field's type is always exactly one fixed
+  scalar (optionally nullable) or one `Ref` to a named record — referenced
+  by name for reuse and recursion. Written as **OSD** (Omnist Schema
+  Definition).
 - **Closed by construction** — records are closed, and scalar types are
   never composed into enums or unions. That is not a constraint bolted on
-  top; it is what makes `compatible_with`, `equivalent`, `normalize`, and
-  `infer` well-defined, decidable operations instead of best-effort
-  heuristics. See [why Omnist](docs/why-omnist.md) for the case in full.
+  top; it is what makes `compatible_with`, `equivalent`, `normalize`,
+  `extract`, and `infer` well-defined, decidable operations instead of
+  best-effort heuristics. See [why Omnist](docs/why-omnist.md) for the case
+  in full — including a verified capability matrix and the honest non-goals.
+
+### Boringly correct
+
+The claims above are checked, not asserted: **100% line coverage**, a
+**`mypy --strict` CI gate**, **property-based fuzzing**, **formal ABNF
+grammars** verified against the parsers, **every documentation example
+executed in CI**, and the schema algebra verified **three independent
+ways** — bidirectional inclusion, the paper's minimize-and-isomorphism
+theorem, and brute-force enumeration against set-theoretic ground truth.
+Performance is measured and published, not implied: a 100k-edge document
+validates in about a third of a second
+([the numbers](docs/why-omnist.md#performance)). See
+[testing](docs/testing.md) for how the suite is built.
 
 The model is defined formally in
 [docs/design/model.md](docs/design/model.md); see
