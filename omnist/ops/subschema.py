@@ -83,8 +83,8 @@ def _record_sub(sa: Schema, a: Record, sb: Schema, b: Record, sat_a: Set[str],
     # Every label B *requires* must be guaranteed by A.
     for fb in b.fields:
         if fb.min >= 1:
-            fa = a.field(fb.label)
-            if fa is None or fa.min < fb.min:
+            fa_opt = a.field(fb.label)
+            if fa_opt is None or fa_opt.min < fb.min:
                 return False
     return True
 
