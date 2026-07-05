@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.4.2] — Cleanup: pinned dev deps, simplified XML parser, tidier docs
+
+Three small, unrelated cleanup items surfaced by review (no observable
+behavior change for any normal caller):
+
+- Dev dependencies (`pytest`, `pyyaml`, `tomli_w`, `defusedxml`, `ruff`,
+  `hypothesis`, `jsonschema`, `mypy`) are now pinned with `~=` compatible-
+  release constraints, instead of unconstrained, to avoid unexpected CI
+  breakage from upstream updates.
+- `_xml_parser()` no longer makes a redundant, unused import of the
+  top-level `defusedxml` package before importing the actual
+  `defusedxml.ElementTree` submodule it needs. As a side effect, the
+  `ImportError` message is now consistent even in the edge case where the
+  top-level package imports fine but the `ElementTree` submodule itself
+  doesn't.
+- `docs/api.md`'s `ParseError` table row is shorter, pointing to the
+  [Schema-directed deserialization](deserialization.md) page for the
+  `.errors` detail instead of repeating it inline.
+
+See [issue #177](https://github.com/omnist-dev/omnist/issues/177).
+
 ## [v0.4.1] — `ParseError` exposes structured validation errors
 
 `ParseError` now carries a `.errors` attribute — the full list of
