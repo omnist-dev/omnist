@@ -1,9 +1,10 @@
 """Exceptions (and one warning) used across omnist."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from .report import WriteReport
+    from .schema import Error
 
 
 class OmnistError(Exception):
@@ -15,7 +16,20 @@ class SchemaError(OmnistError):
 
 
 class ParseError(OmnistError):
-    """A document could not be read from its format (outside the supported profile)."""
+    """A document could not be read from its format (outside the supported profile).
+
+    Format-syntax failures (invalid JSON/YAML/TOML/XML text) carry only the
+    message -- ``.errors`` is empty. Schema-conformance failures from
+    :func:`~omnist.deserialize.materialize` carry the full structured list of
+    every problem found (path, message, machine-readable code), not just the
+    first one, so callers -- an API server turning this into a JSON error
+    response, for instance -- can inspect and report on each one
+    individually instead of parsing ``str(exc)``.
+    """
+
+    def __init__(self, message: str, errors: "Optional[List[Error]]" = None) -> None:
+        super().__init__(message)
+        self.errors: "List[Error]" = errors or []
 
 
 class DocumentError(OmnistError):

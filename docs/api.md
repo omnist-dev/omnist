@@ -328,7 +328,7 @@ simulating a write without producing output. The four built-ins all provide
 |---|---|
 | `OmnistError` | base class for all Omnist errors |
 | `SchemaError` | invalid schema text or structure (bad OSD, undefined `Ref`, bad cardinality) |
-| `ParseError` | a document couldn't be read from its format |
+| `ParseError` | a document couldn't be read from its format. Schema-conformance failures (from `materialize`/schema-directed readers) carry the full structured problem list on `.errors` (a list of `(path, message, code)`), not just the message string |
 | `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation |
 | `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML) |
 | `DetachedNode` | (`DocumentError` subclass) a cursor used after its node was removed |

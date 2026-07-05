@@ -13,7 +13,8 @@ cardinality) along the way, exactly as :meth:`Schema.validate` would. If
 anything can't be made to conform -- an inexact scalar, an unknown field, a
 missing field, the wrong cardinality -- :func:`materialize` collects *every*
 such problem (not just the first) and raises one
-:class:`~omnist.errors.ParseError` with the full report.
+:class:`~omnist.errors.ParseError` with the full report, both as a message
+string and structurally on ``.errors`` (a list of ``(path, message, code)``).
 
 This can't simply delegate to :meth:`Schema.validate` after the fact:
 ``validate`` only ever *checks* a value already in its final form, with no
@@ -42,11 +43,12 @@ _TEMPORAL_CLASS = {"date": _dt.date, "time": _dt.time, "datetime": _dt.datetime}
 def materialize(node: Any, schema: Schema) -> Any:
     """A copy of ``node`` with leaf values upgraded to match ``schema``,
     guaranteed to conform to it -- raises :class:`~omnist.errors.ParseError`
-    (with every problem found, not just the first) if it can't be made to."""
+    (with every problem found, not just the first, in both the message and
+    the structured ``.errors`` list) if it can't be made to."""
     res = ValidationResult()
     out = _materialize_type(node, schema, schema.root, "$", res)
     if not res.ok:
-        raise ParseError(str(res))
+        raise ParseError(str(res), errors=res.errors)
     return out
 
 

@@ -144,6 +144,19 @@ value-exact as `4`). If more than one problem exists, the `ParseError`
 message lists every one of them, each on its own line with its path — the
 same multi-error formatting `Schema.validate` uses.
 
+Every problem is also available structurally on `.errors`, not just in the
+message string — useful for a caller (an API server, say) that wants to turn
+each one into its own field in a JSON error response rather than parsing text:
+
+```python
+try:
+    read_json('{"a": 1, "b": "extra"}', schema=s2)
+except ParseError as e:
+    for err in e.errors:
+        print(err.path, err.code, err.message)
+    # $.b unexpected-field unexpected field
+```
+
 `Schema.validate` still exists and is still useful on its own: it checks an
 already-built `Doc` (one made with `doc()`, say) without re-deserializing
 anything, and it's the only way to validate a Document you didn't just read
