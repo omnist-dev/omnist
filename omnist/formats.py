@@ -429,8 +429,10 @@ def _indent(elem: Any, level: int = 0) -> None:
 
 
 def _xml_parser() -> Any:
-    _need("defusedxml", "pip install defusedxml")
-    import defusedxml.ElementTree as ET  # type: ignore[import-untyped]
+    try:
+        import defusedxml.ElementTree as ET  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise ImportError("defusedxml is required: pip install defusedxml") from exc
     return ET
 
 

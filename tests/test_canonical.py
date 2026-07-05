@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.4.1"
+        assert ds.__version__ == "0.4.2"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -905,6 +905,28 @@ class TestCodecs:
         def fake_import(name, *args, **kwargs):
             if name.startswith("defusedxml"):
                 raise ImportError("simulated: defusedxml not installed")
+            return real_import(name, *args, **kwargs)
+
+        import unittest.mock
+        with unittest.mock.patch("builtins.__import__", side_effect=fake_import):
+            with pytest.raises(ImportError, match="defusedxml is required"):
+                _xml_parser()
+
+    def test_xml_parser_raises_consistently_when_only_submodule_import_fails(self):
+        # A subtler variant of the above: the top-level defusedxml package
+        # itself imports fine, but its ElementTree submodule specifically
+        # fails (e.g. a broken/partial install). The error message must
+        # still match the standard "X is required" phrasing, not whatever
+        # the submodule import happens to raise.
+        import builtins
+
+        from omnist.formats import _xml_parser
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "defusedxml.ElementTree":
+                raise ImportError("simulated: submodule import failure")
             return real_import(name, *args, **kwargs)
 
         import unittest.mock
