@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.4.1] — `ParseError` exposes structured validation errors
+
+`ParseError` now carries a `.errors` attribute — the full list of
+`(path, message, code)` problems `materialize()` (and schema-directed
+readers) found, not just the formatted message string. A caller building
+an API error response can now iterate `.errors` directly instead of parsing
+`str(exc)`. Purely additive: `.errors` defaults to `[]`, and every existing
+`str(exc)` message is unchanged, so this is a patch release, not another
+minor bump.
+
+Format-syntax `ParseError`s (invalid JSON/YAML/TOML/XML text, not a schema
+conformance problem) have nothing to put in `.errors` — it's simply empty
+for those, same as before this attribute existed.
+
+See [issue #174](https://github.com/omnist-dev/omnist/issues/174).
+
 ## [v0.4.0] — XML parsing fails closed (BREAKING)
 
 **Breaking:** `read_xml()` now requires `defusedxml` and raises `ImportError`

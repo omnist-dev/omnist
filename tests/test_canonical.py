@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.4.0"
+        assert ds.__version__ == "0.4.1"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1009,6 +1009,28 @@ class TestDeserialize:
         assert "unexpected field" in msg          # "c"
         assert "cannot be read as integer" in msg  # "a"
         assert "expected exactly 1" in msg          # missing "b"
+
+    def test_structured_errors_exposed_on_parse_error(self):
+        # Same failure as above, but checked structurally via .errors instead
+        # of parsing the message string -- what a caller (e.g. an API server
+        # building a JSON error response) would actually use.
+        s = parse_schema('record R { "a": integer, "b": string }\nroot R')
+        with pytest.raises(ParseError) as exc:
+            materialize([("a", "x"), ("c", 1)], s)
+        errors = exc.value.errors
+        assert len(errors) == 3
+        codes = {e.code for e in errors}
+        assert codes == {"type-mismatch", "unexpected-field", "cardinality"}
+        assert all(e.path.startswith("$") for e in errors)
+        assert all(isinstance(e.message, str) and e.message for e in errors)
+
+    def test_format_syntax_errors_have_empty_structured_errors(self):
+        # ParseError raised for a format-syntax problem (not a schema
+        # conformance one) has nothing to put in .errors -- confirms the
+        # default is empty rather than None or missing entirely.
+        with pytest.raises(ParseError) as exc:
+            read_json("not valid json")
+        assert exc.value.errors == []
 
     def test_bool_never_satisfies_integer_or_number(self):
         # bool is an int subclass, but a Scalar("integer")/Scalar("number")

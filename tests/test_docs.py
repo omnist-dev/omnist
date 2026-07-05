@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.4.0"
+    assert ds.__version__ == "0.4.1"
 
 
 def test_quickstart():
@@ -495,7 +495,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.4.0"
+    assert ds.__version__ == "0.4.1"
 
 
 def test_api_docs_schema_raises():
@@ -570,6 +570,16 @@ def test_deserialization_docs_parse_error_not_value_exact():
     s = parse_schema('record R { "n": integer }\nroot R')
     with pytest.raises(ParseError):
         read_json('{"n": "abc"}', schema=s)
+
+
+def test_deserialization_docs_parse_error_structured_errors():
+    from omnist import ParseError
+
+    s2 = parse_schema('record R { "a": integer }\nroot R')
+    with pytest.raises(ParseError) as exc:
+        read_json('{"a": 1, "b": "extra"}', schema=s2)
+    err = exc.value.errors[0]
+    assert (err.path, err.code, err.message) == ("$.b", "unexpected-field", "unexpected field")
 
 
 def test_deserialization_docs_materialize():
