@@ -1,9 +1,11 @@
 # XML
 
 A deliberately narrow **data-XML** profile: elements only, used to carry the
-same Documents as the other formats. Install `pip install defusedxml` so
-parsing is hardened against entity-expansion / XXE attacks (without it, the
-standard-library parser is used and `read_xml` emits an `UnsafeXMLWarning`).
+same Documents as the other formats. `defusedxml` is a hard requirement for
+`read_xml` — install it with `pip install defusedxml` (or the `xml`/`all`
+extra). Without it, `read_xml` raises `ImportError` immediately rather than
+falling back to the standard library's parser, which is vulnerable to
+entity-expansion / XXE attacks on untrusted input.
 Element nesting is also capped at 200 levels, the same `_MAX_DEPTH` bound
 every other reader enforces via `build_node` — deeper input raises a clean
 `DocumentError` naming the limit rather than exhausting the call stack.

@@ -51,13 +51,11 @@ class WriteError(OmnistError):
 
 
 class UnsafeXMLWarning(UserWarning):
-    """``defusedxml`` isn't installed, so ``read_xml`` fell back to the
-    standard library's XML parser, which is vulnerable to entity-expansion
-    and external-entity (XXE) attacks on untrusted input.
-
-    Not an exception — parsing still succeeds. ``pip install defusedxml``
-    (or the ``xml`` / ``all`` extra) to remove the warning and the risk. If
-    you've deliberately decided this doesn't apply (e.g. the XML is never
-    from an untrusted source), suppress it with
-    ``warnings.filterwarnings("ignore", category=omnist.UnsafeXMLWarning)``.
+    """Unused by ``read_xml`` as of the fix for the fail-open XML fallback
+    (see issue #173) — ``defusedxml`` is now a hard requirement for XML
+    support, and its absence raises ``ImportError`` instead of falling back
+    to the unsafe standard-library parser with a warning. Kept exported for
+    backward compatibility with any code that imports or references it
+    (e.g. an existing ``warnings.filterwarnings(..., category=omnist.UnsafeXMLWarning)``
+    call), but nothing in omnist raises it anymore.
     """

@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.3.0"
+        assert ds.__version__ == "0.4.0"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -882,12 +882,22 @@ class TestCodecs:
         d = [("team", [("name", "P"), ("member", "x"), ("member", "y")])]
         assert read_xml(write_xml(d)) == d
 
-    def test_xml_parser_falls_back_to_stdlib_without_defusedxml(self):
-        # When defusedxml isn't installed, read_xml() must still work, via the
-        # standard library parser, with a warning about the XXE risk.
+    def test_xml_parser_uses_defusedxml_when_available(self):
+        # The default, expected case in any environment with the xml/all
+        # extra installed (including this test suite's own dev env): the
+        # actually-secure parser is what read_xml uses, not a coincidence.
+        import defusedxml.ElementTree as defused_ET
+
+        from omnist.formats import _xml_parser
+
+        assert _xml_parser() is defused_ET
+
+    def test_xml_parser_raises_when_defusedxml_missing(self):
+        # defusedxml is a hard requirement now (issue #173) -- read_xml must
+        # fail closed with a clear ImportError, never silently fall back to
+        # the unsafe standard-library parser.
         import builtins
 
-        from omnist.errors import UnsafeXMLWarning
         from omnist.formats import _xml_parser
 
         real_import = builtins.__import__
@@ -899,10 +909,26 @@ class TestCodecs:
 
         import unittest.mock
         with unittest.mock.patch("builtins.__import__", side_effect=fake_import):
-            with pytest.warns(UnsafeXMLWarning):
-                ET = _xml_parser()
-        import xml.etree.ElementTree as stdlib_ET
-        assert ET is stdlib_ET
+            with pytest.raises(ImportError, match="defusedxml is required"):
+                _xml_parser()
+
+    def test_read_xml_raises_when_defusedxml_missing(self):
+        # Same as above, but through the public read_xml() entry point --
+        # confirms the fail-closed behavior isn't only true of the internal
+        # helper in isolation.
+        import builtins
+        import unittest.mock
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name.startswith("defusedxml"):
+                raise ImportError("simulated: defusedxml not installed")
+            return real_import(name, *args, **kwargs)
+
+        with unittest.mock.patch("builtins.__import__", side_effect=fake_import):
+            with pytest.raises(ImportError, match="defusedxml is required"):
+                read_xml("<a/>")
 
 
 # ----------------------------------------------------- schema-directed deserialization

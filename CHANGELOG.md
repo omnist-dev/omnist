@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.4.0] — XML parsing fails closed (BREAKING)
+
+**Breaking:** `read_xml()` now requires `defusedxml` and raises `ImportError`
+immediately if it's missing, instead of silently falling back to the
+standard library's `xml.etree.ElementTree` with an `UnsafeXMLWarning`. The
+fallback left applications parsing untrusted XML vulnerable to entity
+expansion (billion laughs) and XXE attacks whenever the optional dependency
+happened not to be installed — a warning to stderr is easy to miss in a
+server environment, and merely warning didn't stop the unsafe parse from
+happening. Install `defusedxml` (or the `xml`/`all` extra) to use `read_xml`.
+
+`UnsafeXMLWarning` remains exported from `omnist.errors` for backward
+compatibility (e.g. existing `warnings.filterwarnings` calls referencing
+it), but nothing in omnist raises it anymore.
+
+Identified during an external code-quality review of the codebase; see
+[issue #173](https://github.com/omnist-dev/omnist/issues/173).
+
 ## [v0.3.0] — The paper's algorithm suite, complete and triple-verified
 
 0.2.x was one continuous arc from "the schema model exists" to "the schema

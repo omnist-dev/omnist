@@ -223,7 +223,7 @@ Low-level codecs over the canonical node form (a scalar, or a list of
 | `check_json(node)` / `check_yaml` / `check_toml` / `check_xml` | simulate a write; return a `WriteReport`, no output |
 
 `read_yaml`/`write_yaml` need `pyyaml`; `write_toml` needs `tomli_w`; `read_xml`
-recommends `defusedxml` (else an `UnsafeXMLWarning`). See
+requires `defusedxml` (raises `ImportError` if it's missing). See
 [Formats](formats/overview.md) for per-format mapping and caveats.
 
 ### Schema-directed deserialization
@@ -332,7 +332,7 @@ simulating a write without producing output. The four built-ins all provide
 | `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation |
 | `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML) |
 | `DetachedNode` | (`DocumentError` subclass) a cursor used after its node was removed |
-| `UnsafeXMLWarning` | `read_xml` fell back to the stdlib parser because `defusedxml` is missing |
+| `UnsafeXMLWarning` | unused as of the fail-closed XML fix (issue #173) — kept exported for backward compatibility |
 
 ---
 
