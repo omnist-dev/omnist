@@ -18,11 +18,10 @@ import datetime as _dt
 import json as _json
 import math as _math
 import re as _re
-import warnings
 from typing import TYPE_CHECKING, Any, Optional
 
 from .document import _MAX_DEPTH, _grouped, build_node
-from .errors import DocumentError, ParseError, UnsafeXMLWarning, WriteError
+from .errors import DocumentError, ParseError, WriteError
 from .report import WriteReport, finish_write
 
 if TYPE_CHECKING:
@@ -430,17 +429,9 @@ def _indent(elem: Any, level: int = 0) -> None:
 
 
 def _xml_parser() -> Any:
-    try:
-        import defusedxml.ElementTree as ET  # type: ignore[import-untyped]
-        return ET
-    except ImportError:
-        warnings.warn(
-            "defusedxml is not installed; read_xml() uses the standard library's "
-            "XML parser, which is vulnerable to entity-expansion / XXE attacks on "
-            "untrusted input. pip install defusedxml to fix this.",
-            UnsafeXMLWarning, stacklevel=3)
-        import xml.etree.ElementTree as ET
-        return ET
+    _need("defusedxml", "pip install defusedxml")
+    import defusedxml.ElementTree as ET  # type: ignore[import-untyped]
+    return ET
 
 
 def _need(module: str, how: str) -> Any:
