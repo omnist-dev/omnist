@@ -10,7 +10,7 @@
 ```
 omnist format     <input>                          [--compact] [-o OUTPUT]
 omnist convert    <input>   --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [-o OUTPUT]
-omnist validate   <input>   --from FMT --schema FILE [--result-format text|json|oml]
+omnist validate   <input>   --from FMT --schema FILE [--result-format text|json|oml] [--json]
 omnist infer      <input>...  --from FMT             [--compact] [-o OUTPUT]
 omnist check      <input>   --from FMT --to FMT [--strict] [--result-format text|json|oml]
 
@@ -76,7 +76,7 @@ omnist convert data.json --from json --to toml --report -o data.toml
 omnist convert data.json --from json --to toml --strict -o data.toml
 ```
 
-### `omnist validate <input> --from FMT --schema FILE [--result-format text|json|oml]`
+### `omnist validate <input> --from FMT --schema FILE [--result-format text|json|oml] [--json]`
 
 Reads without schema-directed upgrading, then `Schema.validate`.
 
@@ -89,6 +89,26 @@ Exit `0` valid, `1` invalid, `2` read/parse error.
 ```sh
 omnist validate order.json --from json --schema order.osd
 omnist validate order.xml --from xml --schema order.osd --result-format json
+```
+
+- `--json`: a distinct, more detailed machine-readable mode (issue #182),
+  independent of `--result-format`. Each errors entry also carries the
+  stable machine-readable `code` (`unexpected-field`, `cardinality`,
+  `type-mismatch`, `null-not-allowed`, `shape-mismatch`) from
+  `ValidationResult`/`ParseError.errors` (the same structured list
+  `ParseError` has exposed since v0.4.1). Unlike `--result-format`,
+  `--json` also converts read/parse errors -- normally `error: ...` on
+  stderr -- into the same `{ok, message, errors}` shape on stdout:
+  - success: `{"ok": true}`.
+  - conformance failure: `{"ok": false, "message": str, "errors": [{"path": str, "code": str, "message": str}, ...]}`.
+  - format-syntax failure (invalid input text, or a malformed schema): same shape, `"errors"` always `[]`, parse error in `"message"`.
+  - Exit codes are unchanged in every case (`0`/`1`/`2` as above); only the
+    printed shape and destination (stdout, not stderr, for read/parse
+    errors) differ.
+
+```sh
+omnist validate order.json --from json --schema order.osd --json
+omnist validate order.xml --from xml --schema order.osd --json
 ```
 
 ### `omnist infer <input>... --from FMT [--compact] [-o OUTPUT]`
