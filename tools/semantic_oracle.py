@@ -250,7 +250,12 @@ def _seeded_random_family(seed: int, count: int) -> List[Schema]:
                 if rng.random() < 0.3:
                     sc = Scalar(sc.name, True)
                 fields_a.append(Field(lbl, sc, mn, mx))
-        if not fields_a:
+        if not fields_a:  # pragma: no cover -- defensive fallback that is
+            # actually unreachable: n_fields_a = rng.randint(1, 3) is always
+            # >= 1, and the loop's *first* iteration can never hit the
+            # `lbl in used_labels` skip (used_labels starts empty), so at
+            # least one field is always appended. Kept as a guard in case
+            # the loop bounds above ever change.
             fields_a = [Field("p", t.string, 0, 1)]
 
         n_fields_b = rng.randint(1, 2)
@@ -264,7 +269,11 @@ def _seeded_random_family(seed: int, count: int) -> List[Schema]:
             mn, mx = rng.choice(_CARDS)
             sc = rng.choice(_SCALARS)
             fields_b.append(Field(lbl, sc, mn, mx))
-        if not fields_b:
+        if not fields_b:  # pragma: no cover -- same reasoning as the
+            # `fields_a` fallback above: n_fields_b = rng.randint(1, 2) is
+            # always >= 1 and the first loop iteration can never skip, so
+            # fields_b can never end up empty. Kept as a guard in case the
+            # loop bounds above ever change.
             fields_b = [Field("q", t.integer, 0, 1)]
 
         out.append(Schema(Ref("A"), {"A": Record(fields_a), "B": Record(fields_b)}))
@@ -623,5 +632,12 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover -- process-entry scaffolding.
+    # `main()` itself is fully exercised (via mocking `run`, see
+    # tests/test_semantic_oracle.py's test_main_* tests), but this guard
+    # only runs
+    # when the file is executed as `python3 tools/semantic_oracle.py`, never
+    # on import -- and main()'s real (unmocked) `run()` call takes ~110s
+    # (see the module docstring), too slow to invoke as a subprocess from
+    # the normal test suite just to cover this one line.
     sys.exit(main())
