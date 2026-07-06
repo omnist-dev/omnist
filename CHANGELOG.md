@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.4.3] — `omnist validate --json`; Python 3.14 in CI
+
+`omnist validate` gains a `--json` flag: a machine-readable `{ok, message,
+errors}` result on stdout, built on the structured `.errors` list
+`ParseError` has exposed since v0.4.1. Independent of `--result-format`
+(which stays as it was) -- each `errors` entry also carries the stable
+`code` (`unexpected-field`, `cardinality`, `type-mismatch`,
+`null-not-allowed`, `shape-mismatch`), and read/parse errors, normally a
+bare `error: ...` on stderr, are reported in the same shape on stdout
+instead (`"errors": []`, message carries the parse error), so a CI
+pipeline shelling out to `validate` no longer has to parse either form of
+free text:
+
+- Success: `{"ok": true}`.
+- Conformance failure: `{"ok": false, "message": str, "errors": [{"path": str, "code": str, "message": str}, ...]}` — one entry per problem.
+- Format-syntax failure (invalid input text, or a malformed schema): same shape, `"errors"` always `[]`.
+
+Exit codes (`0`/`1`/`2`) and every existing (non-`--json`) output are
+unchanged — this is purely additive.
+
+Also: Python 3.14 is now in the CI test matrix alongside 3.11-3.13 and
+passes without changes.
+
+See [issue #182](https://github.com/omnist-dev/omnist/issues/182).
+
 ## [v0.4.2] — Cleanup: pinned dev deps, simplified XML parser, tidier docs
 
 Three small, unrelated cleanup items surfaced by review (no observable

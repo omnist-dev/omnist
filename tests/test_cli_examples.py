@@ -183,6 +183,40 @@ class TestValidateExamples:
             ']}\n'
         )
 
+    def test_person_json_flag(self, capsys):
+        code, out, err = run(
+            ["validate", "examples/cli/person.json", "--from", "json",
+             "--schema", "examples/cli/person.osd", "--json"], capsys)
+        assert code == 0
+        assert out == '{"ok": true}\n'
+
+    def test_invalid_person_json_flag(self, capsys):
+        code, out, err = run(
+            ["validate", "examples/cli/invalid-person.json", "--from", "json",
+             "--schema", "examples/cli/person.osd", "--json"], capsys)
+        assert code == 1
+        assert out == (
+            '{"ok": false, "message": "invalid:\\n'
+            '  at $.person.age: expected integer, got string (\'thirty\')\\n'
+            '  at $.person: field \'name\' occurs 0 time(s), expected exactly 1", '
+            '"errors": ['
+            '{"path": "$.person.age", "code": "type-mismatch", '
+            '"message": "expected integer, got string (\'thirty\')"}, '
+            '{"path": "$.person", "code": "cardinality", '
+            '"message": "field \'name\' occurs 0 time(s), expected exactly 1"}'
+            ']}\n'
+        )
+
+    def test_syntax_failure_json_flag_via_stdin(self, capsys, monkeypatch):
+        code, out, err = run(
+            ["validate", "-", "--from", "json", "--schema", "examples/cli/person.osd", "--json"],
+            capsys, stdin_text='{not valid json', monkeypatch=monkeypatch)
+        assert code == 2
+        assert out == (
+            '{"ok": false, "message": "invalid JSON: Expecting property name enclosed '
+            'in double quotes: line 1 column 2 (char 1)", "errors": []}\n'
+        )
+
 
 class TestSchemaFormatExample:
     def test_messy_person_osd_reformats(self, capsys):

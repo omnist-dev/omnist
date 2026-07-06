@@ -16,6 +16,7 @@ from typing import Any, Optional, Sequence
 from . import (
     Doc,
     DocumentError,
+    Error,
     ParseError,
     SchemaError,
     ValidationResult,
@@ -174,7 +175,39 @@ def _cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def _json_validate_ok() -> str:
+    """The --json success payload: {"ok": true}, nothing else."""
+    return _json.dumps({"ok": True})
+
+
+def _json_validate_errors(message: str, errors: list[Error]) -> str:
+    """The --json failure payload -- shared by conformance failures (errors
+    from a ValidationResult) and format-syntax failures (errors always
+    empty, message carries the parse error), per issue #182."""
+    payload = {
+        "ok": False,
+        "message": message,
+        "errors": [{"path": e.path, "code": e.code, "message": e.message} for e in errors],
+    }
+    return _json.dumps(payload)
+
+
 def _cmd_validate(args: argparse.Namespace) -> int:
+    if args.json:
+        try:
+            node = _READERS[args.from_](_read_input(args.input))
+            d = Doc(node)
+            s = parse_schema(_read_input(args.schema))
+        except (ParseError, SchemaError, DocumentError, OSError) as exc:
+            errors = exc.errors if isinstance(exc, ParseError) else []
+            print(_json_validate_errors(str(exc), errors))
+            return 2
+        result = s.validate(d)
+        if result.ok:
+            print(_json_validate_ok())
+            return 0
+        print(_json_validate_errors(str(result), result.errors))
+        return 1
     node = _READERS[args.from_](_read_input(args.input))
     d = Doc(node)
     s = parse_schema(_read_input(args.schema))
@@ -319,6 +352,10 @@ def _build_parser() -> argparse.ArgumentParser:
     validate_p.add_argument("--schema", required=True, help="OSD schema file")
     validate_p.add_argument(
         "--result-format", choices=RESULT_FORMAT_CHOICES, default="text")
+    validate_p.add_argument(
+        "--json", action="store_true",
+        help="machine-readable {ok, message, errors} on stdout instead of "
+             "--result-format; exit codes unchanged")
     validate_p.set_defaults(func=_cmd_validate)
 
     infer_p = subparsers.add_parser(

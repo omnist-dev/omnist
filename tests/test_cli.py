@@ -7,6 +7,8 @@ file's coverage grows alongside the CLI's own implementation PRs.
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from omnist.cli import main
@@ -463,6 +465,68 @@ class TestValidate:
             capsys=capsys, monkeypatch=None)
         assert code == 2
         assert err.startswith("error: ")
+
+    def test_json_flag_valid_document(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert err == ""
+        assert json.loads(out) == {"ok": True}
+
+    def test_json_flag_conformance_failure_reports_every_error(self, tmp_path, capsys):
+        # Multiple, distinct problems -- missing 'a' (cardinality) and an
+        # unexpected 'b' -- so every one of --json's errors entries can be
+        # checked for its own path/code/message, not just the first found.
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"b": "extra"}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert err == ""
+        payload = json.loads(out)
+        assert payload["ok"] is False
+        assert isinstance(payload["message"], str) and payload["message"]
+        errors = {(e["path"], e["code"]): e["message"] for e in payload["errors"]}
+        assert errors[("$.b", "unexpected-field")] == "unexpected field"
+        assert errors[("$", "cardinality")] == "field 'a' occurs 0 time(s), expected exactly 1"
+        assert len(payload["errors"]) == 2
+
+    def test_json_flag_syntax_failure_has_empty_errors(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{not valid json')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert err == ""
+        payload = json.loads(out)
+        assert payload["ok"] is False
+        assert payload["errors"] == []
+        assert "invalid JSON" in payload["message"]
+
+    def test_default_output_unchanged_when_json_flag_absent(self, tmp_path, capsys):
+        # Regression guard: --json is purely additive -- every existing
+        # (non-flag) output path must stay byte-identical.
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1, "b": "extra"}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert out == "invalid:\n  at $.b: unexpected field\n"
+        assert err == ""
 
 
 class TestInfer:
