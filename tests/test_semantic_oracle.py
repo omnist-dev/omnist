@@ -28,8 +28,9 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import tools.semantic_oracle as semantic_oracle  # noqa: E402
-from omnist.schema import Field, Record, Ref, Schema, t  # noqa: E402
+from omnist.schema import SCALAR_NAMES, AnyType, Field, Record, Ref, Schema, t  # noqa: E402
 from tools.semantic_oracle import (  # noqa: E402
+    ALL_SCALAR_KIND_LEAVES,
     OracleResult,
     _seeded_random_family,
     build_universe,
@@ -125,6 +126,224 @@ def test_semantic_oracle_bounded_needs_review_is_small():
 
 
 # ---------------------------------------------------------------------------
+# T-22a: universe witness guarantee (any-type-spec.md Sec.5.3a / I-22)
+#
+# The vindication argument for `da = any` compatible_with False answers
+# depends entirely on U containing, structurally (not by luck), at least
+# one witness per scalar kind plus at least one edge-list value -- so that
+# any Scalar or Record B-side fails to accept *something* in U. This test
+# pins that guarantee directly against the universe construction, at both
+# the CI-bounded and default (full-tool) sizings.
+# ---------------------------------------------------------------------------
+
+def _scalar_kind_of(value: object) -> str:
+    """Which of the seven Scalar kinds accepts ``value`` as a leaf --
+    mirrors the natural kind of each ``ALL_SCALAR_KIND_LEAVES`` witness
+    value, used only to check *coverage*, not to replicate `_conform`."""
+    import datetime as dt
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, dt.datetime):
+        return "datetime"
+    if isinstance(value, dt.date):
+        return "date"
+    if isinstance(value, dt.time):
+        return "time"
+    raise AssertionError(f"unclassifiable witness value: {value!r}")  # pragma: no cover
+
+
+def test_all_scalar_kind_leaves_cover_all_seven_kinds():
+    """``ALL_SCALAR_KIND_LEAVES`` -- the fixed witness set the universe
+    guarantee is built from -- must cover exactly the seven Scalar kinds,
+    once each, with no gaps and no duplicates."""
+    kinds = {_scalar_kind_of(v) for v in ALL_SCALAR_KIND_LEAVES}
+    assert kinds == SCALAR_NAMES
+    assert len(ALL_SCALAR_KIND_LEAVES) == len(SCALAR_NAMES)
+
+
+def _all_leaf_values(d) -> list:
+    """Every scalar-leaf value reachable anywhere in ``d`` (the root value
+    itself if it's a leaf, or recursively every edge's child) -- witnesses
+    in this universe are frequently one edge below the root (e.g. the
+    single-edge scalar-kind witnesses added by ``build_universe``), so
+    "does U contain a witness of kind K" must look at more than just
+    top-level leaves."""
+    if d.is_leaf:
+        return [d.value]
+    out = []
+    for _label, child in d.edges():
+        out.extend(_all_leaf_values(child))
+    return out
+
+
+def _kinds_witnessed(docs) -> set:
+    """Every scalar kind for which some document in ``docs`` contains a
+    leaf value of that kind, anywhere in the document (root or nested)."""
+    found = set()
+    for d in docs:
+        for v in _all_leaf_values(d):
+            if v is not None:
+                try:
+                    found.add(_scalar_kind_of(v))
+                except AssertionError:  # pragma: no cover -- defensive, not expected
+                    pass
+    return found
+
+
+def test_universe_guarantees_one_witness_per_scalar_kind_and_an_edge_list():
+    """Sec.5.3a's required treatment, pinned directly: under standard
+    parameters (both the CI-bounded sizing and the full tool's default
+    sizing), the base universe contains at least one leaf witness for
+    every one of the seven scalar kinds, plus at least one edge-list
+    (non-leaf) document -- all eight witness categories the vindication
+    argument for ``da = any`` False answers depends on."""
+    for base_max, extended_max in ((1, (2, 3)), (2, (3, 4))):
+        base_nodes, _ = build_universe(base_max=base_max, extended_max=extended_max)
+        docs = [to_doc(n) for n in base_nodes]
+        kinds = _kinds_witnessed(docs)
+        missing = SCALAR_NAMES - kinds
+        assert not missing, (
+            f"universe (base_max={base_max}) is missing scalar-kind witnesses: {missing}")
+        assert any(not d.is_leaf for d in docs), (
+            f"universe (base_max={base_max}) has no edge-list witness")
+        # null itself, as a distinct (non-scalar-kind) witness `any` also accepts:
+        assert any(v is None for d in docs for v in _all_leaf_values(d)), (
+            f"universe (base_max={base_max}) has no null witness")
+
+
+# ---------------------------------------------------------------------------
+# T-22b: the vindication test (any-type-spec.md Sec.5.3a)
+#
+# For `any <sub> <scalar schema>` and `any <sub> <record schema>` (both
+# algebra-False, per ops/subschema.py's `da = any` clause), the oracle's
+# compatible_with check over the standard universe must VINDICATE both
+# Falses by a concrete counterexample document -- never leave them
+# needs_review. This is the direct pin of the spec's argument: a Record
+# accepts no scalar leaf, a Scalar accepts no edge-list, and the universe
+# guarantee (T-22a) ensures both witness categories exist.
+# ---------------------------------------------------------------------------
+
+def test_any_sub_scalar_and_any_sub_record_are_vindicated_not_needs_review():
+    """A schema whose single mandatory root field is `any` (the `da = any`
+    side of Sec.5.3a's argument) must answer `compatible_with` False
+    against both a same-label scalar-typed schema and a same-label
+    Ref-typed (record) schema -- ``ops/subschema.py``'s `da = any` clause
+    only holds for `db = any` too -- and the oracle must vindicate both
+    Falses concretely (a base/extended-universe document, or a targeted
+    witness), never fall through to needs-manual-review."""
+    any_schema = Schema(Ref("R"), {"R": Record([Field("a", t.any, 1, 1)])})
+    # "Scalar accepts no edge-list": a same-label integer-typed schema.
+    scalar_schema = Schema(Ref("R"), {"R": Record([Field("a", t.integer, 1, 1)])})
+    # "Record accepts no scalar leaf": a same-label Ref-typed schema
+    # pointing at a record that requires a nested field -- so a bare
+    # scalar or null at "a" can never satisfy it.
+    record_schema = Schema(Ref("R"), {
+        "R": Record([Field("a", Ref("Inner"), 1, 1)]),
+        "Inner": Record([Field("z", t.integer, 1, 1)]),
+    })
+
+    base_nodes, ext_nodes = build_universe(base_max=1, extended_max=(2, 3))
+    base_docs = [to_doc(n) for n in base_nodes]
+    ext_docs = [to_doc(n) for n in ext_nodes]
+    schemas_list = [any_schema, scalar_schema, record_schema]
+    truth = ground_truth(schemas_list, base_docs)
+    ext_truth = ground_truth(schemas_list, ext_docs)
+
+    assert not any_schema.compatible_with(scalar_schema)
+    assert not any_schema.compatible_with(record_schema)
+
+    result = OracleResult()
+    check_compatible_with(schemas_list, truth, ext_docs, ext_truth, result)
+    assert result.definite_bugs == []
+    assert result.needs_review == [], (
+        "any <sub> T False answers must be concretely vindicated, never "
+        f"needs_review: {result.needs_review}")
+    # Both False pairs (any, scalar) and (any, record) must show up as
+    # vindicated by *something* (base subset, extended, or a targeted
+    # witness) -- not merely absent from needs_review by coincidence.
+    vindicated_total = (result.counts["vindicated_by_base_subset"]
+                         + result.counts["vindicated_by_extended"]
+                         + result.counts["vindicated_by_witness"])
+    assert vindicated_total >= 2
+
+
+def test_seeded_random_family_any_fields_truth_accepts_everything_at_any_position():
+    """The oracle's ground truth is validate-based and already handles
+    `any` via PR-1's `_conform` (`AnyType` -> accept, no descent) -- this
+    checks that directly: an any-bearing schema's truth set over the base
+    universe accepts every document that satisfies the *rest* of the
+    schema, regardless of what value sits at the `any` position (scalar,
+    null, or nested edge-list alike)."""
+    any_field_schema = Schema(Ref("R"), {"R": Record([Field("data", t.any, 1, 1)])})
+    base_nodes, _ = build_universe(base_max=1, extended_max=(2, 3))
+
+    # Every legal single-edge-labeled-"data" document, built directly (not
+    # relying on the universe's own {a, b} labels), covering a scalar, a
+    # null, and a nested edge-list at the `any` position.
+    candidates = [
+        (("data", 1),), (("data", "x"),), (("data", None),),
+        (("data", (("z", 1),)),),
+    ]
+    for node in candidates:
+        d = to_doc(node)
+        assert any_field_schema.validate(d).ok, (
+            f"any-typed field must accept {node!r} at its position")
+
+    # And the base universe's own documents, wherever validate accepts them
+    # at all, are consistent with `any` never being the rejecting cause:
+    # re-labeling any base-universe document's top edges to "data" (with
+    # cardinality collapsed to exactly one) must also validate.
+    for n in base_nodes[:20]:
+        for label, child in n:
+            relabeled = to_doc((("data", child),))
+            assert any_field_schema.validate(relabeled).ok
+
+
+# ---------------------------------------------------------------------------
+# Generator emission: the seeded random schema family emits `any`-typed
+# fields with a small fixed probability (spec Sec.5.3, I-22's "Generators"
+# bullet), deterministically -- same seed, same family, every time.
+# ---------------------------------------------------------------------------
+
+def test_seeded_random_family_emits_any_fields_deterministically():
+    """The seeded family includes `any`-typed fields (not zero of them, not
+    all of them -- a small fixed probability per non-Ref field slot), and
+    the same seed produces byte-identical results across repeated calls,
+    matching every other draw in this generator (fully reproducible, no
+    hidden global RNG state)."""
+    def _any_field_count(schemas) -> int:
+        return sum(
+            1 for s in schemas for rec in s.env.values() for f in rec.fields
+            if isinstance(f.type, AnyType)
+        )
+
+    fam1 = _seeded_random_family(seed=158, count=82)
+    fam2 = _seeded_random_family(seed=158, count=82)
+    assert _any_field_count(fam1) > 0, "the family should generate some `any` fields"
+    total_fields = sum(len(rec.fields) for s in fam1 for rec in s.env.values())
+    # A small minority, consistent with the ~1-in-6 fixed probability --
+    # loose bounds since this depends on the PRNG sequence at this seed,
+    # but a regression that made `any` common or entirely absent would
+    # trip one of these.
+    assert 0 < _any_field_count(fam1) < total_fields * 0.4
+
+    # Determinism: same seed -> same family, field-for-field.
+    for s1, s2 in zip(fam1, fam2):
+        assert s1.root == s2.root
+        assert set(s1.env) == set(s2.env)
+        for name in s1.env:
+            f1 = [(f.label, f.type, f.min, f.max) for f in s1.env[name].fields]
+            f2 = [(f.label, f.type, f.min, f.max) for f in s2.env[name].fields]
+            assert f1 == f2
+
+
+# ---------------------------------------------------------------------------
 # to_doc: top-level leaf branch
 # ---------------------------------------------------------------------------
 
@@ -151,13 +370,20 @@ def test_seeded_random_family_skips_duplicate_labels():
     """The per-record field-building loops in ``_seeded_random_family`` draw
     a label at random for each of ``n_fields`` slots and skip (``continue``)
     any repeat so no record ends up with two fields of the same label.
-    Seed 1 with a single generated schema is a concrete, deterministic case
+    Seed 2 with a single generated schema is a concrete, deterministic case
     where record B's second field slot redraws a label already used by its
     first field (verified against the underlying PRNG sequence): B ends up
     with exactly one field even though ``n_fields_b`` requested two,
     proving the ``lbl in used_b: continue`` branch actually fired rather
-    than merely being reachable in principle."""
-    schemas = _seeded_random_family(seed=1, count=1)
+    than merely being reachable in principle.
+
+    (Seed value chosen for this property post-dates the any-type-spec.md
+    PR-3 generator extension -- adding the deterministic `any`-emission
+    draw shifted which seeds land on this exact shape, since it consumes
+    additional `rng.random()` calls from the same PRNG sequence; the
+    property under test (dedup-by-skip) and full determinism are
+    unaffected, only the concrete seed that demonstrates it.)"""
+    schemas = _seeded_random_family(seed=2, count=1)
     assert len(schemas) == 1
     b_fields = schemas[0].env["B"].fields
     labels = [f.label for f in b_fields]

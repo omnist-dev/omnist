@@ -67,6 +67,52 @@ from omnist.schema import AnyType, Field, Record, Ref, Scalar, Schema, t  # noqa
 LEAVES: Tuple[object, ...] = (1, "x", None)
 LABELS: Tuple[str, ...] = ("a", "b")
 
+# Spec any-type-spec.md Sec.5.3a / inventory row I-22: the oracle's False
+# answers for `any <sub> T` are only *vindicated* (never left needs_review)
+# if the universe U structurally contains a witness for every one of the
+# seven scalar kinds plus at least one edge-list -- so that a Record schema
+# fails to accept some scalar leaf, and a Scalar schema fails to accept some
+# edge-list, no matter how the schema family happens to shake out.
+#
+# `LEAVES` above only witnesses three kinds (integer via `1`, string via
+# `"x"`, the null value) because it is also the combinatorial base of
+# `_edge_runs`/`_label_pair_shapes` -- widening `LEAVES` itself to all seven
+# kinds would multiply the universe size by roughly (7/3)**2 per nesting
+# level (measured: ~34x, from ~12k to ~424k base documents), which would
+# make both the CI-bounded and full oracle runs far too slow for no benefit
+# (a single extra witness per kind is enough to vindicate, per Sec.5.3a's
+# argument -- the vindication doesn't need every *combination* with those
+# kinds, just their bare presence in U).
+#
+# So the remaining four scalar-kind witnesses are added as a small, fixed,
+# O(1) set of single-edge root documents instead, independent of
+# `base_max`/`extended_max`: this guarantees the property structurally
+# (by construction, not by luck of the combinatorial leaf pool) at
+# negligible cost to universe size.
+_SCALAR_WITNESS_LEAVES: Tuple[object, ...] = (
+    # `False`, not `True`: Python's `True == 1` (and `hash(True) == hash(1)`)
+    # makes a `True` witness structurally collide with -- and get deduped
+    # away as a no-op against -- the pre-existing integer witness `1` in
+    # `LEAVES` (the base/extended dedup below compares raw node tuples,
+    # where `(("a", True),) == (("a", 1),)`). `False == 0`, and `0` is not
+    # in `LEAVES`, so it survives as a genuinely distinct boolean witness.
+    False,                              # boolean
+    1.5,                                # number -- a float, distinct from
+                                         # the integer witness `1` above (see
+                                         # _MINIMAL_LEAF's own comment on why
+                                         # this distinction matters)
+    _dt.date(2000, 1, 1),                # date
+    _dt.time(0, 0),                      # time
+    _dt.datetime(2000, 1, 1, 0, 0),       # datetime
+)
+
+# All seven scalar kinds' leaf values, for the witness-guarantee proof/test:
+# integer/string/null come from LEAVES, the rest from _SCALAR_WITNESS_LEAVES.
+ALL_SCALAR_KIND_LEAVES: Tuple[object, ...] = LEAVES[:2] + _SCALAR_WITNESS_LEAVES
+# (LEAVES[:2] = (1, "x") -- integer, string; None is the null witness, kept
+# separate since it isn't a "kind" leaf value under any Scalar the family
+# uses, but is still a legal `any` witness distinct from all seven.)
+
 Node = Tuple[Tuple[str, object], ...]  # our own tuple-edge-list shape
 
 
@@ -154,6 +200,21 @@ def build_universe(base_max: int = 2, extended_max: Tuple[int, ...] = (3, 4)
         for n in nested:
             extra.add(((lbl, n),))
 
+    # Sec.5.3a / I-22 universe guarantee: fold in the fixed, O(1) scalar-kind
+    # witnesses (boolean/number/date/time/datetime -- integer/string/null
+    # are already witnessed by LEAVES, and an edge-list witness already
+    # exists in `base` for any base_max >= 1, e.g. `(("a", 1),)`) as
+    # single-edge root documents, one per label so both label positions get
+    # a witness too. This is a structural, deterministic addition -- not
+    # dependent on base_max/extended_max or on LEAVES's combinatorial role
+    # -- so every scalar kind is guaranteed present regardless of universe
+    # sizing. See ALL_SCALAR_KIND_LEAVES / _SCALAR_WITNESS_LEAVES above.
+    scalar_witnesses: List[Node] = [
+        ((lbl, v),) for lbl in LABELS for v in _SCALAR_WITNESS_LEAVES
+    ]
+
+    base_set = set(base)
+    base = base + [s for s in scalar_witnesses if s not in base_set]
     base_set = set(base)
     extended = base + [s for s in extra if s not in base_set]
     return base, extended
@@ -169,6 +230,9 @@ _SCALARS: Tuple[Scalar, ...] = (
 _CARDS: Tuple[Tuple[int, Optional[int]], ...] = (
     (1, 1), (0, 1), (0, 2), (1, None), (0, 0), (2, 2),
 )
+# Small fixed probability the seeded random family emits an `any`-typed
+# field instead of a scalar at a non-Ref field slot -- spec Sec.5.3/I-22.
+_ANY_FIELD_PROB = 1 / 6
 
 
 def systematic_family() -> List[Schema]:
@@ -245,6 +309,16 @@ def _seeded_random_family(seed: int, count: int) -> List[Schema]:
             if not has_ref and rng.random() < 0.5:
                 fields_a.append(Field(lbl, Ref("B"), mn, mx))
                 has_ref = True
+            elif rng.random() < _ANY_FIELD_PROB:
+                # Sec.5.3/I-22: the seeded random family emits `any`-typed
+                # fields with a small fixed probability, deterministically
+                # (fixed seed -> same family, same as every other draw
+                # here). ~1-in-6 keeps `any` fields a real but minority
+                # presence in the family, matching the fuzz suite's
+                # p~0.15 in tests/test_fuzz.py (spec Sec.5.2) without
+                # swamping the scalar/Ref shapes the rest of this family
+                # exists to exercise.
+                fields_a.append(Field(lbl, t.any, mn, mx))
             else:
                 sc = rng.choice(_SCALARS)
                 if rng.random() < 0.3:
@@ -267,8 +341,11 @@ def _seeded_random_family(seed: int, count: int) -> List[Schema]:
                 continue
             used_b.add(lbl)
             mn, mx = rng.choice(_CARDS)
-            sc = rng.choice(_SCALARS)
-            fields_b.append(Field(lbl, sc, mn, mx))
+            if rng.random() < _ANY_FIELD_PROB:
+                fields_b.append(Field(lbl, t.any, mn, mx))
+            else:
+                sc = rng.choice(_SCALARS)
+                fields_b.append(Field(lbl, sc, mn, mx))
         if not fields_b:  # pragma: no cover -- same reasoning as the
             # `fields_a` fallback above: n_fields_b = rng.randint(1, 2) is
             # always >= 1 and the first loop iteration can never skip, so
@@ -373,6 +450,20 @@ def targeted_witnesses(schema: Schema) -> List[Node]:
     exposes that (a fixed small ceiling here is a deliberate, documented
     bound: the schema family's own bounded cardinalities top out at 2, so
     5 comfortably covers every ``max`` any schema in the family declares).
+
+    **`any`-typed fields (spec Sec.5.3a / I-22):** ``_minimal_value``'s
+    ``AnyType`` witness is always ``None`` -- a legal but weak choice,
+    since ``None`` also satisfies any *nullable* scalar B might declare at
+    the same position (e.g. B's field is ``time?``): a witness of ``None``
+    at an `any` position then fails to vindicate ``da = any`` False
+    answers whenever B happens to be nullable there, even though `any`
+    truly accepts values (a non-null scalar, or an edge-list) that no
+    Scalar or Record B ever accepts in full. So for each root field whose
+    *own* type is `any`, this additionally tries a small fixed set of
+    non-null "chaos" values at that position -- one concrete value per
+    scalar kind plus a small edge-list -- alongside the base ``None``
+    witness, so a real mismatch is never missed just because ``None``
+    alone happened to be ambiguous.
     """
     base = minimal_witness(schema)
     root_rec = schema.env[schema.root.name]
@@ -386,8 +477,13 @@ def targeted_witnesses(schema: Schema) -> List[Node]:
             counts.add(f.max + 1)
         else:
             counts.update({3, 4, 5})
-        for n in sorted(c for c in counts if c >= 0):
-            out.append(rest + tuple((f.label, v) for _ in range(n)))
+        values = [v]
+        if isinstance(f.type, AnyType):
+            values.extend(ALL_SCALAR_KIND_LEAVES)
+            values.append((("z", 1),))  # a small edge-list chaos value
+        for val in values:
+            for n in sorted(c for c in counts if c >= 0):
+                out.append(rest + tuple((f.label, val) for _ in range(n)))
     return out
 
 
