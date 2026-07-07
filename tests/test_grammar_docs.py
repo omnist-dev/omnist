@@ -217,3 +217,32 @@ def test_osd_ex19_compact_to_osd_roundtrip():
     text = to_osd(s, indent=None)
     assert text == 'record R { "a": string } root R\n'
     assert s.equivalent(parse_schema(text))
+
+
+def test_osd_ex20_any_field_with_cardinality():
+    from omnist import AnyType
+
+    s = parse_schema('record R { "data": any }\nroot R')
+    assert isinstance(s.env["R"].fields[0].type, AnyType)
+
+    s2 = parse_schema('record R { "data" [0,]: any }\nroot R')
+    f2 = s2.env["R"].fields[0]
+    assert isinstance(f2.type, AnyType)
+    assert (f2.min, f2.max) == (0, None)
+
+
+def test_osd_ex21_any_question_mark_is_rejected():
+    with pytest.raises(SchemaError, match=r"'any' already includes null"):
+        parse_schema('record R { "data": any? }\nroot R')
+
+
+def test_osd_ex22_record_named_any_is_rejected():
+    with pytest.raises(
+        SchemaError, match=r"'any' is a reserved type name"
+    ):
+        parse_schema('record any { "a": string }\nroot any')
+
+
+def test_osd_ex23_capitalized_any_is_unknown_ref_not_reserved():
+    with pytest.raises(SchemaError, match="unknown type"):
+        parse_schema('record R { "data": Any }\nroot R')

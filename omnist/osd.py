@@ -26,7 +26,9 @@ import re
 from typing import List, Optional
 
 from .errors import SchemaError
-from .schema import SCALAR_NAMES, AnyType, Field, Record, Ref, Scalar, Schema
+from .schema import ANY, SCALAR_NAMES, AnyType, Field, Record, Ref, Scalar, Schema
+
+RESERVED_TYPE_NAMES = SCALAR_NAMES | {"any"}
 
 _TOKEN = re.compile(r"""
       (?P<ws>\s+)
@@ -91,8 +93,8 @@ class _Parser:
         while self._peek().kind != "eof":
             t = self._peek()
             if t.kind == "name" and t.text == "record":
-                name, rec = self._record()
-                self._define(env, name, rec)
+                name, rec, name_pos = self._record()
+                self._define(env, name, rec, name_pos)
             elif t.kind == "name" and t.text == "root":
                 self._next()
                 root = self._expect("name").text
@@ -103,8 +105,13 @@ class _Parser:
             raise SchemaError("a schema must declare a root")
         return Schema(Ref(root), env)
 
-    def _define(self, env: dict[str, Record], name: str, rec: Record) -> None:
-        if name in SCALAR_NAMES:
+    def _define(self, env: dict[str, Record], name: str, rec: Record,
+                name_pos: int) -> None:
+        if name in RESERVED_TYPE_NAMES:
+            if name == "any":
+                raise SchemaError(
+                    "'any' is a reserved type name and cannot be used as a "
+                    f"record name at {name_pos}")
             raise SchemaError(
                 f"{name!r} is a reserved scalar name; a record cannot be "
                 "defined with this name, or it could never be referenced "
@@ -114,9 +121,10 @@ class _Parser:
             raise SchemaError(f"duplicate definition {name!r}")
         env[name] = rec
 
-    def _record(self) -> tuple[str, Record]:
+    def _record(self) -> tuple[str, Record, int]:
         self._expect("name", "record")
-        name = self._expect("name").text
+        name_tok = self._expect("name")
+        name = name_tok.text
         self._expect("punct", "{")
         fields: List[Field] = []
         while self._peek().text != "}":
@@ -126,7 +134,7 @@ class _Parser:
             else:
                 break
         self._expect("punct", "}")
-        return name, Record(fields)
+        return name, Record(fields), name_tok.pos
 
     def _field(self) -> Field:
         label_tok = self._next()
@@ -168,7 +176,7 @@ class _Parser:
                               f"at {t.pos}")
         return int(t.text)
 
-    def _type(self) -> Scalar | Ref:
+    def _type(self) -> Scalar | Ref | AnyType:
         t = self._next()
         if t.kind != "name":
             raise SchemaError(
@@ -176,6 +184,13 @@ class _Parser:
                 "(enums and literal-valued fields are not supported -- a "
                 "field's type is always one scalar or a reference to a "
                 "named record)")
+        if t.text == "any":
+            if self._peek().text == "?":
+                q = self._next()
+                raise SchemaError(
+                    "'any' already includes null; 'any?' is redundant at "
+                    f"{q.pos}")
+            return ANY
         nullable = False
         if self._peek().text == "?":
             self._next()

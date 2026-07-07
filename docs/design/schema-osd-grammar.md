@@ -108,13 +108,26 @@ int         = 1*DIGIT
               ; (SchemaError "... has an invalid cardinality [...]"), not
               ; by the OSD parser itself -- see Worked examples #7-#8.
 
-type        = scalar-type / ref-type
+type        = scalar-type / any-type / ref-type
 scalar-type = scalar-name ["?"]
 scalar-name = %s"string" / %s"integer" / %s"number" / %s"boolean"
             / %s"date" / %s"time" / %s"datetime"
               ; the seven fixed scalar kinds -- SCALAR_NAMES in
               ; omnist/schema.py. "?" makes the scalar nullable;
               ; omitting it means non-nullable.
+
+any-type    = %s"any"
+              ; the eighth, unconstrained type -- accepts every legal
+              ; Document value (see docs/design/any-type-spec.md). "?"
+              ; CANNOT follow `any`: `any?` is a SchemaError ("'any'
+              ; already includes null; 'any?' is redundant at ...")
+              ; because null is already a member of `any`'s value set --
+              ; unlike scalar-type, there is no nullable variant to opt
+              ; into. A capitalized `Any` is NOT this production; it is
+              ; an ordinary `name` token and therefore a `ref-type`,
+              ; producing the existing "unknown type" error if
+              ; undefined -- `any` is reserved only in its exact,
+              ; lowercase spelling.
 
 ref-type    = name
               ; any `name` token that is NOT one of the seven scalar-name
@@ -135,8 +148,11 @@ A `record-def` whose `name` is one of the seven `scalar-name` keywords is a
 cannot be defined with this name, or it could never be referenced..."),
 because a bare `name` in type position is *always* resolved as the builtin
 scalar first — defining a same-named record would make it permanently
-unreachable. Defining the same record `name` twice is also a `SchemaError`
-("duplicate definition ...").
+unreachable. The keyword `any` is reserved the same way and for the same
+reason, but with its own message: a `record-def` named `any` is a
+`SchemaError` ("'any' is a reserved type name and cannot be used as a
+record name at ..."). Defining the same record `name` twice is also a
+`SchemaError` ("duplicate definition ...").
 
 ### 2.2 No value-domain composition
 
@@ -190,3 +206,7 @@ behavior (see `tests/test_grammar_docs.py` for the executable form).
 | 17 | `# comment\nrecord R { "a": string } # trailing\nroot R` | comments anywhere whitespace is valid are discarded; schema parses normally |
 | 18 | `to_osd(parse_schema('record R { "a" [0,3]: string? }\nroot R'))` | round-trips to `'record R {\n    "a" [0,3]: string?,\n}\nroot R\n'` |
 | 19 | `to_osd(parse_schema('record R { "a": string }\nroot R'), indent=None)` | compact form `'record R { "a": string } root R\n'`, which `parse_schema` parses back to an equivalent schema |
+| 20 | `record R { "data": any }` | field's type is the `AnyType` singleton (`t.any`); `record R { "data" [0,]: any }` and other cardinalities on an `any` field also parse, since cardinality is orthogonal to type |
+| 21 | `record R { "data": any? }` | `SchemaError`: "'any' already includes null; 'any?' is redundant at ..." |
+| 22 | `record any { "a": string }` | `SchemaError`: "'any' is a reserved type name and cannot be used as a record name at ..." |
+| 23 | `record R { "data": Any }` (capitalized, no matching record) | `SchemaError`: "unknown type 'Any'" — `Any` is an ordinary `ref-type` name, not the reserved `any` keyword |

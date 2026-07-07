@@ -63,6 +63,7 @@ from .schema import (
     NUMBER,
     STRING,
     TIME,
+    AnyType,
     Error,
     Field,
     Record,
@@ -90,6 +91,7 @@ __all__ = [
     "Doc", "doc",
     # schema model
     "Schema", "Record", "Scalar", "Ref", "Field", "ValidationResult", "Error",
+    "AnyType",
     # builders
     "record", "ref", "field", "schema", "nullable", "t",
     "STRING", "INTEGER", "NUMBER", "BOOLEAN", "DATE", "TIME", "DATETIME",
