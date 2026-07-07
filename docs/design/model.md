@@ -61,9 +61,13 @@ a choice to make.
 - A small, self-contained schema model that's closed by default (with `any` as its one explicit, demarcated opening) -- every operation over it (`validate`, `compatible_with`, `equivalent`, `normalize`, `infer`) has exactly one answer, never a best-effort guess.
 - A clean formal definition both models can be specified and reasoned about from.
 
-**Non-goals (deliberately out of scope for now)**
-- **Maps / open key sets** (`{ [string]: T }`) — not expressible; reintroduce later as an explicit, opt-in construct if needed.
-- **Wildcard / open records** and **`Any`** — not expressible; they would abandon structure.
+**Non-goals**
+- **Maps / open key sets** (`{ [string]: T }`) and **wildcard / open records**
+  — refused, not merely deferred: they would open the label alphabet the
+  whole algebra reasons over. See [the openness decision
+  record](openness.md) for the full argument. (`any`, by contrast, opens
+  only a declared value at a fixed label — see [§1 above](#1-summary) and
+  [any-type-spec.md](any-type-spec.md).)
 - **Structural unions** (`{a}|{b}`), **value-domain unions/enums** (`"a" | "b"`), and **positional tuples** (`[string, integer]`) — not expressible (see §2 for why, on the value-domain side).
 - **Constrained scalars** (e.g. `Email = string matching …`) — no value refinements yet.
 - **Order-sensitive fields** — validation is order-free (see §4, §7).
