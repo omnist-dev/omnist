@@ -2,12 +2,11 @@
 
 > **Status:** decision record + design study, 2026-07-06.
 > `Map` — **refused, settled** (fourth recurrence of the question).
-> `any` — **approved for implementation** (maintainer go, 2026-07-07,
-> after the study below concluded the algebra can carry it, §7–§8). The
-> full normative specification is [any-type-spec.md](any-type-spec.md);
-> implementation proceeds per its §8 plan. [model.md](model.md) §1
-> remains the authoritative description of the *shipped* model until the
-> feature lands (the final PR's docs sweep updates it).
+> `any` — **shipped in v0.5.0** (maintainer go, 2026-07-07, after the
+> study below concluded the algebra can carry it, §7–§8). The full
+> normative specification is [any-type-spec.md](any-type-spec.md), and
+> [model.md](model.md) §1 now describes the shipped model, `any`
+> included.
 
 ## 1. Summary
 

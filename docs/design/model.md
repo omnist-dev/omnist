@@ -14,9 +14,9 @@ deliberately closed, for the JSON family of formats, so the schema operations in
 The headline ideas:
 
 1. A **Document is an ordered list of labeled edges**, not a map whose values may be arrays.
-2. A **Schema has exactly three building blocks** — `record` (constrained by its child labels), `Scalar` (one of seven fixed kinds, optionally nullable), and `Ref` (naming and recursion). A field's type is always exactly one `Scalar` or one `Ref` — never a composition of either.
+2. A **Schema has exactly four building blocks** — `record` (constrained by its child labels), `Scalar` (one of seven fixed kinds, optionally nullable), `Ref` (naming and recursion), and `any` (a declared leaf whose value is unchecked — the model's one deliberate opening, added in v0.5.0). A field's type is always exactly one of these — never a composition.
 3. **Field cardinality `[min,max]`** is the single mechanism for optional / required / array. There is no separate array type.
-4. The model is **closed by construction**: records are closed, scalar types are never composed into enums or unions, and there are no structureless escape hatches (`Any`, open objects, maps). This is what makes `compatible_with`, `equivalent`, `normalize`, and `infer` well-defined, decidable operations -- not a constraint imposed for its own sake.
+4. The model is **closed by default; open only where explicitly marked**: records are closed, scalar types are never composed into enums or unions, and there are no open objects, no maps, and no wildcard keys. The single sanctioned opening is `any` — a field-level top type that is grep-visible in the schema text, never chosen by the tool (`infer` never emits it), and never opens the label alphabet the algebra reasons over. This discipline is what keeps `compatible_with`, `equivalent`, `normalize`, and `infer` well-defined, decidable operations — not a constraint imposed for its own sake. See [any-type-spec.md](any-type-spec.md) for the full design and [openness.md](openness.md) for why maps and open records remain refused.
 
 ---
 
@@ -35,9 +35,13 @@ Three properties shape every other decision in this document:
   required, optional, and array in a single range, rather than splitting the
   question across several separate mechanisms that would each need their
   own rules (and their own edge cases to get wrong).
-- **A schema should guarantee structure, with no escape hatch that lets it
-  declare "no structure here."** Every record is closed (§5); there is no
-  `Any`, no open/wildcard record, and no open-ended map type (§3).
+- **A schema should guarantee structure everywhere it doesn't explicitly
+  opt out.** Every record is closed (§5); there is no open/wildcard record
+  and no open-ended map type (§3). The one sanctioned opt-out is the `any`
+  type (v0.5.0): a field may declare "no structure checked here," at a
+  fixed, counted label, visible as a literal `any` token in the schema
+  text — and the guarantee ends exactly there, stated rather than hidden
+  (see [any-type-spec.md](any-type-spec.md)).
 
 A field's type is also never a composition of several candidates (no enums,
 no unions, no literal values in type position — §5). The reason: if a
@@ -54,12 +58,16 @@ a choice to make.
 
 **Goals**
 - One canonical Document model, format-independent, faithful to every supported input (including XML interleaving).
-- A small, self-contained schema model that's closed by construction -- every operation over it (`validate`, `compatible_with`, `equivalent`, `normalize`, `infer`) has exactly one answer, never a best-effort guess.
+- A small, self-contained schema model that's closed by default (with `any` as its one explicit, demarcated opening) -- every operation over it (`validate`, `compatible_with`, `equivalent`, `normalize`, `infer`) has exactly one answer, never a best-effort guess.
 - A clean formal definition both models can be specified and reasoned about from.
 
-**Non-goals (deliberately out of scope for now)**
-- **Maps / open key sets** (`{ [string]: T }`) — not expressible; reintroduce later as an explicit, opt-in construct if needed.
-- **Wildcard / open records** and **`Any`** — not expressible; they would abandon structure.
+**Non-goals**
+- **Maps / open key sets** (`{ [string]: T }`) and **wildcard / open records**
+  — refused, not merely deferred: they would open the label alphabet the
+  whole algebra reasons over. See [the openness decision
+  record](openness.md) for the full argument. (`any`, by contrast, opens
+  only a declared value at a fixed label — see [§1 above](#1-summary) and
+  [any-type-spec.md](any-type-spec.md).)
 - **Structural unions** (`{a}|{b}`), **value-domain unions/enums** (`"a" | "b"`), and **positional tuples** (`[string, integer]`) — not expressible (see §2 for why, on the value-domain side).
 - **Constrained scalars** (e.g. `Email = string matching …`) — no value refinements yet.
 - **Order-sensitive fields** — validation is order-free (see §4, §7).

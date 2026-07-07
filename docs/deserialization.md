@@ -174,6 +174,31 @@ and "`date`/`datetime` stay mutually exclusive" notes that go with it —
 lives in one place: [model spec §10](design/model.md#10-scalar-and-python-type),
 the formal definition this page's examples are derived from.
 
+## Inside `any`: no conversions, by design
+
+At a field typed `any` (v0.5.0), schema-directed reading passes the
+subtree through **exactly as the reader produced it** — the `schema=None`
+behavior, scoped to that subtree. No upgrades (a date-shaped string stays
+a string), and no downgrades either (a YAML-native `date` object stays a
+`date` object):
+
+```python
+import datetime
+from omnist import parse_schema, read_json
+
+s = parse_schema('record R { "when": datetime, "data": any }\nroot R')
+node = read_json('{"when": "2026-07-01T09:30:00", '
+                 '"data": {"since": "2024-01-01"}}', schema=s)
+values = dict(node)
+assert isinstance(values["when"], datetime.datetime)   # sibling: upgraded
+assert dict(values["data"])["since"] == "2024-01-01"   # inside any: still a str
+assert isinstance(dict(values["data"])["since"], str)
+```
+
+The conformance guarantee still holds trivially — `any` accepts every
+legal Document value — but what you get inside is format-dependent raw
+reading. Predictable, and worth knowing before you reach in.
+
 ## `materialize`: upgrading an already-parsed node
 
 `schema=` on a reader is sugar for parsing, then calling `materialize`

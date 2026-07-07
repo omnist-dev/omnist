@@ -108,11 +108,11 @@ rules, is
 | Function | Builds |
 |---|---|
 | `record(*fields) -> Record` | a closed record from `Field`s |
-| `field(label, type, min=1, max=1) -> Field` | one field; `type` is a `Scalar` (e.g. `t.string`) or a `Ref`; `max=None` is unbounded |
-| `nullable(scalar) -> Scalar` | a copy of `scalar` that also accepts `null` (the `?` form) |
+| `field(label, type, min=1, max=1) -> Field` | one field; `type` is a `Scalar` (e.g. `t.string`), a `Ref`, or `t.any`; `max=None` is unbounded |
+| `nullable(scalar) -> Scalar` | a copy of `scalar` that also accepts `null` (the `?` form). Raises `SchemaError` on `t.any` — `any` already includes null |
 | `ref(name) -> Ref` | a reference to a named record |
 | `schema(root, **env) -> Schema` | assemble a `Schema` (`root` is a `Ref` or a name string) |
-| `t` | the scalar namespace: `t.string`, `t.integer`, `t.number`, `t.boolean`, `t.date`, `t.time`, `t.datetime` — ready-to-use `Scalar` instances, passed as-is as a field's type |
+| `t` | the type namespace: `t.string`, `t.integer`, `t.number`, `t.boolean`, `t.date`, `t.time`, `t.datetime` — ready-to-use `Scalar` instances — plus `t.any`, the [`any` type](schema.md#the-any-type) singleton (an `AnyType`, exported for `isinstance` checks); all passed as-is as a field's type |
 
 ```python
 from omnist import schema, record, field, ref, nullable, t

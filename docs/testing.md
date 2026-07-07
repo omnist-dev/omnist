@@ -241,7 +241,13 @@ full-codebase review in #154) removes that possibility by not using an
 algorithm as the reference at all. It enumerates a finite universe `U` of
 documents — root edge-lists over labels `{a, b}`, leaves `{1, "x", None}`,
 children either a leaf or a nested depth-1 edge list, plus an extended
-universe adding higher-cardinality shapes — and a family of schemas
+universe adding higher-cardinality shapes, plus (since v0.5.0) a fixed set
+of witness leaves guaranteeing one value of *each* of the seven scalar
+kinds and at least one edge-list is always present — the structural
+guarantee that makes every `any`-containment False concretely vindicated
+by a counterexample document rather than left unresolved (a `Record`
+accepts no scalar leaf; a `Scalar` accepts no edge-list; see
+[any-type-spec.md §5.3](design/any-type-spec.md)) — and a family of schemas
 (systematic single-record schemas covering every scalar x cardinality
 combination, a few structural schemas, plus seeded-random two-record
 schemas). For each schema `s`, the ground-truth language is computed

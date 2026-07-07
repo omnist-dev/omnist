@@ -69,6 +69,56 @@ graph LR
 All of this is defined formally, with proofs, in
 [the model spec](design/model.md).
 
+## The `any` type
+
+A field may be typed `any` (v0.5.0): its value is accepted *unchecked* —
+any scalar, `null`, or a nested subtree of any shape — and validation does
+not descend into it. The field's **label** is still fixed, declared, and
+counted: cardinality applies exactly as for every other field. Only the
+value's shape is unconstrained.
+
+```python
+from omnist import doc, parse_schema
+
+s = parse_schema('''
+record Event {
+    "id":      string,
+    "type":    string,
+    "data":    any,
+}
+root Event
+''')
+
+# Two payloads with completely different shapes -- one schema accepts both.
+assert s.validate(doc({"id": "evt_1", "type": "user.created",
+                       "data": {"name": "Ann", "email": "a@x.com"}})).ok
+assert s.validate(doc({"id": "evt_2", "type": "payment.settled",
+                       "data": {"amount_cents": 1250, "currency": "EUR"}})).ok
+```
+
+Three grammar rules keep it disciplined:
+
+- `any` already includes `null`, so `any?` is rejected as redundant.
+- `any` is a **reserved type name** — a record cannot be named `any`.
+- `infer` never produces `any`: every `any` in a schema is one a human
+  deliberately wrote, and you can grep a schema's text for every opening
+  in its guarantees.
+
+**The cost, stated loudly: checking ends exactly where `any` begins.**
+`compatible_with` is *vacuous* inside an `any` region — any change to the
+data shapes flowing through it is "backward compatible" by definition,
+which is true but empty. A schema that is 40% `any` gives compatibility
+verdicts that are 40% meaningless while looking authoritative. Use `any`
+for genuinely unowned data (third-party webhook payloads, spec'd-open
+config sections), and tighten it later: point `infer` at the real
+documents flowing through the `any` region and it proposes the closed
+replacement schema. Schema-directed reading does no conversions inside
+`any` — see [Schema-directed deserialization](deserialization.md).
+
+Open *keys* remain refused (no map type, no open records) — that would
+open the label alphabet the whole algebra reasons over. The dividing line
+and its rationale: [the openness decision record](design/openness.md).
+
 ## The Python builder
 
 The same schema, built from Python instead of parsed from text. Scalar
