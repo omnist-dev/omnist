@@ -24,6 +24,7 @@ yourself from the repo root.
 - [`omnist schema normalize`](#omnist-schema-normalize)
 - [`omnist schema prune`](#omnist-schema-prune)
 - [`omnist schema is-empty`](#omnist-schema-is-empty)
+- [`omnist schema lint`](#omnist-schema-lint)
 - [`omnist schema extract`](#omnist-schema-extract)
 - [`omnist schema compatible-with`](#omnist-schema-compatible-with)
 - [`omnist schema equivalent`](#omnist-schema-equivalent)
@@ -412,6 +413,37 @@ OML-encoded (`oml`); exit `0` if empty, `1` if not — mirroring
 $ printf 'record A { "x": B }\nrecord B { "y": A }\nroot A\n' | omnist schema is-empty -
 true
 ```
+
+## `omnist schema lint`
+
+```
+omnist schema lint <schema-file> [--json] [--severity info|warning]
+```
+
+`lint()` — non-destructive structural diagnostics for the *schema itself*
+(as opposed to `validate`, which checks a *document* against a schema). It
+**reports, never mutates**: `prune`/`normalize` are the transforms that
+fix these problems, `lint` only surfaces them. Four checks:
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `unsatisfiable-record` | `warning` | a reachable record no finite document can match (e.g. a mandatory ref cycle) |
+| `unreachable-record` | `warning` | a record defined in `env` but never reachable from `root` |
+| `duplicate-record` | `warning` | two+ structurally identical records under different names |
+| `any-field` | `info` | an inventory of every `any`-typed field, for a human to audit |
+
+Findings are sorted by `(code, location)`. Exit `0` if no `warning`-severity
+finding survives the `--severity` filter, `1` otherwise — an `any-field`
+inventory alone never fails. `--json` prints
+`{"ok": bool, "findings": [{"code","severity","location","message"}, ...]}`;
+`--severity warning` suppresses the `info`-level `any-field` inventory.
+
+```sh
+$ omnist schema lint examples/cli/duplicate-records.osd
+warning: duplicate-record: Customer, Employee: records 'Employee' are structurally identical to 'Customer'; merge them with `schema normalize`
+```
+
+A clean schema prints `no findings` and exits `0`.
 
 ## `omnist schema extract`
 

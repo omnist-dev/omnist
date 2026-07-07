@@ -264,6 +264,32 @@ def _cmd_schema_extract(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_schema_lint(args: argparse.Namespace) -> int:
+    from . import lint
+    s = parse_schema(_read_input(args.schema_file))
+    order = {"info": 0, "warning": 1}
+    threshold = order[args.severity]
+    findings = [f for f in lint(s) if order.get(f.severity, 1) >= threshold]
+    has_warning = any(f.severity == "warning" for f in findings)
+    if args.json:
+        payload = {
+            "ok": not has_warning,
+            "findings": [
+                {"code": f.code, "severity": f.severity,
+                 "location": f.location, "message": f.message}
+                for f in findings
+            ],
+        }
+        print(_json.dumps(payload))
+    else:
+        if not findings:
+            print("no findings")
+        else:
+            for f in findings:
+                print(f"{f.severity}: {f.code}: {f.location}: {f.message}")
+    return 1 if has_warning else 0
+
+
 def _encode_bool_result(key: str, value: bool, fmt: str) -> str:
     """Encode a single boolean result -- shared by schema compatible-with
     and equivalent."""
@@ -423,6 +449,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="single-line, machine-oriented output instead of pretty-printed")
     schema_extract_p.add_argument("-o", "--output", help="output file; omit for stdout")
     schema_extract_p.set_defaults(func=_cmd_schema_extract)
+
+    schema_lint_p = schema_sub.add_parser(
+        "lint",
+        help="report structural problems without mutating: unsatisfiable, "
+             "unreachable, and duplicate records, plus an any-field inventory")
+    schema_lint_p.add_argument("schema_file", help="OSD file, or - for stdin")
+    schema_lint_p.add_argument(
+        "--json", action="store_true",
+        help="machine-readable {ok, findings} on stdout; exit codes unchanged")
+    schema_lint_p.add_argument(
+        "--severity", choices=["info", "warning"], default="info",
+        help="minimum severity to report (default: info, i.e. everything)")
+    schema_lint_p.set_defaults(func=_cmd_schema_lint)
 
     schema_compat_p = schema_sub.add_parser(
         "compatible-with", help="is every document `a` accepts also accepted by `b`")

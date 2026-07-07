@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.5.0"
+    assert ds.__version__ == "0.5.1"
 
 
 def test_quickstart():
@@ -495,7 +495,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.5.0"
+    assert ds.__version__ == "0.5.1"
 
 
 def test_api_docs_schema_raises():
@@ -529,6 +529,17 @@ def test_api_docs_string_ambiguous_adjustment():
     rep = WriteReport()
     d.to_xml(report=rep)
     assert [(a.code, a.severity) for a in rep] == [("string.ambiguous", "warning")]
+
+
+def test_schema_docs_linting_example():
+    from omnist import lint
+
+    s = parse_schema('record Employee { "name": string }\n'
+                     'record Customer { "name": string }\n'
+                     'record Company  { "employee": Employee, "customer": Customer }\n'
+                     'root Company')
+    assert [(f.code, f.location) for f in lint(s)] == [
+        ("duplicate-record", "Customer, Employee")]
 
 
 def test_deserialization_docs_core_distinction():

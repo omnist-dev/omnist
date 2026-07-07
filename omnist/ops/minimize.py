@@ -43,14 +43,19 @@ from .prune import is_empty, prune
 from .signature import local_signature
 
 
-def normalize(s: Schema) -> Schema:
-    """The canonical minimal schema equivalent to ``s``: fewest env
-    records, unique up to record naming. See module docstring for the
-    algorithm (paper's Algorithm 2, MinimizeSA)."""
-    s = prune(s)
-    if is_empty(s):
-        return s
+def equivalence_classes(s: Schema) -> List[List[str]]:
+    """Partition ``s.env``'s record names into structural-equivalence classes
+    via MinimizeSA-style partition refinement (module docstring, steps 2-3):
+    an initial ``local_signature`` grouping refined to a fixpoint by which
+    *block* each same-labeled ref field points to.
 
+    Operates on ``s.env`` exactly as given -- it does **not** prune first, so
+    unreachable or unsatisfiable records are still classified. ``normalize``
+    calls this after its own ``prune``/``is_empty`` steps; ``lint`` calls it on
+    the raw schema so structurally-identical records are reported as authored.
+    Each returned block is a list of names; a block of length > 1 is a set of
+    records with identical structure.
+    """
     names = sorted(s.env)
     block_of: Dict[str, int] = {}
     blocks: List[List[str]] = _group_by(names, lambda n: local_signature(s.env[n]))
@@ -73,6 +78,19 @@ def normalize(s: Schema) -> Schema:
             changed = True
         blocks = new_blocks
         block_of = new_block_of
+    return blocks
+
+
+def normalize(s: Schema) -> Schema:
+    """The canonical minimal schema equivalent to ``s``: fewest env
+    records, unique up to record naming. See module docstring for the
+    algorithm (paper's Algorithm 2, MinimizeSA)."""
+    s = prune(s)
+    if is_empty(s):
+        return s
+
+    names = sorted(s.env)
+    blocks = equivalence_classes(s)
 
     rep: Dict[str, str] = {}
     for block in blocks:

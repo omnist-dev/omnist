@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.5.1] — `schema lint`
+
+A new `omnist schema lint` command (and `omnist.lint` API) runs
+non-destructive structural diagnostics on a *schema* — the counterpart to
+`validate`, which checks a *document*. It **reports, never mutates**:
+`prune`/`normalize` remain the transforms that fix things; `lint` only
+surfaces them. Four checks:
+
+- `unsatisfiable-record` (`warning`) — a reachable record no finite
+  document can match (e.g. a mandatory ref cycle).
+- `unreachable-record` (`warning`) — a record defined but never reachable
+  from the root; `prune` drops these.
+- `duplicate-record` (`warning`) — two+ structurally identical records
+  under different names; `normalize` merges them.
+- `any-field` (`info`) — an inventory of every `any`-typed field, so a
+  human can audit the schema's deliberate openings.
+
+`lint(schema)` returns a sorted list of frozen `LintFinding(code, severity,
+location, message)`. The CLI prints text by default or `--json`
+(`{"ok", "findings"}`), supports a `--severity {info,warning}` filter, and
+exits `1` if any surviving finding is `warning`-severity (an `any`-field
+inventory alone stays `0`).
+
+Internally, `minimize.normalize`'s partition-refinement core was extracted
+into a public `equivalence_classes(schema)` (reused by `duplicate-record`);
+`normalize`'s output is unchanged. Additive, passive surface — the model is
+untouched — hence a patch bump.
+
 ## [v0.5.0] — the `any` type
 
 A field may now be typed `any`: its value is accepted unchecked (any

@@ -18,6 +18,7 @@ omnist schema format           <schema-file>  [--compact] [-o OUTPUT]
 omnist schema normalize        <schema-file>  [--compact] [-o OUTPUT]
 omnist schema prune            <schema-file>  [--compact] [-o OUTPUT]
 omnist schema is-empty         <schema-file>  [--result-format text|json|oml]
+omnist schema lint             <schema-file>  [--json] [--severity info|warning]
 omnist schema extract          <schema-file>  --keep label1,label2,... [--compact] [-o OUTPUT]
 omnist schema compatible-with  <a> <b>        [--result-format text|json|oml]
 omnist schema equivalent       <a> <b>        [--result-format text|json|oml]
@@ -35,7 +36,7 @@ no `--from`/`--to`.
   no extension-based inference.
 - `--to` is always required on `convert`/`check` — no defaulting.
 - `format`/`schema format`/`schema normalize`/`schema prune`/
-  `schema is-empty`/`schema extract`/`schema compatible-with`/
+  `schema is-empty`/`schema lint`/`schema extract`/`schema compatible-with`/
   `schema equivalent` take no `--from`/`--to`: each reads/writes exactly
   one format (OML or OSD).
 - Schema files conventionally use `.osd`; not enforced.
@@ -167,6 +168,22 @@ own first step). `--compact` as elsewhere.
 (`text`, default), `{"empty": bool}` (`json`), or the same shape
 OML-encoded (`oml`). Exit `0` if empty, `1` if not — the same
 boolean-result convention as `compatible-with`/`equivalent`.
+
+### `omnist schema lint <schema-file> [--json] [--severity info|warning]`
+
+`lint()` — non-destructive structural diagnostics for the schema itself.
+Reports, never mutates (`prune`/`normalize` are the transforms). Four
+checks: `unsatisfiable-record` (reachable but no finite document matches),
+`unreachable-record` (defined but not reachable from root),
+`duplicate-record` (structurally identical records under different names),
+each `warning`; and `any-field` (inventory of every `any`-typed field),
+`info`. Findings sort by `(code, location)`. Text output is one
+`severity: code: location: message` line per finding, or `no findings`.
+`--json` prints `{"ok": bool, "findings": [{"code","severity","location",
+"message"}, ...]}`, mirroring `validate --json`'s shape. `--severity`
+filters by minimum severity (`info` default keeps everything; `warning`
+drops the `any-field` inventory). Exit `0` if no surviving finding is
+`warning`-severity, `1` if any is — an `info`-only result always exits `0`.
 
 ### `omnist schema extract <schema-file> --keep label1,label2,... [--compact] [-o OUTPUT]`
 

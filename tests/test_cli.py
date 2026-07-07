@@ -904,6 +904,73 @@ class TestSchemaEquivalent:
         assert out == '{"equivalent": false}\n'
 
 
+class TestSchemaLint:
+    def test_clean_schema_text_exit_0(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "x": integer }\nroot R\n')
+        code, out, err = run(
+            ["schema", "lint", str(p)], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out.strip() == "no findings"
+
+    def test_unreachable_warning_text_exit_1(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "x": integer }\n'
+                     'record Orphan { "y": string }\nroot R\n')
+        code, out, err = run(
+            ["schema", "lint", str(p)], capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert "unreachable-record" in out
+        assert "Orphan" in out
+
+    def test_json_output_shape(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "x": integer }\n'
+                     'record Orphan { "y": string }\nroot R\n')
+        code, out, err = run(
+            ["schema", "lint", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        assert code == 1
+        payload = json.loads(out)
+        assert payload["ok"] is False
+        assert payload["findings"][0]["code"] == "unreachable-record"
+        assert set(payload["findings"][0]) == {"code", "severity", "location", "message"}
+
+    def test_info_only_is_ok_exit_0(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "data": any }\nroot R\n')
+        code, out, err = run(
+            ["schema", "lint", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        payload = json.loads(out)
+        assert payload["ok"] is True
+        assert payload["findings"][0]["code"] == "any-field"
+
+    def test_severity_warning_filters_out_info(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "data": any }\nroot R\n')
+        code, out, err = run(
+            ["schema", "lint", str(p), "--severity", "warning", "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        payload = json.loads(out)
+        assert payload["findings"] == []
+
+    def test_reads_from_stdin(self, capsys, monkeypatch):
+        code, out, err = run(
+            ["schema", "lint", "-"],
+            stdin='record R { "x": integer }\nroot R\n',
+            capsys=capsys, monkeypatch=monkeypatch)
+        assert code == 0
+        assert out.strip() == "no findings"
+
+    def test_invalid_osd_exit_2(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text("this is not osd")
+        code, out, err = run(
+            ["schema", "lint", str(p)], capsys=capsys, monkeypatch=None)
+        assert code == 2
+
+
 class TestTopLevel:
     def test_missing_command_is_argparse_usage_error(self):
         with pytest.raises(SystemExit) as exc:

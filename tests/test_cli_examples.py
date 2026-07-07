@@ -258,6 +258,18 @@ class TestSchemaIsEmptyExample:
         assert out == "true\n"
 
 
+class TestSchemaLintExample:
+    def test_duplicate_records_lint(self, capsys):
+        code, out, err = run(
+            ["schema", "lint", "examples/cli/duplicate-records.osd"], capsys)
+        assert code == 1
+        assert out == (
+            "warning: duplicate-record: Customer, Employee: records "
+            "'Employee' are structurally identical to 'Customer'; "
+            "merge them with `schema normalize`\n"
+        )
+
+
 class TestSchemaNormalizeExample:
     def test_merges_duplicate_records(self, capsys):
         code, out, err = run(
