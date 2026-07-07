@@ -49,6 +49,7 @@ from .formats import (
 )
 from .infer import infer
 from .oml import check_oml, read_oml, write_oml
+from .ops import LintFinding, lint
 from .osd import parse_schema, to_osd
 from .registry import Format, formats, get_format, register_format
 
@@ -81,7 +82,7 @@ from .schema import (
 
 _rb()
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 __all__ = [
     # errors
@@ -99,6 +100,7 @@ __all__ = [
     "parse_schema", "to_osd",
     # operations (compatible_with / equivalent / normalize are Schema methods)
     "infer", "materialize",
+    "lint", "LintFinding",
     # codecs
     "read_json", "write_json", "read_yaml", "write_yaml",
     "read_toml", "write_toml", "read_xml", "write_xml",

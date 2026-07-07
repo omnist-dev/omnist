@@ -391,6 +391,40 @@ leaves the root record's fields untouched — pruning them would silently
 produce a different, satisfiable schema, breaking the equivalence
 guarantee.
 
+### Linting a schema
+
+`validate` checks a *document* against a schema. `lint` checks the *schema
+itself* for structural problems that parse fine but mean parts of it can
+never do anything. **`lint` diagnoses; `prune`/`normalize` fix.** It reports
+and never mutates — that separation is the whole design.
+
+```python
+from omnist import lint, parse_schema
+
+s = parse_schema('record Employee { "name": string }\n'
+                 'record Customer { "name": string }\n'
+                 'record Company  { "employee": Employee, "customer": Customer }\n'
+                 'root Company')
+[(f.code, f.location) for f in lint(s)]
+# [('duplicate-record', 'Customer, Employee')]
+```
+
+Four checks, each a `LintFinding(code, severity, location, message)`:
+
+- **`unsatisfiable-record`** (`warning`) — a *reachable* record no finite
+  document can match (e.g. a mandatory ref cycle). `is_empty()` asks the
+  same question of the root; lint surfaces every offending record.
+- **`unreachable-record`** (`warning`) — a record defined in the env but
+  never reachable from `root`. `prune()` removes these.
+- **`duplicate-record`** (`warning`) — two or more structurally identical
+  records under different names. `normalize()` merges them.
+- **`any-field`** (`info`) — an inventory of every `any`-typed field, so a
+  human can audit the schema's deliberate openings. Advisory only.
+
+Findings are sorted by `(code, location)`. The three `warning` codes each
+point at the transform that fixes them; the `any` inventory is `info` and
+never signals a problem on its own.
+
 ## See also
 
 - [User guide](guide.md) — the practical tour, including the Python builder,
