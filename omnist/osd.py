@@ -26,7 +26,7 @@ import re
 from typing import List, Optional
 
 from .errors import SchemaError
-from .schema import SCALAR_NAMES, Field, Record, Ref, Scalar, Schema
+from .schema import SCALAR_NAMES, AnyType, Field, Record, Ref, Scalar, Schema
 
 _TOKEN = re.compile(r"""
       (?P<ws>\s+)
@@ -239,7 +239,9 @@ def _card(lo: int, hi: Optional[int]) -> str:
     return f"[{lo},{'' if hi is None else hi}]"
 
 
-def _type(t: Scalar | Ref) -> str:
+def _type(t: Scalar | Ref | AnyType) -> str:
+    if isinstance(t, AnyType):
+        return "any"
     if isinstance(t, Ref):
         return t.name
     return f"{t.name}{'?' if t.nullable else ''}"

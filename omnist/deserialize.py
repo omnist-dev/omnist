@@ -35,7 +35,7 @@ import datetime as _dt
 from typing import Any
 
 from .errors import ParseError
-from .schema import Record, Scalar, Schema, ValidationResult, _is_iso
+from .schema import AnyType, Record, Scalar, Schema, ValidationResult, _is_iso
 
 _TEMPORAL_CLASS = {"date": _dt.date, "time": _dt.time, "datetime": _dt.datetime}
 
@@ -55,6 +55,8 @@ def materialize(node: Any, schema: Schema) -> Any:
 def _materialize_type(node: Any, schema: Schema, t: Any, path: str,
                        res: ValidationResult) -> Any:
     d = schema.resolve(t)
+    if isinstance(d, AnyType):
+        return node
     if isinstance(d, Scalar):
         return _materialize_scalar(node, d, path, res)
     return _materialize_record(node, schema, d, path, res)

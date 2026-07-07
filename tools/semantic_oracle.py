@@ -58,7 +58,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from omnist.document import Doc  # noqa: E402
 from omnist.errors import SchemaError  # noqa: E402
 from omnist.ops import compatible_with, extract, is_empty, normalize, prune  # noqa: E402
-from omnist.schema import Field, Record, Ref, Scalar, Schema, t  # noqa: E402
+from omnist.schema import AnyType, Field, Record, Ref, Scalar, Schema, t  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # 1. Universe construction
@@ -328,6 +328,8 @@ def _minimal_value(schema: Schema, ty, depth: int, building: FrozenSet[str]) -> 
     mandatory cycle (returns an empty edge-list if hit -- deliberately
     "wrong" for a cyclic mandatory record, but such a record is
     unsatisfiable anyway, so no minimal witness exists for it)."""
+    if isinstance(ty, AnyType):
+        return None  # null is a legal minimal witness: null in L(any)
     if isinstance(ty, Scalar):
         return _MINIMAL_LEAF[ty.name]
     if ty.name in building or depth > 50:

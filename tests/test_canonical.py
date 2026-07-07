@@ -1569,7 +1569,7 @@ class TestSchemaConstructionErrors:
     OSD -- the Python builder is just as much a public surface."""
 
     def test_field_type_must_be_ref_or_scalar(self):
-        with pytest.raises(SchemaError, match="must be a Ref or Scalar"):
+        with pytest.raises(SchemaError, match="must be a Ref, Scalar, or t.any"):
             Field("x", "not-a-type")
 
     def test_field_invalid_cardinality(self):

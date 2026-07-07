@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
-from ..schema import Field, Record, Ref, Scalar, Schema
+from ..schema import AnyType, Field, Record, Ref, Scalar, Schema
 from .prune import is_empty, prune
 from .signature import local_signature
 
@@ -116,7 +116,7 @@ def _remap(rec: Record, rep: Dict[str, str]) -> Record:
                    for f in rec.fields])
 
 
-def _remap_type(t: Ref | Scalar, rep: Dict[str, str]) -> Ref | Scalar:
+def _remap_type(t: Ref | Scalar | AnyType, rep: Dict[str, str]) -> Ref | Scalar | AnyType:
     if isinstance(t, Ref):
         return Ref(rep.get(t.name, t.name))
     return t

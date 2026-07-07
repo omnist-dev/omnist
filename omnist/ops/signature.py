@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Union
 
-from ..schema import Record, Ref, Scalar
+from ..schema import AnyType, Record, Ref, Scalar
 
 
 def local_signature(
@@ -42,7 +42,9 @@ def local_signature(
     return ("record", fields)
 
 
-def _shape_key(t: Union[Ref, Scalar]) -> tuple[str, ...] | tuple[str, str, bool]:
+def _shape_key(t: Union[Ref, Scalar, AnyType]) -> tuple[str, ...] | tuple[str, str, bool]:
+    if isinstance(t, AnyType):
+        return ("any",)
     if isinstance(t, Ref):
         return ("ref",)
     return ("scalar", t.name, t.nullable)
