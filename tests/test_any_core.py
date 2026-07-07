@@ -12,6 +12,8 @@ since they are not yet part of ``omnist``'s public surface.
 from __future__ import annotations
 
 import datetime as _dt
+import sys
+from pathlib import Path
 
 import pytest
 from hypothesis import given, settings
@@ -25,7 +27,14 @@ from omnist.ops.isomorphic import _isomorphic
 from omnist.ops.signature import local_signature
 from omnist.osd import parse_schema
 from omnist.schema import ANY, AnyType, Schema, nullable
-from tools.semantic_oracle import _minimal_value
+
+# tools/ is repo-root-relative, not an installed package; bare `pytest -q`
+# (as CI runs it) does not put the repo root on sys.path the way
+# `python -m pytest` does, so add it explicitly before the import — the
+# same pattern tests/test_semantic_oracle.py already uses.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.semantic_oracle import _minimal_value  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # I-7 / T-7: t.any singleton
