@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.5.3] — uniform `--json` across the CLI
+
+`--json` is now a **global flag on every command** (`format`, `convert`,
+`check`, `infer`, `validate`, and all `schema` subcommands), not just
+`validate` and `schema lint`. It gives one uniform, machine-readable guarantee:
+**on any data/parse/IO error, the command prints `{"ok": false, "message",
+"errors"}` to stdout (stderr empty) with the exact same exit code** — so a
+wrapper (CI, a Node/Python subprocess) can detect and classify failure from any
+command without string-matching stderr. Result-bearing commands (`check`,
+`schema is-empty`/`compatible-with`/`equivalent`, plus `validate`) also emit
+their structured result as JSON under `--json`, matching `--result-format json`.
+
+This is additive and opt-in: **no behavior changes without `--json`.** Every
+command is byte-identical to before when the flag is absent, `validate --json`
+and `schema lint --json` are byte-identical to their prior output, and exit
+codes are unchanged in every case. argparse usage errors (unknown flag, missing
+required argument) remain argparse's own stderr message + exit `2` — a
+deliberate boundary, since those are caller bugs rather than data errors.
+`--result-format` is unchanged and retained (it still offers `oml` encoding).
+
+- Shared `--json` via an `argparse` parent parser on every subparser; the
+  per-command `--json` on `validate`/`schema lint` is now that inherited flag.
+- Uniform error shape from one source (`_json_error`); every in-handler error
+  site funnels through a `_fail(args, exc, code)` helper and `main()`'s handler
+  honors `--json`.
+- Docs: `docs/cli.md` gains a "Machine mode: `--json`" section and a scripting
+  note; `docs/design/cli-spec.md` kept in sync.
+
 ## [v0.5.2] — `infer --allow-any`
 
 An opt-in, **default-off** mode for `infer` that turns its two hard failure

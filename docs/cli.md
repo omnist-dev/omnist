@@ -15,6 +15,7 @@ yourself from the repo root.
 ## Commands
 
 - [Version and help](#version-and-help)
+- [Machine mode: `--json`](#machine-mode---json)
 - [`omnist format`](#omnist-format)
 - [`omnist convert`](#omnist-convert)
 - [`omnist check`](#omnist-check)
@@ -65,6 +66,61 @@ options:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
 ```
+
+## Machine mode: `--json`
+
+`--json` is a **global flag accepted by every command** (`format`, `convert`,
+`check`, `infer`, `validate`, and every `schema` subcommand). It turns the
+command into "machine mode" with a single, uniform guarantee:
+
+- **On any error** — a malformed document, a bad schema, a missing/unreadable
+  file, an IO failure, or a command-specific refusal (`convert --strict`'s
+  lossy-write refusal, `schema extract`'s "no valid subschema") — the command
+  prints `{"ok": false, "message": str, "errors": [{"path", "code", "message"}, ...]}`
+  to **stdout** instead of a bare `error: ...` on stderr. `errors` carries the
+  structured per-problem list when the failure is a `ParseError` (the
+  [same list it exposes since v0.4.1](deserialization.md)); otherwise it's `[]`
+  and the detail is in `message`. **stderr stays empty**, so a caller never has
+  to string-match stderr to detect or classify a failure.
+- **On success**, for the commands that have a single structured result —
+  `validate` (conformance), `check` (adjustments), and `schema is-empty` /
+  `compatible-with` / `equivalent` (a boolean) — the result is emitted as JSON
+  on stdout, the same shape [`--result-format json`](#omnist-validate) gives for
+  that command. Commands whose whole purpose is to emit a document or schema as
+  text (`format`, `convert`, `infer`, `schema format`/`normalize`/`prune`/`extract`)
+  print that text **exactly as without `--json`** — `--json` only governs their
+  error shape; wrapping their emitted text in JSON would add nothing.
+
+**Exit codes are identical with and without `--json`, in every case.** `--json`
+only changes *where* output goes (stdout vs stderr) and *its shape* — never the
+exit status.
+
+The one deliberate boundary: **argparse usage errors** (an unknown flag, a
+missing required argument like `--from`) are *not* JSON-ified. Those are caller
+bugs, not data errors; argparse still writes its usage message to stderr and
+exits `2`, `--json` or not.
+
+```sh
+$ omnist check examples/cli/lossy.json --from json --to toml --json
+[{"path": "$.age", "code": "null.omitted", "message": "null value dropped (TOML has no null)", "severity": "warning"}]
+
+$ omnist convert examples/cli/lossy.json --from json --to toml --strict --json
+{"ok": false, "message": "warning: $.age: null value dropped (TOML has no null)", "errors": []}
+# exit 1
+
+$ omnist schema compatible-with examples/cli/v1.osd examples/cli/v2.osd --json
+{"compatible": true}
+```
+
+### Scripting `omnist`
+
+For a wrapper (a CI step, a Node/Python subprocess) the contract is: **pass
+`--json`, read stdout, branch on the exit code.** A `0`/`1` result is the
+command's own answer (valid/invalid, compatible/not, empty/not, or a clean
+write); its stdout is the JSON result. A non-zero-with-`{"ok": false}` on stdout
+is a data/IO error you can parse for `message`/`errors`. The only thing that
+still lands on stderr is an argparse usage error (exit `2`, no JSON) — a bug in
+how you invoked the tool, worth surfacing loudly rather than parsing.
 
 ## `omnist format`
 
