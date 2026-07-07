@@ -370,10 +370,11 @@ def test_seeded_random_family_skips_duplicate_labels():
     """The per-record field-building loops in ``_seeded_random_family`` draw
     a label at random for each of ``n_fields`` slots and skip (``continue``)
     any repeat so no record ends up with two fields of the same label.
-    Seed 2 with a single generated schema is a concrete, deterministic case
+    Seed 9 with a single generated schema is a concrete, deterministic case
     where record B's second field slot redraws a label already used by its
-    first field (verified against the underlying PRNG sequence): B ends up
-    with exactly one field even though ``n_fields_b`` requested two,
+    first field (verified against the underlying PRNG sequence:
+    ``n_fields_b`` draws 2 and B's label choices are 'r' then 'r' again):
+    B ends up with exactly one field even though two were requested,
     proving the ``lbl in used_b: continue`` branch actually fired rather
     than merely being reachable in principle.
 
@@ -382,8 +383,11 @@ def test_seeded_random_family_skips_duplicate_labels():
     draw shifted which seeds land on this exact shape, since it consumes
     additional `rng.random()` calls from the same PRNG sequence; the
     property under test (dedup-by-skip) and full determinism are
-    unaffected, only the concrete seed that demonstrates it.)"""
-    schemas = _seeded_random_family(seed=2, count=1)
+    unaffected, only the concrete seed that demonstrates it. An earlier
+    seed choice, 2, turned out to request only one B field under the new
+    draw sequence, making the assertion vacuous -- caught in independent
+    review by instrumenting the PRNG.)"""
+    schemas = _seeded_random_family(seed=9, count=1)
     assert len(schemas) == 1
     b_fields = schemas[0].env["B"].fields
     labels = [f.label for f in b_fields]
