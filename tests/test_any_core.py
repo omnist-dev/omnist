@@ -25,7 +25,6 @@ from omnist.infer import infer
 from omnist.ops import compatible_with, equivalent, is_empty, normalize
 from omnist.ops.isomorphic import _isomorphic
 from omnist.ops.signature import local_signature
-from omnist.osd import parse_schema
 from omnist.schema import ANY, AnyType, Schema, nullable
 
 # tools/ is repo-root-relative, not an installed package; bare `pytest -q`
@@ -435,8 +434,7 @@ def test_minimal_value_any_is_none():
 
 
 # ---------------------------------------------------------------------------
-# I-10 / T-10: writer emits "any"; interim-behavior pin for the parser
-# (removed in PR-2 once the parser gains `any` support).
+# I-10 / T-10: writer emits "any"
 # ---------------------------------------------------------------------------
 
 def test_writer_emits_any_keyword():
@@ -449,16 +447,6 @@ def test_writer_emits_any_for_compact_mode_too():
     s = schema("Root", Root=record(field("data", t.any)))
     text = s.to_osd(indent=None)
     assert "any" in text
-
-
-def test_parser_still_rejects_any_as_unknown_type_pin():
-    """Interim-behavior pin (PR-1 only): the OSD *parser* does not yet know
-    about `any` (that's I-8/I-9, PR-2's job). Until then, a field typed
-    `any` in OSD text still becomes a Ref("any") that fails as an unknown
-    type -- this test is REMOVED in PR-2 once parsing support lands."""
-    text = 'record Root {\n    "data": any\n}\nroot Root\n'
-    with pytest.raises(SchemaError, match="unknown type"):
-        parse_schema(text)
 
 
 # ---------------------------------------------------------------------------
