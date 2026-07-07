@@ -1036,3 +1036,265 @@ class TestTopLevel:
             main(["--help"])
         assert exc.value.code == 0
         assert "canonical data model" in capsys.readouterr().out
+
+
+class TestGlobalJson:
+    """The shared --json "machine mode" (issue #205): on any data/parse/IO
+    error every command emits {"ok": false, ...} on stdout with stderr empty
+    and the SAME exit code as the non-json run; result-bearing commands also
+    emit their structured result on success. Text-emitting commands' success
+    output is unchanged. argparse usage errors stay argparse's stderr/exit-2."""
+
+    SCHEMA = 'record R { "a": integer }\nroot R\n'
+
+    def _assert_json_error(self, out, err, code, expected_code):
+        assert code == expected_code
+        assert err == ""
+        payload = json.loads(out)
+        assert payload["ok"] is False
+        assert "message" in payload
+        assert isinstance(payload["errors"], list)
+
+    # --- error path, one per command (stdout JSON, stderr empty, code unchanged) ---
+
+    def test_format_error_json(self, tmp_path, capsys):
+        p = tmp_path / "bad.oml"
+        p.write_text('a: [1, 2]\n')
+        base, _, _ = run(["format", str(p)], capsys=capsys, monkeypatch=None)
+        code, out, err = run(["format", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, base)
+
+    def test_convert_error_json(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{bad')
+        base, _, _ = run(
+            ["convert", str(p), "--from", "json", "--to", "yaml"],
+            capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "yaml", "--json"],
+            capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, base)
+
+    def test_convert_oml_oml_guard_json(self, tmp_path, capsys):
+        p = tmp_path / "in.oml"
+        p.write_text('a: 1\n')
+        base, _, berr = run(
+            ["convert", str(p), "--from", "oml", "--to", "oml"],
+            capsys=capsys, monkeypatch=None)
+        assert base == 2 and berr.startswith("error: ")
+        code, out, err = run(
+            ["convert", str(p), "--from", "oml", "--to", "oml", "--json"],
+            capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, 2)
+        assert "not supported" in json.loads(out)["message"]
+
+    def test_convert_writeerror_under_strict_json_exit_1(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        dst = tmp_path / "out.toml"
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "toml", "--strict",
+             "-o", str(dst), "--json"],
+            capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, 1)
+        assert not dst.exists()
+
+    def test_check_error_json(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{bad')
+        base, _, _ = run(
+            ["check", str(p), "--from", "json", "--to", "toml"],
+            capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml", "--json"],
+            capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, base)
+
+    def test_infer_error_json(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{bad')
+        base, _, _ = run(["infer", str(p), "--from", "json"], capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["infer", str(p), "--from", "json", "--json"], capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, base)
+
+    def test_schema_format_error_json(self, tmp_path, capsys):
+        p = tmp_path / "bad.osd"
+        p.write_text('record R { "a": integer }\n')   # no root
+        base, _, _ = run(["schema", "format", str(p)], capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["schema", "format", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, base)
+
+    def test_schema_extract_schemaerror_json_exit_1(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "must": integer, "opt" [0,1]: string }\nroot R\n')
+        base, _, _ = run(
+            ["schema", "extract", str(p), "--keep", "opt"],
+            capsys=capsys, monkeypatch=None)
+        assert base == 1
+        code, out, err = run(
+            ["schema", "extract", str(p), "--keep", "opt", "--json"],
+            capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, 1)
+
+    def test_schema_is_empty_error_json(self, tmp_path, capsys):
+        p = tmp_path / "bad.osd"
+        p.write_text('record R { "a": integer }\n')   # no root
+        base, _, _ = run(["schema", "is-empty", str(p)], capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["schema", "is-empty", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, base)
+
+    def test_schema_compatible_with_error_json(self, tmp_path, capsys):
+        a = tmp_path / "bad.osd"
+        a.write_text('record R { "a": integer }\n')   # no root
+        b = tmp_path / "b.osd"
+        b.write_text('record R { "a": integer }\nroot R\n')
+        base, _, _ = run(
+            ["schema", "compatible-with", str(a), str(b)], capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["schema", "compatible-with", str(a), str(b), "--json"],
+            capsys=capsys, monkeypatch=None)
+        self._assert_json_error(out, err, code, base)
+
+    # --- success path for result-bearing commands: matches --result-format json ---
+
+    def test_check_success_json_matches_result_format(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        _, ref, _ = run(
+            ["check", str(p), "--from", "json", "--to", "toml", "--result-format", "json"],
+            capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["check", str(p), "--from", "json", "--to", "toml", "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert err == ""
+        assert out == ref
+        json.loads(out)
+
+    def test_is_empty_success_json(self, tmp_path, capsys):
+        p = tmp_path / "s.osd"
+        p.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["schema", "is-empty", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        assert code == 1   # non-empty -> exit 1, unchanged
+        assert err == ""
+        assert json.loads(out) == {"empty": False}
+
+    def test_compatible_with_success_json(self, tmp_path, capsys):
+        a = tmp_path / "a.osd"
+        a.write_text(self.SCHEMA)
+        b = tmp_path / "b.osd"
+        b.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["schema", "compatible-with", str(a), str(b), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert json.loads(out) == {"compatible": True}
+
+    def test_equivalent_success_json(self, tmp_path, capsys):
+        a = tmp_path / "a.osd"
+        a.write_text(self.SCHEMA)
+        b = tmp_path / "b.osd"
+        b.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["schema", "equivalent", str(a), str(b), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert json.loads(out) == {"equivalent": True}
+
+    # --- text-emitting commands: --json leaves success output unchanged ---
+
+    def test_format_success_text_unchanged_under_json(self, tmp_path, capsys):
+        p = tmp_path / "in.oml"
+        p.write_text('a: 1\n')
+        code, out, err = run(["format", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "a: 1\n"
+
+    def test_convert_success_text_unchanged_under_json(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "yaml", "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "a: 1\n"
+
+    def test_infer_success_text_unchanged_under_json(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        ref_code, ref, _ = run(["infer", str(p), "--from", "json"], capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["infer", str(p), "--from", "json", "--json"], capsys=capsys, monkeypatch=None)
+        assert code == ref_code
+        assert out == ref
+
+    def test_schema_format_success_text_unchanged_under_json(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "a": integer }\nroot R\n')
+        ref_code, ref, _ = run(["schema", "format", str(p)], capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["schema", "format", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        assert code == ref_code
+        assert out == ref
+
+    def test_schema_extract_success_text_unchanged_under_json(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "a": integer }\nroot R\n')
+        ref_code, ref, _ = run(
+            ["schema", "extract", str(p), "--keep", "a"], capsys=capsys, monkeypatch=None)
+        code, out, err = run(
+            ["schema", "extract", str(p), "--keep", "a", "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == ref_code
+        assert out == ref
+
+    # --- boundary: argparse usage errors stay argparse (stderr, exit 2) ---
+
+    def test_missing_required_arg_with_json_is_still_argparse(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": 1}')
+        with pytest.raises(SystemExit) as exc:
+            main(["convert", str(p), "--to", "yaml", "--json"])
+        assert exc.value.code == 2
+        assert capsys.readouterr().err  # argparse wrote usage to stderr, not JSON
+
+    # --- regression: validate/lint --json byte-identical to their prior output ---
+
+    def test_validate_json_success_unchanged(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == '{"ok": true}\n'
+
+    def test_validate_json_conformance_failure_unchanged(self, tmp_path, capsys):
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1, "b": "extra"}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text(self.SCHEMA)
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert out == (
+            '{"ok": false, "message": "invalid:\\n  at $.b: unexpected field", '
+            '"errors": [{"path": "$.b", "code": "unexpected-field", '
+            '"message": "unexpected field"}]}\n')
+
+    def test_lint_json_shape_unchanged(self, tmp_path, capsys):
+        p = tmp_path / "s.osd"
+        p.write_text('record R { "a": integer }\nroot R\n')
+        code, out, err = run(
+            ["schema", "lint", str(p), "--json"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        payload = json.loads(out)
+        assert payload["ok"] is True
+        assert "findings" in payload

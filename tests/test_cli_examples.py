@@ -61,6 +61,35 @@ class TestVersionAndHelpExample:
         )
 
 
+class TestMachineModeJsonExamples:
+    def test_check_lossy_json_flag(self, capsys):
+        code, out, err = run(
+            ["check", "examples/cli/lossy.json", "--from", "json", "--to", "toml", "--json"],
+            capsys)
+        assert code == 0
+        assert err == ""
+        assert out == (
+            '[{"path": "$.age", "code": "null.omitted", '
+            '"message": "null value dropped (TOML has no null)", "severity": "warning"}]\n')
+
+    def test_convert_strict_lossy_json_flag(self, capsys):
+        code, out, err = run(
+            ["convert", "examples/cli/lossy.json", "--from", "json", "--to", "toml",
+             "--strict", "--json"], capsys)
+        assert code == 1
+        assert err == ""
+        assert out == (
+            '{"ok": false, "message": "warning: $.age: null value dropped '
+            '(TOML has no null)", "errors": []}\n')
+
+    def test_compatible_with_json_flag(self, capsys):
+        code, out, err = run(
+            ["schema", "compatible-with", "examples/cli/v1.osd", "examples/cli/v2.osd",
+             "--json"], capsys)
+        assert code == 0
+        assert out == '{"compatible": true}\n'
+
+
 class TestFormatExample:
     def test_messy_person_oml_reformats(self, capsys):
         code, out, err = run(["format", "examples/cli/messy-person.oml"], capsys)

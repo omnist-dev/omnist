@@ -8,25 +8,61 @@
 ## 1. Command tree
 
 ```
-omnist format     <input>                          [--compact] [-o OUTPUT]
-omnist convert    <input>   --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [-o OUTPUT]
+omnist format     <input>                          [--compact] [-o OUTPUT] [--json]
+omnist convert    <input>   --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [-o OUTPUT] [--json]
 omnist validate   <input>   --from FMT --schema FILE [--result-format text|json|oml] [--json]
-omnist infer      <input>...  --from FMT             [--compact] [--allow-any] [-o OUTPUT]
-omnist check      <input>   --from FMT --to FMT [--strict] [--result-format text|json|oml]
+omnist infer      <input>...  --from FMT             [--compact] [--allow-any] [-o OUTPUT] [--json]
+omnist check      <input>   --from FMT --to FMT [--strict] [--result-format text|json|oml] [--json]
 
-omnist schema format           <schema-file>  [--compact] [-o OUTPUT]
-omnist schema normalize        <schema-file>  [--compact] [-o OUTPUT]
-omnist schema prune            <schema-file>  [--compact] [-o OUTPUT]
-omnist schema is-empty         <schema-file>  [--result-format text|json|oml]
+omnist schema format           <schema-file>  [--compact] [-o OUTPUT] [--json]
+omnist schema normalize        <schema-file>  [--compact] [-o OUTPUT] [--json]
+omnist schema prune            <schema-file>  [--compact] [-o OUTPUT] [--json]
+omnist schema is-empty         <schema-file>  [--result-format text|json|oml] [--json]
 omnist schema lint             <schema-file>  [--json] [--severity info|warning]
-omnist schema extract          <schema-file>  --keep label1,label2,... [--compact] [-o OUTPUT]
-omnist schema compatible-with  <a> <b>        [--result-format text|json|oml]
-omnist schema equivalent       <a> <b>        [--result-format text|json|oml]
+omnist schema extract          <schema-file>  --keep label1,label2,... [--compact] [-o OUTPUT] [--json]
+omnist schema compatible-with  <a> <b>        [--result-format text|json|oml] [--json]
+omnist schema equivalent       <a> <b>        [--result-format text|json|oml] [--json]
 ```
 
 `FMT` is one of `json|yaml|toml|xml|oml`. A schema file is always OSD
 (Omnist Schema Definition; `parse_schema`/`to_osd`) — schema commands take
 no `--from`/`--to`.
+
+`--json` is a **shared flag on every command** (an `argparse` parent parser),
+specified once in [§1a](#1a-json-machine-mode-shared) rather than repeated per
+command below.
+
+## 1a. `--json` (machine mode, shared)
+
+Every command accepts `--json`, with one uniform guarantee:
+
+- **On any error** — `ParseError`/`SchemaError`/`WriteError`/`DocumentError`/
+  `OSError`, whether raised through `main()`'s top-level handler or caught in a
+  handler for a command-specific exit code (`convert --strict`'s WriteError→`1`,
+  the `--from oml --to oml` guard→`2`, `schema extract`'s SchemaError→`1`) — the
+  command prints `{"ok": false, "message": str(exc), "errors": [{"path","code",
+  "message"}, ...]}` to **stdout** (stderr empty). `errors` is `ParseError.errors`
+  when the exception is a `ParseError`, else `[]`. Exit code is **unchanged** from
+  the non-`--json` run.
+- **On success**, the commands with a single structured result — `validate`,
+  `check`, `schema is-empty`/`compatible-with`/`equivalent` — emit that result as
+  JSON on stdout, the same shape `--result-format json` produces for that command
+  (reusing the existing json encoders; no new shapes). The text-emitting commands
+  (`format`, `convert`, `infer`, `schema format`/`normalize`/`prune`/`extract`)
+  print their document/schema text unchanged; `--json` governs only their error
+  shape.
+
+Exit codes are identical with and without `--json`, everywhere.
+
+**Boundary:** argparse usage errors (unknown flag, missing required arg) are
+*not* JSON-ified — they occur in `parse_args`, before any handler runs, and stay
+argparse's own stderr message + exit `2`. Those are caller bugs, not data errors.
+
+`--result-format` is unchanged and retained (it additionally offers `oml`
+encoding and does not catch parse errors); `--json` is the recommended machine
+interface. `validate --json` (issue #182) and `schema lint --json` predate this
+and keep their exact prior output — they are the same shared flag, wired to their
+existing richer handlers.
 
 ## 2. Format handling
 
