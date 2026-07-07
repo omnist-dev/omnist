@@ -47,7 +47,7 @@ from .formats import (
     write_xml,
     write_yaml,
 )
-from .infer import infer
+from .infer import AnyFallback, infer, infer_with_report
 from .oml import check_oml, read_oml, write_oml
 from .ops import LintFinding, lint
 from .osd import parse_schema, to_osd
@@ -82,7 +82,7 @@ from .schema import (
 
 _rb()
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 
 __all__ = [
     # errors
@@ -99,7 +99,7 @@ __all__ = [
     # osd
     "parse_schema", "to_osd",
     # operations (compatible_with / equivalent / normalize are Schema methods)
-    "infer", "materialize",
+    "infer", "infer_with_report", "AnyFallback", "materialize",
     "lint", "LintFinding",
     # codecs
     "read_json", "write_json", "read_yaml", "write_yaml",

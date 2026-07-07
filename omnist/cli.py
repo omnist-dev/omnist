@@ -30,6 +30,7 @@ from . import (
     check_yaml,
     doc,
     infer,
+    infer_with_report,
     parse_schema,
     read_json,
     read_oml,
@@ -219,7 +220,14 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 def _cmd_infer(args: argparse.Namespace) -> int:
     reader = _READERS[args.from_]
     docs = [Doc(reader(_read_input(p))) for p in args.input]
-    s = infer(docs)
+    if args.allow_any:
+        s, fallbacks = infer_with_report(docs, allow_any=True)
+        if fallbacks:
+            print(f"opened {len(fallbacks)} field(s) as `any`:", file=sys.stderr)
+            for fb in fallbacks:
+                print(f"  {fb.location} — {fb.reason}", file=sys.stderr)
+    else:
+        s = infer(docs)
     _write_output(args.output, to_osd(s, indent=None if args.compact else 4))
     return 0
 
@@ -391,6 +399,10 @@ def _build_parser() -> argparse.ArgumentParser:
     infer_p.add_argument(
         "--compact", action="store_true",
         help="single-line, machine-oriented OSD output instead of pretty-printed")
+    infer_p.add_argument(
+        "--allow-any", action="store_true",
+        help="opt in to opening conflicting fields as `any` instead of erroring; "
+             "reports which fields were opened, and why, on stderr")
     infer_p.add_argument("-o", "--output", help="output file; omit for stdout")
     infer_p.set_defaults(func=_cmd_infer)
 

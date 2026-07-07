@@ -4,6 +4,37 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.5.2] — `infer --allow-any`
+
+An opt-in, **default-off** mode for `infer` that turns its two hard failure
+points — a label that is an object in some samples and a scalar in others,
+and a label that is a scalar of more than one kind — into `any` fields
+instead of raising, for bootstrapping a draft schema from messy or
+polymorphic data (webhooks, scraped APIs).
+
+The invariant is preserved, just made conditional: **`infer` never emits
+`any` by default.** `infer(samples)` and `infer(samples, allow_any=False)`
+behave exactly as before — still raising `SchemaError` at both conflict
+points, byte-for-byte. Passing `--allow-any` / `allow_any=True` is itself
+the deliberate act; the guardrail moves from per-field to per-invocation,
+not gone. And it is **loud**: the CLI reports on stderr exactly which fields
+it opened and why, so the result reads as a to-tighten draft, not a
+finished schema.
+
+- New `infer_with_report(samples, root_name="Root", *, allow_any=False) ->
+  (Schema, list[AnyFallback])` does the work; `infer` is now a thin wrapper
+  returning just the schema. `AnyFallback` is a frozen
+  `(location, reason)` dataclass. Both are exported.
+- `omnist infer --allow-any` writes the schema to stdout (still pipeable)
+  and the summary to stderr. Without the flag, a conflicting sample errors
+  exactly as today.
+- A field opens at the **narrowest node** — the conflicting field only.
+  Clean nested structure still infers as a record. Wherever `infer` did
+  fall back, the result has vacuous compatibility at that field, like any
+  hand-written `any`.
+
+Additive, opt-in surface with no default-path change — hence a patch bump.
+
 ## [v0.5.1] — `schema lint`
 
 A new `omnist schema lint` command (and `omnist.lint` API) runs

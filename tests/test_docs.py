@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.5.1"
+    assert ds.__version__ == "0.5.2"
 
 
 def test_quickstart():
@@ -299,6 +299,25 @@ def test_guide_infer():
                           '    "tags" [0,]: string,\n}\nroot Root\n')
 
 
+def test_api_docs_infer_with_report_allow_any():
+    # Mirrors the docs/api.md and docs/cli.md --allow-any examples.
+    from omnist import AnyType, infer_with_report
+    samples = [doc({"data": {"x": 1}, "score": 1}),
+               doc({"data": 5, "score": "hi"})]
+    schema_out, fallbacks = infer_with_report(samples, allow_any=True)
+    lines = [f"{fb.location} — {fb.reason}" for fb in fallbacks]
+    assert lines == [
+        "Root.data — mixes objects and values",
+        "Root.score — values of more than one scalar kind (integer, string)",
+    ]
+    by_label = {f.label: f.type for f in schema_out.env["Root"].fields}
+    assert isinstance(by_label["data"], AnyType)
+    assert isinstance(by_label["score"], AnyType)
+    # default (no opt-in) still raises
+    with pytest.raises(SchemaError):
+        infer(samples)
+
+
 def test_guide_real_life_example():
     ORDER = '''
     record Address  { "street": string, "city": string }
@@ -495,7 +514,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.5.1"
+    assert ds.__version__ == "0.5.2"
 
 
 def test_api_docs_schema_raises():

@@ -591,6 +591,48 @@ class TestInfer:
         assert "\n" not in out.rstrip("\n")
         assert '"x": integer' in out
 
+    def test_allow_any_opens_conflict_schema_on_stdout_report_on_stderr(
+            self, tmp_path, capsys):
+        f1 = tmp_path / "a.json"
+        f1.write_text('{"v": 1, "data": {"x": 1}}')
+        f2 = tmp_path / "b.json"
+        f2.write_text('{"v": "x", "data": 5}')
+        code, out, err = run(
+            ["infer", str(f1), str(f2), "--from", "json", "--allow-any"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        # schema (with the opened fields) on stdout, still parseable OSD
+        assert out.startswith("record Root {")
+        assert ": any," in out
+        from omnist import parse_schema
+        parse_schema(out)  # pipeable / parseable
+        # loud report on stderr only
+        assert "opened 2 field(s) as `any`:" in err
+        assert "Root.data — mixes objects and values" in err
+        assert ("Root.v — values of more than one scalar kind (integer, string)"
+                in err)
+
+    def test_allow_any_with_clean_samples_prints_no_report(self, tmp_path, capsys):
+        f1 = tmp_path / "a.json"
+        f1.write_text('{"x": 1}')
+        code, out, err = run(
+            ["infer", str(f1), "--from", "json", "--allow-any"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert err == ""
+        assert '"x": integer' in out
+
+    def test_without_allow_any_conflict_still_errors(self, tmp_path, capsys):
+        f1 = tmp_path / "a.json"
+        f1.write_text('{"v": 1}')
+        f2 = tmp_path / "b.json"
+        f2.write_text('{"v": "x"}')
+        code, out, err = run(
+            ["infer", str(f1), str(f2), "--from", "json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert err.startswith("error: ")
+
 
 class TestSchemaFormat:
     def test_reformats_osd_from_file_to_stdout(self, tmp_path, capsys):

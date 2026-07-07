@@ -340,10 +340,12 @@ refusals (unions, multi-shape nulls, open records, `Map`) all failed one
 test: a value matching *more than one candidate* with no principled
 winner. `any` passes it: a field's declared type is still exactly one of
 {one Scalar, one Ref, `any`} — validation at any node consults exactly
-one candidate and never chooses. `infer` never emits `any` (I-19), so no
-Record-vs-any inference ambiguity exists either — that rule is not a
-carve-out but a consequence of `infer`'s "most specific schema" contract,
-since `any` is never most-specific.
+one candidate and never chooses. `infer` never emits `any` by default
+(I-19), so no Record-vs-any inference ambiguity exists either — that rule
+is not a carve-out but a consequence of `infer`'s "most specific schema"
+contract, since `any` is never most-specific. (The opt-in `--allow-any`
+mode falls back to `any` only at a genuine conflict point, and reports each
+one; it does not choose `any` over a more specific candidate.)
 
 **4.2 Containment is decidable and the lattice is bounded.** The `⊑`
 relation gains exactly the rules of I-12. Termination of the coinductive
@@ -379,7 +381,7 @@ implementer can test against:
 | `any ⊑ any` / `any ≡ any` | True / True; `any ≡ T` for non-any T: False |
 | `extract` at `any` | leaf: kept/dropped wholesale by its own label |
 | `materialize` inside `any` | identity pass-through (§3.3) |
-| `infer` | never produces `any` under any input |
+| `infer` | never produces `any` by default; opt-in `--allow-any` falls back to `any` at a conflict point and reports it |
 
 ## 5. Testing and correctness strategy
 
@@ -432,8 +434,9 @@ feature lands, per the project's docs-as-tests convention.
 **"closed by default; open only where explicitly marked."** The
 weakening is real and deliberately purchased; what keeps it principled is
 that openness is *demarcated* — every hole is a literal `any` token,
-grep-visible and code-reviewable — and the tool never introduces one
-(`infer` never emits it). The differentiator claim survives precisely:
+grep-visible and code-reviewable — and the tool never introduces one on
+its own (`infer` never emits it unless you opt in with `--allow-any`, which
+reports every field it opens). The differentiator claim survives precisely:
 it was never "no escape hatch"; it was a *decidable algebra*, which §4
 shows is preserved. The sharpest practical cost stays what openness.md
 §9.2 says: `compatible_with` is locally vacuous inside `any` — checking
