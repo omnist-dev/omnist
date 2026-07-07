@@ -62,6 +62,17 @@ valid. Defined formally in
   constrains which scalar values are valid, it is not itself a value. See
   [`omnist/schema.py`](https://github.com/omnist-dev/omnist/blob/master/omnist/schema.py) and
   [the schema doc](schema.md#shape).
+- **`any`** / **`AnyType`** — the eighth type keyword (v0.5.0): a field
+  typed `any` accepts *every* legal Document value — any scalar, `null`,
+  or a subtree of any shape — and validation does not descend into it.
+  The field's label stays fixed and counted (cardinality applies); only
+  the value is unchecked. `AnyType` is the exported class (`t.any` is its
+  singleton instance); `any?` is rejected as redundant (null is already
+  included), `any` is reserved as a record name, and `infer` never
+  produces it. It is the model's one deliberate opening — and
+  `compatible_with` is vacuous inside `any` regions, so checking ends
+  exactly where `any` begins. See [the schema doc](schema.md#the-any-type)
+  and [any-type-spec.md](design/any-type-spec.md).
 - **kind** / **`value_kind()`** — `kind` is the plain string name
   (`"string"`, `"integer"`, ...) classifying a Python *value* — what
   `value_kind(v)` returns, used for inference and error messages. It is the

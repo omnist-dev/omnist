@@ -10,13 +10,15 @@ two shapes to each other.
 
 Omnist designs the Document and the Schema as one formalism from the start
 (see the [model spec](design/model.md)): a Document is a canonical edge
-list, and a Schema is a closed, exactly-typed grammar over those same
-edges. Because every field has exactly one type -- never an enum, a union,
-or an open/`Any` escape hatch -- two schemas can be compared structurally,
-not just used to check data. That's what makes operations like
-`compatible_with` (is every document valid under schema A also valid under
-schema B?), `equivalent`, and `infer` *decidable*: there's always exactly
-one answer, never "it depends which branch of the union matched."
+list, and a Schema is a closed-by-default, exactly-typed grammar over
+those same edges. Because every field has exactly one type -- never an
+enum or a union with competing candidates; even the `any` type (v0.5.0)
+is a single declared top type, not a choice among alternatives -- two
+schemas can be compared structurally, not just used to check data. That's
+what makes operations like `compatible_with` (is every document valid
+under schema A also valid under schema B?), `equivalent`, and `infer`
+*decidable*: there's always exactly one answer, never "it depends which
+branch of the union matched."
 
 This is a falsifiable claim. It would be false if a mainstream JSON Schema
 library already had a clean way to ask "is this schema change backward
@@ -184,12 +186,19 @@ Omnist is not trying to be a bigger hammer than it is. Specifically:
   ```
 
   See [the XML format page](formats/xml.md#mixed-content-is-rejected).
-- **No structureless escape hatches, by design, not by oversight.** There's
-  no `Any` type and no open/wildcard record. This isn't a missing feature
-  on the roadmap -- it's the property that makes `compatible_with`,
+- **One escape hatch, disciplined by design — not an open model.** As of
+  v0.5.0 a field may be typed `any` (its value goes unchecked; its label
+  stays fixed and counted), but that is the model's *only* opening, and it
+  comes with its costs stated: `compatible_with` is vacuous inside `any`
+  regions — checking ends exactly where `any` begins — and `infer` never
+  produces it, so every hole in a schema's guarantees is one a human
+  deliberately wrote and can grep for. There is still no open/wildcard
+  record and no map type: those would open the *label alphabet* the whole
+  algebra reasons over, which is the property that makes `compatible_with`,
   `equivalent`, `normalize`, and `infer` well-defined in the first place
-  (see the [thesis](#the-thesis) above). If you need a schema that accepts
-  arbitrary, unstructured data, Omnist's schema model isn't going to do
+  (see the [thesis](#the-thesis) above and
+  [the openness decision record](design/openness.md)). If you need schemas
+  that are open-by-default everywhere, Omnist's model isn't going to do
   that for you.
 
 ## Performance

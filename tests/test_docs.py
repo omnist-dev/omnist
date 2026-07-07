@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.4.3"
+    assert ds.__version__ == "0.5.0"
 
 
 def test_quickstart():
@@ -495,7 +495,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.4.3"
+    assert ds.__version__ == "0.5.0"
 
 
 def test_api_docs_schema_raises():
@@ -760,6 +760,32 @@ def test_formats_oml_writing():
     from omnist import write_oml
     assert write_oml([("name", "Ada")]) == 'name: "Ada"'
     assert Doc.of({"name": "Ada"}).to_oml() == 'name: "Ada"'
+
+
+def test_schema_any_type_envelope_example():
+    s = parse_schema('''
+record Event {
+    "id":      string,
+    "type":    string,
+    "data":    any,
+}
+root Event
+''')
+    assert s.validate(doc({"id": "evt_1", "type": "user.created",
+                           "data": {"name": "Ann", "email": "a@x.com"}})).ok
+    assert s.validate(doc({"id": "evt_2", "type": "payment.settled",
+                           "data": {"amount_cents": 1250, "currency": "EUR"}})).ok
+
+
+def test_deserialization_any_type_pass_through_example():
+    import datetime
+    s = parse_schema('record R { "when": datetime, "data": any }' + chr(10) + 'root R')
+    node = read_json('{"when": "2026-07-01T09:30:00", '
+                     '"data": {"since": "2024-01-01"}}', schema=s)
+    values = dict(node)
+    assert isinstance(values["when"], datetime.datetime)
+    assert dict(values["data"])["since"] == "2024-01-01"
+    assert isinstance(dict(values["data"])["since"], str)
 
 
 def test_why_omnist_compatible_with_worked_example():

@@ -4,6 +4,48 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.5.0] — the `any` type
+
+A field may now be typed `any`: its value is accepted unchecked (any
+scalar, `null`, or a subtree of any shape) while its label stays fixed
+and counted, exactly like any other field. One example:
+
+```
+record Event {
+    "id":   string,
+    "type": string,
+    "data": any,
+}
+root Event
+```
+
+This is the headline change to the model's core claim. Every release
+through v0.4.x described the schema model as **closed by construction —
+no escape hatches**. As of v0.5.0 that becomes **closed by default, open
+only where explicitly marked**: `any` is the one sanctioned opening, and
+it is disciplined rather than free-form —
+
+- `any` already includes `null`; `any?` is rejected as redundant.
+- `any` is a reserved type name (a record can't be named `any`).
+- `infer` never produces `any` — every occurrence in a schema is one a
+  human deliberately wrote, and is grep-visible in the schema text.
+- Stated loudly, not buried: `compatible_with` is **vacuous** inside an
+  `any` region. Checking ends exactly where `any` begins; a schema that's
+  40% `any` gives compatibility verdicts that are 40% meaningless while
+  looking authoritative. Use it for genuinely unowned data, and narrow it
+  later with `infer` once you know the real shapes.
+
+An open *map* / wildcard-record type remains refused, and stays refused —
+that would open the label alphabet the whole algebra reasons over, not
+just a value at a fixed leaf. See
+[the openness decision record](docs/design/openness.md) for the full
+argument and [the normative spec](docs/design/any-type-spec.md) for the
+implementation.
+
+Implementation, in order: core model + algebra (#192), grammar + parser +
+public export (#193), semantic-oracle witness guarantee + fuzz coverage
+(#194), and this documentation sweep (#195).
+
 ## [v0.4.3] — `omnist validate --json`; Python 3.14 in CI
 
 `omnist validate` gains a `--json` flag: a machine-readable `{ok, message,

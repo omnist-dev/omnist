@@ -52,15 +52,18 @@ Lee & Cheung, CIKM 2010):
   format, the only one with zero loss in either direction.
 - A **Schema** is named `record` definitions (closed named fields, each with
   a cardinality), where every field's type is always exactly one fixed
-  scalar (optionally nullable) or one `Ref` to a named record — referenced
-  by name for reuse and recursion. Written as **OSD** (Omnist Schema
-  Definition).
-- **Closed by construction** — records are closed, and scalar types are
-  never composed into enums or unions. That is not a constraint bolted on
-  top; it is what makes `compatible_with`, `equivalent`, `normalize`,
-  `extract`, and `infer` well-defined, decidable operations instead of
-  best-effort heuristics. See [why Omnist](docs/why-omnist.md) for the case
-  in full — including a verified capability matrix and the honest non-goals.
+  scalar (optionally nullable), one `Ref` to a named record — referenced
+  by name for reuse and recursion — or `any`, an explicitly-marked
+  unchecked subtree. Written as **OSD** (Omnist Schema Definition).
+- **Closed by default; open only where explicitly marked** — records are
+  closed, and scalar types are never composed into enums or unions. The
+  one deliberate opening is the `any` type (v0.5.0), and it carries its
+  cost openly: compatibility checking ends exactly where `any` begins.
+  That discipline is not a constraint bolted on top; it is what makes
+  `compatible_with`, `equivalent`, `normalize`, `extract`, and `infer`
+  well-defined, decidable operations instead of best-effort heuristics.
+  See [why Omnist](docs/why-omnist.md) for the case in full — including a
+  verified capability matrix and the honest non-goals.
 
 ### Boringly correct
 
