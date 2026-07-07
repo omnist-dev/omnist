@@ -11,7 +11,7 @@
 omnist format     <input>                          [--compact] [-o OUTPUT]
 omnist convert    <input>   --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [-o OUTPUT]
 omnist validate   <input>   --from FMT --schema FILE [--result-format text|json|oml] [--json]
-omnist infer      <input>...  --from FMT             [--compact] [-o OUTPUT]
+omnist infer      <input>...  --from FMT             [--compact] [--allow-any] [-o OUTPUT]
 omnist check      <input>   --from FMT --to FMT [--strict] [--result-format text|json|oml]
 
 omnist schema format           <schema-file>  [--compact] [-o OUTPUT]
@@ -112,10 +112,14 @@ omnist validate order.json --from json --schema order.osd --json
 omnist validate order.xml --from xml --schema order.osd --json
 ```
 
-### `omnist infer <input>... --from FMT [--compact] [-o OUTPUT]`
+### `omnist infer <input>... --from FMT [--compact] [--allow-any] [-o OUTPUT]`
 
 All inputs same format; `infer(docs)`, writes the result as OSD.
 `--compact` emits a single-line schema (`to_osd(schema, indent=None)`).
+`--allow-any` opts in to opening the two `infer` conflict points
+(object/scalar mix, multi-kind scalar) as `any` fields instead of erroring;
+the schema still goes to stdout, and a per-field report of what was opened
+and why goes to stderr (nothing printed when zero fields open).
 
 ```sh
 omnist infer samples/*.json --from json -o inferred.osd

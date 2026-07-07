@@ -207,13 +207,30 @@ warning: $.age: null value dropped (TOML has no null)
 ## `omnist infer`
 
 ```
-omnist infer <input>... --from FMT [--compact] [-o OUTPUT]
+omnist infer <input>... --from FMT [--compact] [--allow-any] [-o OUTPUT]
 ```
 
 All inputs must be the same format. Each is read as a `Doc`,
 [`infer(docs)`](schema.md#operations-compare-and-infer) drafts a schema
 from them, written out as OSD. `--compact` emits a single-line form
 (`to_osd(schema, indent=None)`) instead of the pretty-printed default.
+
+By default a label that is an object in some samples and a scalar in others,
+or a scalar of more than one kind, is an error — `infer` never emits `any`.
+`--allow-any` opts in to opening those conflict points as `any` fields
+instead, for bootstrapping a draft from messy or polymorphic data. The
+schema still goes to stdout (so `omnist infer … --allow-any > out.osd` stays
+pipeable); the list of opened fields and why goes to **stderr**:
+
+```sh
+$ omnist infer messy1.json messy2.json --from json --allow-any > draft.osd
+opened 2 field(s) as `any`:
+  Root.data — mixes objects and values
+  Root.score — values of more than one scalar kind (integer, string)
+```
+
+Nothing is printed to stderr when no field is opened. Without `--allow-any`,
+a conflicting sample errors exactly as before.
 
 ```sh
 $ omnist infer examples/cli/sample1.json examples/cli/sample2.json --from json

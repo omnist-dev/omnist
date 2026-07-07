@@ -25,14 +25,29 @@ canonical minimal schema is wanted (decided in issues #143/#151).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from .document import Doc, build_node
 from .errors import SchemaError
-from .schema import Field, Record, Ref, Scalar, Schema, value_kind
+from .schema import ANY, Field, Record, Ref, Scalar, Schema, value_kind
 
 
-def infer(samples: List[Any], root_name: str = "Root") -> Schema:
+@dataclass(frozen=True)
+class AnyFallback:
+    """A single field ``infer`` opened as ``any`` under ``allow_any``.
+
+    ``location`` reads ``RecordName.label``; ``reason`` says why the field
+    could not be given a single precise type.
+    """
+
+    location: str
+    reason: str
+
+
+def infer_with_report(
+    samples: List[Any], root_name: str = "Root", *, allow_any: bool = False,
+) -> tuple[Schema, list[AnyFallback]]:
     nodes = []
     for s in samples:
         nodes.append(s._node if isinstance(s, Doc) else build_node(s))
@@ -42,8 +57,14 @@ def infer(samples: List[Any], root_name: str = "Root") -> Schema:
         raise SchemaError("infer expects object (record) samples at the root")
     env: Dict[str, Any] = {}
     used: set[str] = set()
-    _infer_record(nodes, root_name, env, used)
-    return Schema(Ref(root_name), env)
+    fallbacks: list[AnyFallback] = []
+    _infer_record(nodes, root_name, env, used, allow_any, fallbacks)
+    return Schema(Ref(root_name), env), fallbacks
+
+
+def infer(samples: List[Any], root_name: str = "Root", *,
+          allow_any: bool = False) -> Schema:
+    return infer_with_report(samples, root_name, allow_any=allow_any)[0]
 
 
 def _unique(base: str, used: set[str]) -> str:
@@ -63,7 +84,8 @@ def _identifier(s: str) -> str:
 
 
 def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
-                  used: set[str]) -> None:
+                  used: set[str], allow_any: bool,
+                  fallbacks: list[AnyFallback]) -> None:
     used.add(name)
     # Pass 1: which labels exist at all, in first-seen order. Pass 2: one
     # count per sample for *every* label, defaulting to 0 for samples that
@@ -98,19 +120,25 @@ def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
             cmin, cmax = 0, None      # an array: be permissive on length
         else:
             cmin, cmax = lo, 1        # 0 or 1 -> optional/required
-        typ = _infer_type(children[label], label, env, used)
+        typ = _infer_type(children[label], label, name, env, used,
+                          allow_any, fallbacks)
         fields.append(Field(label, typ, cmin, cmax))
     env[name] = Record(fields)
 
 
-def _infer_type(child_nodes: List[Any], label: str, env: Dict[str, Any],
-                used: set[str]) -> Any:
+def _infer_type(child_nodes: List[Any], label: str, record_name: str,
+                env: Dict[str, Any], used: set[str], allow_any: bool,
+                fallbacks: list[AnyFallback]) -> Any:
     is_obj = [isinstance(c, list) for c in child_nodes]
     if all(is_obj):
         rec_name = _unique(label, used)
-        _infer_record(child_nodes, rec_name, env, used)
+        _infer_record(child_nodes, rec_name, env, used, allow_any, fallbacks)
         return Ref(rec_name)
     if any(is_obj):
+        if allow_any:
+            fallbacks.append(AnyFallback(
+                f"{record_name}.{label}", "mixes objects and values"))
+            return ANY
         raise SchemaError(
             f"label {label!r} mixes objects and values; cannot infer one type")
     # all scalars
@@ -126,6 +154,12 @@ def _infer_type(child_nodes: List[Any], label: str, env: Dict[str, Any],
     if not names:
         return Scalar("string", nullable=null)    # no non-null sample observed
     if len(names) > 1:
+        if allow_any:
+            fallbacks.append(AnyFallback(
+                f"{record_name}.{label}",
+                f"values of more than one scalar kind "
+                f"({', '.join(sorted(names))})"))
+            return ANY
         raise SchemaError(
             f"label {label!r} has values of more than one scalar "
             f"({', '.join(sorted(names))}); cannot infer one scalar type")

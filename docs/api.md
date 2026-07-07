@@ -86,7 +86,7 @@ Serialize a `Schema` back to OSD text. `parse_schema(to_osd(s))` is equivalent
 to `s`. `indent=None` renders a single-line, machine-oriented form instead
 of the pretty-printed default; both round-trip through `parse_schema`.
 
-### `infer(samples, root_name="Root") -> Schema`
+### `infer(samples, root_name="Root", *, allow_any=False) -> Schema`
 Draft a schema from example Documents (`Doc`s or plain values). Cardinality
 follows observed counts (present in every sample → required; sometimes absent →
 optional; seen more than once → array); object children become nested named
@@ -102,6 +102,31 @@ occurred but every observed value was `null`, `infer` defaults to a
 nullable `string`. The full algorithm, with the exact collapse and default
 rules, is
 [model.md §11](design/model.md#11-inference-determining-a-fields-scalar-from-samples).
+
+By default (`allow_any=False`) both conflict points — an object/scalar mix
+for one label, and a scalar-of-more-than-one-kind — raise `SchemaError`, so
+`infer` never emits `any`. Passing `allow_any=True` opts in to turning those
+two failure points into `any` fields instead, for bootstrapping a draft
+schema from messy or polymorphic data. The fallback happens at the narrowest
+node (the conflicting field only); clean nested structure still infers as a
+record. Wherever `infer` fell back, the result has vacuous compatibility at
+that field, exactly like a hand-written `any`.
+
+### `infer_with_report(samples, root_name="Root", *, allow_any=False) -> tuple[Schema, list[AnyFallback]]`
+Same as `infer`, but also returns the list of fields it opened as `any`.
+`infer(...)` is a thin wrapper that returns just the schema. The list is
+empty when nothing was opened (always, when `allow_any=False`). Each
+`AnyFallback` is a frozen dataclass:
+
+- `location: str` — the opened field, as `RecordName.label`.
+- `reason: str` — either `"mixes objects and values"` or
+  `"values of more than one scalar kind (…)"` (kinds sorted, comma-joined).
+
+```python
+schema, fallbacks = infer_with_report(samples, allow_any=True)
+for fb in fallbacks:
+    print(fb.location, "—", fb.reason)
+```
 
 ### The Python builder
 

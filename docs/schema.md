@@ -100,9 +100,13 @@ Three grammar rules keep it disciplined:
 
 - `any` already includes `null`, so `any?` is rejected as redundant.
 - `any` is a **reserved type name** — a record cannot be named `any`.
-- `infer` never produces `any`: every `any` in a schema is one a human
-  deliberately wrote, and you can grep a schema's text for every opening
-  in its guarantees.
+- `infer` never produces `any` **by default**: every `any` in a schema is
+  one a human deliberately wrote, and you can grep a schema's text for every
+  opening in its guarantees. The one opt-in exception is `infer
+  --allow-any` / `infer(..., allow_any=True)` — the deliberate act moves to
+  the invocation, and the command loudly reports every field it opened.
+  That is how you bootstrap into `any` straight from messy data; the result
+  has the vacuous compatibility described below wherever it fell back.
 
 **The cost, stated loudly: checking ends exactly where `any` begins.**
 `compatible_with` is *vacuous* inside an `any` region — any change to the

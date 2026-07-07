@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.5.1"
+        assert ds.__version__ == "0.5.2"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1805,6 +1805,89 @@ class TestInferErrors:
         # "item" and "Item" both capitalize to the generated name "Item"
         s = infer([doc({"item": {"a": 1}, "Item": {"b": 2}})])
         assert {"Item", "Item2"} <= set(s.env)
+
+
+# ------------------------------------------------ infer --allow-any fallback
+class TestInferAllowAny:
+    def test_multi_kind_scalar_opens_to_any(self):
+        from omnist import AnyType, infer_with_report
+        s, fb = infer_with_report(
+            [doc({"v": 1}), doc({"v": "x"})], allow_any=True)
+        assert isinstance(s.env["Root"].fields[0].type, AnyType)
+        assert len(fb) == 1
+        assert fb[0].location == "Root.v"
+        assert fb[0].reason == "values of more than one scalar kind (integer, string)"
+
+    def test_object_value_mix_opens_to_any(self):
+        from omnist import AnyType, infer_with_report
+        s, fb = infer_with_report(
+            [doc({"a": {"x": 1}}), doc({"a": 5})], allow_any=True)
+        assert isinstance(s.env["Root"].fields[0].type, AnyType)
+        assert len(fb) == 1
+        assert fb[0].location == "Root.a"
+        assert fb[0].reason == "mixes objects and values"
+
+    def test_siblings_stay_precise(self):
+        from omnist import AnyType, Scalar, infer_with_report
+        s, fb = infer_with_report(
+            [doc({"v": 1, "name": "Ann"}), doc({"v": "x", "name": "Bob"})],
+            allow_any=True)
+        rec = s.env["Root"]
+        by_label = {f.label: f.type for f in rec.fields}
+        assert isinstance(by_label["v"], AnyType)
+        assert isinstance(by_label["name"], Scalar)
+        assert by_label["name"].name == "string"
+        assert [f.location for f in fb] == ["Root.v"]
+
+    def test_nested_all_object_label_still_a_record_not_any(self):
+        # narrowest-node scoping: a clean nested object still becomes a record;
+        # only the genuinely-conflicting field opens.
+        from omnist import AnyType, Ref, infer_with_report
+        s, fb = infer_with_report(
+            [doc({"addr": {"city": "X"}, "v": 1}),
+             doc({"addr": {"city": "Y"}, "v": "s"})],
+            allow_any=True)
+        by_label = {f.label: f.type for f in s.env["Root"].fields}
+        assert isinstance(by_label["addr"], Ref)
+        assert isinstance(by_label["v"], AnyType)
+        assert [f.location for f in fb] == ["Root.v"]
+
+    def test_fallback_location_uses_nested_record_name(self):
+        from omnist import infer_with_report
+        _, fb = infer_with_report(
+            [doc({"outer": {"v": 1}}), doc({"outer": {"v": "s"}})],
+            allow_any=True)
+        assert [f.location for f in fb] == ["Outer.v"]
+
+    def test_default_still_raises_at_multi_kind_site(self):
+        with pytest.raises(SchemaError, match="more than one scalar"):
+            infer([doc({"v": 1}), doc({"v": "x"})])
+        with pytest.raises(SchemaError, match="more than one scalar"):
+            infer([doc({"v": 1}), doc({"v": "x"})], allow_any=False)
+
+    def test_default_still_raises_at_object_value_mix_site(self):
+        with pytest.raises(SchemaError, match="mixes objects and values"):
+            infer([doc({"a": {"x": 1}}), doc({"a": 5})])
+        with pytest.raises(SchemaError, match="mixes objects and values"):
+            infer([doc({"a": {"x": 1}}), doc({"a": 5})], allow_any=False)
+
+    def test_clean_samples_report_empty(self):
+        from omnist import infer_with_report
+        s, fb = infer_with_report(
+            [doc({"name": "Ann", "age": 30})], allow_any=True)
+        assert fb == []
+
+    def test_infer_thin_wrapper_returns_just_schema(self):
+        from omnist import Schema
+        s = infer([doc({"v": 1}), doc({"v": "x"})], allow_any=True)
+        assert isinstance(s, Schema)
+
+    def test_report_order_is_deterministic(self):
+        from omnist import infer_with_report
+        _, fb = infer_with_report(
+            [doc({"a": 1, "b": {"x": 1}}), doc({"a": "s", "b": 2})],
+            allow_any=True)
+        assert [f.location for f in fb] == ["Root.a", "Root.b"]
 
 
 # --------------------------------------------------- operations edge cases

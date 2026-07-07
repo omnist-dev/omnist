@@ -377,7 +377,7 @@ first, which is exactly what you cannot do to data you don't own.
 | `compatible_with` guarantee | total | total outside `any`; vacuous inside (§8.2) | total in theory, but complexity leaks into every operation |
 | Label alphabet (what the algebra reasons over) | finite, closed | finite, closed | **infinite** at map positions |
 | XML round-trip | ✓ | ✓ | breaks on arbitrary keys |
-| `infer` | most-specific, deterministic | unchanged (never emits `any`) | forced heuristic guessing (§8.4) |
+| `infer` | most-specific, deterministic | unchanged (never emits `any` by default; `--allow-any` opts in loudly) | forced heuristic guessing (§8.4) |
 
 The table is deliberately honest about the residual gap: for *open-key
 data specifically*, `Map` would have been the better tool than `any` —
