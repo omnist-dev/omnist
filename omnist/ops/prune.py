@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Dict, Set
 
-from ..schema import Field, Record, Ref, Scalar, Schema
+from ..schema import AnyType, Field, Record, Ref, Scalar, Schema
 
 
 def satisfiable_set(s: Schema) -> Set[str]:
@@ -47,7 +47,7 @@ def _record_satisfiable(rec: Record, sat: Set[str]) -> bool:
     for f in rec.fields:
         if f.min < 1:
             continue                      # optional -- never blocks satisfiability
-        if isinstance(f.type, Scalar):
+        if isinstance(f.type, (Scalar, AnyType)):
             continue
         if f.type.name not in sat:
             return False

@@ -101,6 +101,10 @@ class _Types:
     time = TIME
     datetime = DATETIME
 
+    @property
+    def any(self) -> "AnyType":
+        return ANY
+
     def __repr__(self) -> str:
         return ("omnist.t — the seven scalars: string, integer, number, "
                 "boolean, date, time, datetime")
@@ -109,8 +113,22 @@ class _Types:
 t = _Types()
 
 
+class AnyType:
+    """The `any` type: accepts every legal Document value. Singleton;
+    use ``t.any``. Not a Scalar (it has no kind and no nullable flag —
+    null is already included) and not a Ref (it names nothing)."""
+    __slots__ = ()
+    def __eq__(self, other: object) -> bool: return isinstance(other, AnyType)
+    def __hash__(self) -> int: return hash(AnyType)
+    def __repr__(self) -> str: return "t.any"
+
+ANY = AnyType()
+
+
 def nullable(scalar: Scalar) -> Scalar:
     """A copy of ``scalar`` that also accepts ``null`` (the ``?`` form)."""
+    if isinstance(scalar, AnyType):
+        raise SchemaError("any already includes null; 'any?' is redundant")
     return scalar if scalar.nullable else Scalar(scalar.name, True)
 
 
@@ -132,7 +150,7 @@ class Ref:
         return hash((Ref, self.name))
 
 
-Type = Union[Ref, Scalar]
+Type = Union[Ref, Scalar, AnyType]
 
 
 class Field:
@@ -143,8 +161,9 @@ class Field:
 
     def __init__(self, label: str, type: Type, min: int = 1,
                  max: Optional[int] = 1) -> None:
-        if not isinstance(type, (Ref, Scalar)):
-            raise SchemaError(f"field {label!r} type must be a Ref or Scalar, got {type!r}")
+        if not isinstance(type, (Ref, Scalar, AnyType)):
+            raise SchemaError(
+                f"field {label!r} type must be a Ref, Scalar, or t.any, got {type!r}")
         if min < 0 or (max is not None and max < min):
             raise SchemaError(f"field {label!r} has an invalid cardinality [{min},{max}]")
         self.label = label
@@ -237,10 +256,12 @@ class Schema:
         self.env: Dict[str, Record] = dict(env or {})
         self.check_refs()
 
-    def resolve(self, t: Type) -> Union[Record, Scalar]:
-        """A bare ``Scalar`` resolves to itself; a ``Ref`` is a single environment
-        lookup -- env values are always Records (enforced by ``check_refs``), so
-        ref chains cannot occur."""
+    def resolve(self, t: Type) -> Union[Record, Scalar, AnyType]:
+        """An ``AnyType`` or bare ``Scalar`` resolves to itself; a ``Ref`` is a
+        single environment lookup -- env values are always Records (enforced
+        by ``check_refs``), so ref chains cannot occur."""
+        if isinstance(t, AnyType):
+            return t
         if isinstance(t, Scalar):
             return t
         if t.name not in self.env:
@@ -278,6 +299,8 @@ class Schema:
 
     def _conform(self, doc: Any, t: Type, res: ValidationResult) -> None:
         d = self.resolve(t)
+        if isinstance(d, AnyType):
+            return
         if isinstance(d, Scalar):
             self._conform_scalar(doc, d, res)
         else:

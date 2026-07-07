@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Dict, Optional, Set, Tuple
 
-from ..schema import Record, Ref, Scalar, Schema
+from ..schema import AnyType, Record, Ref, Scalar, Schema
 from .prune import satisfiable_set
 
 
@@ -35,7 +35,8 @@ def equivalent(a: Schema, b: Schema) -> bool:
     return compatible_with(a, b) and compatible_with(b, a)
 
 
-def _sub(sa: Schema, ta: Ref | Scalar, sb: Schema, tb: Ref | Scalar, sat_a: Set[str],
+def _sub(sa: Schema, ta: Ref | Scalar | AnyType, sb: Schema,
+         tb: Ref | Scalar | AnyType, sat_a: Set[str],
          memo: Dict[Tuple[int, int], bool]) -> bool:
     if isinstance(ta, Ref) and ta.name not in sat_a:
         return True                       # vacuous: an unsatisfiable A-side record
@@ -45,7 +46,11 @@ def _sub(sa: Schema, ta: Ref | Scalar, sb: Schema, tb: Ref | Scalar, sat_a: Set[
     if key in memo:
         return memo[key]
     memo[key] = True                      # coinductive assumption while descending
-    if isinstance(da, Scalar) and isinstance(db, Scalar):
+    if isinstance(db, AnyType):
+        result = True                      # any absorbs all -- db = any is always sound
+    elif isinstance(da, AnyType):
+        result = False                     # only any holds any; da = any, db != any -> False
+    elif isinstance(da, Scalar) and isinstance(db, Scalar):
         result = _scalar_sub(da, db)
     elif isinstance(da, Record) and isinstance(db, Record):
         result = _record_sub(sa, da, sb, db, sat_a, memo)

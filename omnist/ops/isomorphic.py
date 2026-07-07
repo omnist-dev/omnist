@@ -90,9 +90,10 @@ def _walk(a: Schema, na: str, b: Schema, nb: str,
     fields_b = {f.label: f for f in rb.fields}
     for fa in ra.fields:
         fb = fields_b[fa.label]
-        if isinstance(fa.type, Ref):
+        if isinstance(fa.type, Ref) and isinstance(fb.type, Ref):
             # signature equality guarantees fb.type is a Ref too (the
-            # shape key distinguishes scalar vs ref).
+            # shape key distinguishes scalar vs ref) -- the isinstance check
+            # on fb.type here is for mypy's narrowing, not runtime logic.
             if not _walk(a, fa.type.name, b, fb.type.name, map_ab, map_ba):
                 return False
     return True
