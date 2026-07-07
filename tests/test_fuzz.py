@@ -447,6 +447,7 @@ def test_parse_schema_never_raises_unexpectedly_on_syntax_like_text(text):
 # ---------------------------------------------------------------------------
 
 from omnist import INTEGER, STRING, Field, Record, Ref, Schema  # noqa: E402
+from omnist.schema import ANY as _ANY  # noqa: E402
 
 _RECORD_NAMES = ("A", "B", "C")
 
@@ -455,8 +456,22 @@ _RECORD_NAMES = ("A", "B", "C")
 # never produce a mandatory ref cycle, which is exactly the shape #139's bug
 # lived in.
 _cardinalities = st.sampled_from([(1, 1), (0, 1), (1, None), (0, None)])
-_field_types = st.one_of(st.just(STRING), st.just(INTEGER),
-                          st.sampled_from([Ref(n) for n in _RECORD_NAMES]))
+
+# Spec any-type-spec.md Sec.5.2: a generated field's type is `any` with
+# probability ~0.15, instead of a scalar/ref. `st.one_of` doesn't expose
+# per-branch weighting directly, so this draws a float in [0, 1) first and
+# dispatches -- the cleanest way to pin an exact probability rather than an
+# approximate one from repeating elements in a `sampled_from` pool.
+_ANY_FIELD_PROBABILITY = 0.15
+_non_any_field_types = st.one_of(st.just(STRING), st.just(INTEGER),
+                                  st.sampled_from([Ref(n) for n in _RECORD_NAMES]))
+
+
+@st.composite
+def _field_types(draw):
+    if draw(st.floats(min_value=0.0, max_value=1.0, exclude_max=True)) < _ANY_FIELD_PROBABILITY:
+        return _ANY
+    return draw(_non_any_field_types)
 
 
 @st.composite
@@ -464,7 +479,7 @@ def _fields(draw):
     n = draw(st.integers(min_value=0, max_value=2))
     fields = []
     for i in range(n):
-        ftype = draw(_field_types)
+        ftype = draw(_field_types())
         lo, hi = draw(_cardinalities)
         fields.append(Field(f"f{i}", ftype, lo, hi))
     return fields
@@ -632,7 +647,7 @@ def _with_max_zero_field(draw, s: Schema) -> Schema:
     extra_label = next(
         lbl for lbl in ("z0", "z1", "z2") if rec.field(lbl) is None
     )
-    ftype = draw(_field_types)
+    ftype = draw(_field_types())
     extra = Field(extra_label, ftype, 0, 0)
     new_env = dict(s.env)
     new_env[name] = Record(list(rec.fields) + [extra])
