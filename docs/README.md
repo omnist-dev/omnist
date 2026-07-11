@@ -10,6 +10,7 @@ Start here, in roughly this order:
 | **[OML](formats/oml.md)** | Omnist's own format: the only one with zero adjustments, and how it maps onto the Python Document. |
 | **[The Schema model & OSD](schema.md)** | Omnist's other central feature: `record` definitions, cardinality, the Python builder, and the comparison/inference operations. |
 | **[A real-life example](example.md)** | One order schema validated against an order written in OML, plus a backward-compatibility check. |
+| **[Worked example: pyproject.toml](examples/pyproject.md)** | A real, external format run end to end — schema, real TOML fixtures, validation, OML output — plus a candid look at what OSD can't model (unions, open maps, cross-field constraints) and why. |
 | **[API reference](api.md)** | Every public name: `Doc`, `Schema`, the builders, codecs, validation results, and exceptions, with signatures. |
 | **[CLI](cli.md)** | The `omnist` command-line tool, fully implemented: `format`, `convert`, `check`, `validate`, `infer`, and seven `schema` subcommands (`format`/`normalize`/`prune`/`is-empty`/`extract`/`compatible-with`/`equivalent`), specified in [the CLI spec](design/cli-spec.md). |
 | **[Schema-directed deserialization](deserialization.md)** | What changes (and what doesn't) about a Document's Python types when a schema is, vs. isn't, passed to a reader — the conversion rules, and why they're unambiguous. |

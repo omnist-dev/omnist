@@ -1,0 +1,23 @@
+# fixtures/invented-dynamic-version.toml -- a synthetic fixture, NOT sourced
+# from any real project. Written to cover the one field neither
+# omnist.toml nor spam-eggs.toml exercises: `dynamic`. Kept deliberately
+# small -- it isn't trying to be a second comprehensive example, just to
+# plug that one gap.
+
+[build-system]
+requires = ["flit_core>=3.4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "widget-toolkit"
+description = "A small synthetic example, not a real package."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.flit.module]
+name = "widget_toolkit"

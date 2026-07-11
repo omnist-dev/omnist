@@ -1,10 +1,15 @@
+# fixtures/omnist.toml -- this repo's own pyproject.toml, copied verbatim.
+# Provenance: first-party (github.com/omnist-dev/omnist), snapshot at 0.5.4.
+# Exercises the legacy `license = {text=...}` table form and two
+# [tool.*] sections ([tool.setuptools], [tool.ruff]).
+
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "omnist"
-version = "0.5.5"
+version = "0.5.4"
 description = "One data model, many formats: read, validate, and write JSON, YAML, TOML, XML, and OML."
 readme = "README.md"
 requires-python = ">=3.11"

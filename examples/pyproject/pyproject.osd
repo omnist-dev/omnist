@@ -1,0 +1,69 @@
+# examples/pyproject/pyproject.osd
+#
+# Models packaging.python.org's pyproject.toml spec, retrieved 2026-07-11.
+# PEP 517 (build-system), PEP 621 (core metadata), PEP 639 (license),
+# PEP 794 (import-names/import-namespaces, Accepted, added Oct 2025).
+#
+# Coverage: 13 of 20 `project` fields are fully closed and checked.
+# 7 fields (readme, license, urls, scripts, gui-scripts, optional-dependencies,
+# entry-points -- see note by each) degrade to `any` because OSD has no
+# union type and no open-map type. `[tool]` is entirely `any`: its whole
+# purpose (PEP 518 section 3) is an unbounded, tool-defined key set.
+#
+# See docs/examples/pyproject.md for the full can/cannot-model analysis.
+
+record Author {
+    "name"  [0,1]: string,
+    "email" [0,1]: string,
+    # spec requires at least one of name/email present -- OSD has no
+    # cross-field "at least one of" constraint, so this is unchecked here
+}
+
+record Readme {
+    "file"         [0,1]: string,
+    "text"         [0,1]: string,
+    "content-type" [0,1]: string,
+}
+
+record BuildSystem {
+    "requires"      [0,]:  string,   # PEP 508 specifiers, build-time deps.
+                                       # spec doesn't state a minimum length;
+                                       # resolved permissively (empty allowed)
+    "build-backend" [0,1]: string,   # object reference, e.g. "setuptools.build_meta"
+    "backend-path"  [0,]:  string,   # extra sys.path entries for an in-tree backend
+}
+
+record Project {
+    "name":                     string,   # required, never listed in dynamic
+    "version"        [0,1]:     string,   # required unless "version" appears in dynamic
+                                            # (that implication is unchecked -- cross-field)
+    "description"    [0,1]:     string,
+    "readme"         [0,1]:     any,      # spec: string OR table (Readme) -- OSD has no
+                                            # union type, so this field is unchecked
+    "requires-python"[0,1]:     string,   # PEP 440 version specifier
+    "license"        [0,1]:     any,      # SPDX string (PEP 639, current) OR the pre-639
+                                            # {text=...}/{file=...} table -- a union, unchecked
+    "license-files"  [0,]:      string,   # glob patterns (PEP 639)
+    "authors"        [0,]:      Author,
+    "maintainers"    [0,]:      Author,
+    "keywords"       [0,]:      string,
+    "classifiers"    [0,]:      string,   # Trove classifiers
+    "dependencies"   [0,]:      string,   # PEP 508 specifiers, runtime deps
+    "optional-dependencies" [0,1]: any,   # extra-name -> [specifiers]; key set is
+                                            # project-defined, unbounded -- open map
+    "urls"           [0,1]:     any,      # label -> URL; key set is project-defined -- open map
+    "scripts"        [0,1]:     any,      # name -> object-ref; key set is project-defined
+    "gui-scripts"    [0,1]:     any,      # same as scripts, GUI entry points
+    "entry-points"   [0,1]:     any,      # group -> { name -> object-ref }; open two levels deep
+    "dynamic"        [0,]:      string,   # names of fields the build backend fills in
+    "import-names"      [0,]:  string,   # PEP 794 (Accepted, Oct 2025) -- exclusive import names
+    "import-namespaces" [0,]:  string,   # PEP 794 -- non-exclusive import namespace contributions
+}
+
+record PyProject {
+    "build-system":   BuildSystem,
+    "project" [0,1]:  Project,   # absent in legacy (pre-PEP 621) projects
+    "tool"    [0,1]:  any,       # PEP 518 section 3 -- per-tool namespaces,
+                                   # key set is unbounded by design, not a gap in this schema
+}
+root PyProject

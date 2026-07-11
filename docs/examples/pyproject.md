@@ -1,0 +1,239 @@
+# Worked example: modeling `pyproject.toml`
+
+A real, external format — not built for Omnist — run through the whole
+pipeline: OSD schema, TOML fixtures, validation, OML output. It's also a
+stress test: `read_toml`/`write_oml` against real-world TOML syntax, and
+a candid look at what OSD's algebra can and can't express.
+
+Worth being upfront about the ceiling here: `pyproject.toml`'s real
+"schema" is a prose specification plus the Python code of whichever build
+backend actually reads it — not bound by any decidability constraint.
+No static schema language, OSD included, can fully match that: the real
+validator can run arbitrary conditional logic (resolve an entry-point
+reference, parse an SPDX expression, cross-check one field against
+another). JSON Schema gets further than OSD (it has `oneOf`,
+`dependentRequired`) but hits the same ceiling on anything truly dynamic.
+OSD's ceiling is lower still, by design — it trades expressiveness for
+guarantees (`compatible_with`, `equivalent`, `normalize` being
+well-defined at all require a closed, finite label alphabet). What
+follows is where that tradeoff actually bites, on a real file.
+
+Source, code, and fixtures:
+[`examples/pyproject/`](https://github.com/omnist-dev/omnist/tree/master/examples/pyproject).
+Schema: [`pyproject.osd`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/pyproject.osd).
+Script: [`convert.py`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/convert.py).
+
+Modeled against the
+[pyproject.toml specification](https://packaging.python.org/en/latest/specifications/pyproject-toml/),
+retrieved 2026-07-11 — PEP 517 (`[build-system]`), PEP 621 (core `[project]`
+metadata), PEP 639 (`license`/`license-files`), PEP 794 (`import-names`/
+`import-namespaces`, Accepted, added October 2025).
+
+## Run it
+
+```
+python3 examples/pyproject/convert.py
+```
+
+For each fixture it prints `valid: True`/`False` and, on success, the
+document as OML. All three fixtures currently validate.
+
+## The fixtures, and why each one exists
+
+| File | What it is | What it exercises |
+|---|---|---|
+| [`omnist.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.toml) | This repo's own `pyproject.toml`, copied verbatim | The legacy `license = {text=...}` table form; two real `[tool.*]` sections (`[tool.setuptools]`, `[tool.ruff]`) |
+| [`spam-eggs.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.toml) | The official ["full example"](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) from the Python Packaging User Guide, verbatim | Partial author entries (name-only, email-only); current SPDX-string `license`; two `optional-dependencies` extras; a quoted-label `urls` key; `scripts`, `gui-scripts`, and a custom `entry-points` group |
+| [`invented-dynamic-version.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.toml) | Synthetic, written for this example — **not** sourced from any real project | `dynamic = ["version"]`, the one field the other two fixtures don't touch |
+
+No fixture was hand-edited to force a pass. External projects' own files
+weren't used as fixtures at all, to avoid any copyright ambiguity around
+redistributing a third party's file verbatim — everything here is either
+first-party, an official PSF teaching example explicitly meant to be
+copied, or synthetic.
+
+## What OSD can model exactly
+
+Of `Project`'s 20 fields, **13 are fully closed and checked**: a wrong
+type, an extra label, or a missing required field fails validation with
+an exact path. That includes `authors`/`maintainers` as a `Ref` to a
+proper `Author` record (not `any`): the fields are checked, the record is
+closed, the array cardinality (`[0,]`) is enforced.
+
+## What it can't, and why — three structural gaps
+
+**1. Unions.** `readme` can be a plain string (a path) *or* a table
+(`{file=..., text=..., content-type=...}`). Pre-PEP 639, `license` had the
+same shape: a string or a `{text=...}`/`{file=...}` table — `omnist.toml`
+itself still uses the table form today. OSD's own model is explicit that a
+field's type is "always exactly one" scalar or `Ref`, never a union
+(`docs/schema.md`). There's no way to say "string or this record." Both
+fields are typed `any` here, which means: present, but its shape is
+completely unchecked. A `license` table with a typo'd key (`{txt =
+"MIT"}`) would validate as cleanly as a correct one.
+
+**2. Open key sets.** `urls`, `scripts`, `gui-scripts`,
+`optional-dependencies`, and `entry-points` are all `label -> value` maps
+where the label set is chosen by whoever writes the file — an extra name,
+a URL label, a script name. OSD records are closed by design: "an
+unexpected label is a validation error, not silently ignored"
+(`docs/schema.md`). There's no map type. `[tool]` is the purest case:
+its entire purpose, per PEP 518 §3, is giving every tool its own
+unbounded namespace — `any` isn't a workaround here, it's the only
+honest way to model something deliberately open-ended.
+
+**3. Cross-field constraints.** Three real ones in this one file: an
+`Author` needs *at least one* of `name`/`email`; `version` is required
+*unless* `"version"` appears in `dynamic`; a key can't be listed in
+`dynamic` and given a static value at the same time. OSD's cardinality is
+per-field only — there's no "at least one of A, B" or "A implies not B"
+across sibling fields.
+
+**The honest number**: 7 of 20 `Project` fields are `any`
+(`readme`, `license`, `optional-dependencies`, `urls`, `scripts`,
+`gui-scripts`, `entry-points`), plus `[tool]` entirely. Roughly a third
+of what a `pyproject.toml` actually contains, field-by-field, gets
+presence-and-cardinality checking only, not shape checking.
+
+## Why `any` doesn't close every gap: false-rejects, not just false-accepts
+
+Everything above is about **false-accepts** — a malformed value slipping
+through an `any` field unchecked. There's a separate failure direction,
+**false-rejects**: a genuinely valid `pyproject.toml` that OSD wrongly
+refuses. `any` widens a *known field's value type*; it does nothing for
+a record's **label set**. `import-names`/`import-namespaces` (PEP 794,
+Accepted, added October 2025) are a real example: until they were added
+to this schema, any file using them would have been rejected as an
+"unexpected label," even though every other field validated cleanly —
+because OSD records are closed by design (`docs/schema.md`: *"an
+unexpected label is a validation error, not silently ignored"*), and
+that closure applies regardless of what type any other field carries.
+
+This isn't an oversight in OSD — it's the same tradeoff `any` already
+makes, just refused at the record level too. `docs/schema.md` states it
+directly: *"Open keys remain refused (no map type, no open records) —
+that would open the label alphabet the whole algebra reasons over."*
+`compatible_with`/`equivalent`/`normalize` need a closed, finite label
+set per record to be well-defined; an "open record" (declared labels
+plus an arbitrary catch-all) would break that closure the same way `any`
+already makes those operations vacuous wherever it's used. The schema
+fix here was mechanical (declare the two fields) — but the *general*
+version of this problem, any future field the schema author didn't
+anticipate, has no fix short of adding it, because OSD has deliberately
+never grown a catch-all/open-record concept.
+
+A second, milder case: `build-system.requires`'s minimum length. The
+spec never states whether `requires = []` is legal — genuinely
+ambiguous, not a modeling limitation at all. Resolved permissively here
+(`[0,]`), on the same principle as below: for a pre-flight gate, a
+false-reject blocks legitimate work outright, while a false-accept just
+gets caught by the real backend downstream — so when a constraint is
+unenforceable or unclear, leaning permissive is usually the right
+default.
+
+| Case | What's missing | Failure direction | Fixed by `any`? |
+|---|---|---|---|
+| `import-names`/`import-namespaces` | Open record (label-set) | False-reject | No — different axis than value typing |
+| `requires = []` | Nothing — spec is silent, not an OSD limit | Would-be false-reject | N/A, resolved by cardinality choice |
+| `readme`/`license` union | Union type | Either, depending on resolution | Shifts risk, doesn't remove it |
+| `dynamic` ⟹ `version` absent | Cross-field constraint | False-accept (given the permissive choice made here) | No |
+
+## The manifest use case: validate before the expensive tooling runs
+
+The practical pitch for a schema like this: run it as a cheap, dependency-free
+**pre-flight gate**, before any Python-specific tooling — `pip`, `build`,
+`hatchling`, a linter, CI — ever parses the file for real. A misspelled
+key (`authohrs`), a `dependencies` table where an array was required, or
+a `[project]` section with an unrecognized field fails fast, at an exact
+path, before the real build backend gets involved with its own (often
+less specific) error messages.
+
+**The limit sits right next to the pitch, not hidden in a table further
+down**: because 7 fields degrade to `any`, this gate *cannot* catch a
+malformed `license` table, an `entry-points` group pointing at a
+nonexistent object, or a `urls` value that isn't actually a string — the
+exact cases a human is most likely to typo. It's a fast structural
+smoke test, not a replacement for the tools that actually consume the
+file.
+
+## OSD vs. hand-written JSON Schema, on the same three gaps
+
+TOML itself has no native schema language — tools that validate TOML
+(`taplo`, `tombi`, the "Even Better TOML" VS Code extension) convert it to
+a JSON-equivalent tree and run **JSON Schema** against that. So the real
+comparison is OSD vs. JSON Schema, not OSD vs. some TOML-native
+competitor.
+
+JSON Schema *can* express two of the three gaps above: `oneOf` for the
+`readme`/`license` union, `additionalProperties` (typed, or `true`) for
+the open maps. What it can't express any better than OSD: the
+`name`-or-`email`/`dynamic`-implies-`version` cross-field rules still need
+`anyOf`/`dependentRequired` gymnastics that are easy to get subtly wrong.
+In exchange, OSD gets closed-by-default and per-field min/max cardinality
+for free — in JSON Schema those require explicit
+`additionalProperties: false` plus `minItems`/`maxItems` on every array,
+easy to forget on any given field. Neither is strictly more expressive;
+they trade which mistakes are easy to make.
+
+## If you're designing a format for OSD: lessons from `pyproject.toml`
+
+`pyproject.toml` wasn't designed with a structural schema language in
+mind — it evolved through several PEPs, each solving its own problem,
+with Python code as the real validator. That's what makes it a good
+stress test, and exactly what makes it a bad *template* to imitate if
+you want a new format OSD can model well. Concretely, avoid:
+
+1. **Same-key polymorphism.** `readme`/`license` being a string *or* a
+   table under one key is the single biggest source of unchecked surface
+   in this schema. If a format needs both a short and a long form of
+   something, give them **different keys** (`license` +
+   `license_detail`) rather than overloading one key's shape. A schema
+   language without unions can express "one of two named fields,
+   cleanly," never "one field, two shapes."
+
+2. **Open keys mixed into an otherwise closed section.** `urls`,
+   `scripts`, `gui-scripts`, and `entry-points` each put user-chosen keys
+   inside what's otherwise a fixed-field area (`[project]`). Contrast
+   with `[tool]`, which gets this right: it hoists *all* openness into
+   one dedicated, clearly-open top-level section. If part of a structure
+   needs arbitrary keys, give it its own namespace — that keeps the
+   closed parts fully checkable and makes the open boundary a single,
+   explicit decision instead of something scattered across many fields.
+
+3. **Conditional requiredness across sibling fields** ("at least one of
+   A or B," "A required unless B says otherwise"). `Author`'s
+   name-or-email and `version`'s dynamic-dependent requiredness both need
+   this. If you're the format designer: pick one field as the canonical,
+   always-required identifier instead of an either/or. Per-field
+   cardinality can express "required" or "optional," never "one of
+   these two."
+
+4. **Meta-referential fields** — a field whose *value* names other
+   fields and changes their requiredness. `dynamic` (a list of field
+   names that, if present, make those named fields optional) is a
+   schema-about-schema pattern: interpreting a string value as a pointer
+   back into the same record's structure. No static schema language can
+   express this at all; it requires runtime interpretation of the data
+   to know what shape is even expected.
+
+5. **Silent forward-extension of a closed section.** `import-names`/
+   `import-namespaces` arriving after the fact, into a record meant to
+   stay closed, is a versioning problem more than a modeling one. If a
+   section needs to grow over time, decide upfront whether it's genuinely
+   closed (and accept that growth needs a version marker driving an
+   explicit schema choice) or genuinely open (and give it its own
+   `[tool]`-style namespace from day one) — don't leave that decision
+   implicit and rediscover it as a false-reject later.
+
+The common thread: OSD models cleanly whatever a format's design keeps
+**structurally uniform and unconditional** — closed sections stay
+closed, open sections say so upfront, and no field's shape or
+requiredness depends on another field's value. `pyproject.toml` breaks
+all three, not because it's badly designed, but because its actual
+validator is Python code that never had to commit to those constraints
+in the first place.
+
+See also: [the `any` type](../schema.md#the-any-type),
+[the openness design record](../design/openness.md), and the
+order/address/line-item walkthrough in [example.md](../example.md) for
+the other, fully-closed worked example.
