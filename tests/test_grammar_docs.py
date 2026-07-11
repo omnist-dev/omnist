@@ -107,6 +107,10 @@ def test_oml_ex18_compact_write_round_trips():
     assert read_oml(text) == node
 
 
+def test_oml_ex19_array_syntax_expands_to_repeated_edges():
+    assert read_oml("b: [1, 2, 3]") == [("b", 1), ("b", 2), ("b", 3)]
+
+
 # ---------------------------------------------------------------------------
 # docs/design/schema-osd-grammar.md -- Worked examples
 # ---------------------------------------------------------------------------

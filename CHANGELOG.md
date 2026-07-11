@@ -4,6 +4,52 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.6.0] — `[...]` array syntax for OML
+
+Adds `[...]` array syntax to OML as pure syntactic sugar for repeated
+same-label edges — `label: [v1, v2, ..., vn]` expands at parse time to
+`n` repeated `label:` edges at that exact position. There is no array
+type in the Document model: an array is edge-multiplication sugar, not
+a value, so nesting (`[[1,2]]`) is rejected, and no other codec (OSD
+included) is touched.
+
+- **Reader**: unconditional, no flag — any `.oml` file may use array
+  syntax once written with it; old files without arrays parse
+  identically. Array elements may be a scalar, `null`, or a `{ }` brace
+  subtree, but never another array. Comma is the only element
+  separator (a bare newline/`;` is a `ParseError`); a trailing comma is
+  legal; `[]` (empty) is a `ParseError`, not a zero-edge expansion;
+  comments and newlines inside `[...]` are ordinary trivia, same as
+  everywhere else.
+- **Writer**: `write_oml(node, *, indent=2, arrays=False)` — default
+  `False` is byte-identical to today's output for every existing
+  caller. `arrays=True` collapses any maximal run of ≥ 2 consecutive
+  same-label edges into array form (a run of 1 stays scalar; a run
+  never merges across a different label in between); pretty mode never
+  wraps an array onto multiple lines, compact mode is always inline.
+  `read_oml(write_oml(node, arrays=True)) == node` holds
+  unconditionally — arrays never reorder edges. `Doc.to_oml()` passes
+  `arrays=` through.
+- **CLI**: `--arrays` added to the same five subcommands `--compact`
+  touched in #133 (`format`, `convert`, `infer`, `schema format`,
+  `schema normalize`). For the three OSD-only commands (`infer`,
+  `schema format`, `schema normalize`) the flag is accepted but has no
+  effect, since OSD has no array syntax.
+- **Docs**: a new "Arrays" section in `docs/formats/oml.md`, the ABNF
+  `array` production in `docs/design/oml-grammar.md`, `arrays=`/
+  `--arrays` documented in `docs/api.md`/`docs/cli.md`/
+  `docs/design/cli-spec.md`, and a use-case note in
+  `docs/examples/index.md` pointing at the long lists the four
+  real-world examples already contain.
+- **Real-world examples**: each of the four worked examples gets a
+  committed `<fixture>.arrays.oml` sibling (`write_oml(..., arrays=True)`
+  of the exact same Document as the existing `.oml`), linked from each
+  example's fixtures table and asserted byte-exact plus
+  Document-equivalent by `tests/test_examples_*.py`.
+
+See issue #218 for the full locked design and the acceptance/rejection
+table.
+
 ## [v0.5.7] — package.json, GitHub Actions, and sitemap.xml examples
 
 Documentation/examples-only release, no `omnist` package logic changed.

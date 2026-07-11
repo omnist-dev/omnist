@@ -125,7 +125,7 @@ how you invoked the tool, worth surfacing loudly rather than parsing.
 ## `omnist format`
 
 ```
-omnist format <input> [--compact] [-o OUTPUT]
+omnist format <input> [--compact] [--arrays] [-o OUTPUT]
 ```
 
 Canonicalizes an OML document — `read_oml` then `write_oml`. `<input>` is a
@@ -151,13 +151,17 @@ $ omnist format examples/cli/messy-person.oml --compact
 name: "Ann"; age: 30
 ```
 
+`--arrays` collapses runs of ≥ 2 consecutive same-label edges into
+`[...]` array syntax (`write_oml(node, arrays=True)`); combines with
+`--compact`.
+
 Malformed OML raises the same `ParseError` `read_oml` would, printed to
 stderr as `error: ...`, exit code `2` — nothing written.
 
 ## `omnist convert`
 
 ```
-omnist convert <input> --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [-o OUTPUT]
+omnist convert <input> --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [--arrays] [-o OUTPUT]
 ```
 
 `read_<from>(text, schema=...)` → `write_<to>(node, strict=, report=)`.
@@ -190,6 +194,9 @@ OML is always exactly lossless):
 
 `--compact` emits single-line, machine-oriented OML (`write_oml(node,
 indent=None)`) when `--to oml`; no effect for other `--to` values.
+`--arrays` likewise passes through to `write_oml(node, arrays=True)` when
+`--to oml`, collapsing same-label runs into `[...]` array syntax; no effect
+for other `--to` values.
 
 `convert` is one document in, one document out — no batch mode (the
 library's `read_xml`/`write_xml` only support a single-rooted Document;
@@ -263,13 +270,16 @@ warning: $.age: null value dropped (TOML has no null)
 ## `omnist infer`
 
 ```
-omnist infer <input>... --from FMT [--compact] [--allow-any] [-o OUTPUT]
+omnist infer <input>... --from FMT [--compact] [--arrays] [--allow-any] [-o OUTPUT]
 ```
 
 All inputs must be the same format. Each is read as a `Doc`,
 [`infer(docs)`](schema.md#operations-compare-and-infer) drafts a schema
 from them, written out as OSD. `--compact` emits a single-line form
 (`to_osd(schema, indent=None)`) instead of the pretty-printed default.
+`--arrays` is accepted for consistency with the other four subcommands but
+has **no effect** here — the output is OSD, not OML, and OSD has no array
+syntax.
 
 By default a label that is an object in some samples and a scalar in others,
 or a scalar of more than one kind, is an error — `infer` never emits `any`.
@@ -383,7 +393,7 @@ $ echo '{not valid json' | omnist validate - --from json --schema examples/cli/p
 ## `omnist schema format`
 
 ```
-omnist schema format <schema-file> [--compact] [-o OUTPUT]
+omnist schema format <schema-file> [--compact] [--arrays] [-o OUTPUT]
 ```
 
 Canonicalizes an OSD ([Omnist Schema Definition](schema.md)) file —
@@ -413,13 +423,16 @@ $ omnist schema format examples/cli/messy-person.osd --compact
 record Person { "name": string, "age" [0,1]: integer } root Person
 ```
 
+`--arrays` is accepted here for consistency with `format`/`convert` but has
+**no effect** — the output is OSD, not OML, and OSD has no array syntax.
+
 Malformed OSD raises `SchemaError`, printed to stderr as `error: ...`,
 exit code `2`.
 
 ## `omnist schema normalize`
 
 ```
-omnist schema normalize <schema-file> [--compact] [-o OUTPUT]
+omnist schema normalize <schema-file> [--compact] [--arrays] [-o OUTPUT]
 ```
 
 `Schema.normalize()`, written back out as OSD — unlike `schema format`,
@@ -447,7 +460,8 @@ root Company
 ```
 
 `--compact` emits the same merged schema on a single line instead
-(`to_osd(schema, indent=None)`).
+(`to_osd(schema, indent=None)`). `--arrays` is accepted for consistency but
+has no effect (OSD output, no array syntax).
 
 ## `omnist schema prune`
 

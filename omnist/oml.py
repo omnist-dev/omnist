@@ -64,6 +64,9 @@ SQUOTE = "SQUOTE"       # a lone "'" that couldn't extend to RAW (i.e. no
                         # closing "'" before EOF) -- unterminated raw string
 LBRACE = "LBRACE"
 RBRACE = "RBRACE"
+LBRACKET = "LBRACKET"
+RBRACKET = "RBRACKET"
+COMMA = "COMMA"
 COLON = "COLON"
 DATETIME = "DATETIME"
 DATE = "DATE"
@@ -146,6 +149,12 @@ _MASTER_SRC = rf"""
 (?P<{LBRACE}> \{{ )
 |
 (?P<{RBRACE}> \}} )
+|
+(?P<{LBRACKET}> \[ )
+|
+(?P<{RBRACKET}> \] )
+|
+(?P<{COMMA}> , )
 |
 (?P<{COLON}> : )
 |
@@ -516,8 +525,12 @@ class _Parser:
                 raise self._error_for(
                     colon_kind, colon_start,
                     f"expected ':' after label {label!r}, got {colon_kind} {text!r}")
-            value = self.parse_value(depth)
-            edges.append((label, value))
+            if self.kind == LBRACKET:
+                for element in self.parse_array(depth):
+                    edges.append((label, element))
+            else:
+                value = self.parse_value(depth)
+                edges.append((label, value))
             if self.kind in (RBRACE, "EOF"):
                 break
             if self.kind != "SEP":
@@ -579,6 +592,41 @@ class _Parser:
                     close_kind, close_start, f"expected '}}', got {close_kind} {text!r}")
             return edges
         return self.parse_scalar()
+
+    def parse_array(self, depth: int) -> List[Any]:
+        """Parse ``'[' element (',' element)* [','] ']'`` (issue #218) and
+        return the list of element values -- the caller (parse_node_edges)
+        splices these into the edge list as repeated same-label edges.
+        Arrays are pure edge-multiplication sugar, not a value in the
+        Document model, so this never returns anything the model itself
+        would represent as an array node."""
+        open_start = self.start
+        self._advance()  # consume '['
+        self.skip_sep()
+        if self.kind == RBRACKET:
+            raise self.sc.error_at(open_start, "empty array is not allowed")
+        elements: List[Any] = []
+        while True:
+            if self.kind == LBRACKET:
+                raise self.sc.error_at(
+                    self.start, "nested array is not allowed (arrays may only "
+                    "contain scalars, null, or brace subtrees)")
+            elements.append(self.parse_value(depth))
+            self.skip_sep()
+            if self.kind == COMMA:
+                self._advance()
+                self.skip_sep()
+                if self.kind == RBRACKET:
+                    break  # trailing comma
+                continue
+            break
+        close_kind, close_start, close_end = self._advance()
+        if close_kind != RBRACKET:
+            text = self._tok_text(close_kind, close_start, close_end)
+            raise self._error_for(
+                close_kind, close_start,
+                f"expected ',' or ']' in array, got {close_kind} {text!r}")
+        return elements
 
     def parse_scalar(self) -> Any:
         kind, start, end = self._advance()
@@ -662,7 +710,7 @@ def read_oml(text: str, *, schema: Optional[Any] = None) -> Any:
     return materialize(node, schema)
 
 
-def write_oml(node: Any, *, indent: Optional[int] = 2) -> str:
+def write_oml(node: Any, *, indent: Optional[int] = 2, arrays: bool = False) -> str:
     """Render a canonical Document node as OML source.
 
     OML is lossless for every Document: there is never an adjustment to
@@ -673,12 +721,36 @@ def write_oml(node: Any, *, indent: Optional[int] = 2) -> str:
     joined by ``"; "``, no newlines/padding) instead of the default
     pretty-printed, indented form -- mirroring ``write_json``'s own
     ``indent=None`` convention. Both forms round-trip through ``read_oml``.
+
+    ``arrays=True`` (issue #218) collapses any maximal run of >= 2
+    consecutive same-label edges into ``label: [v1, v2, ...]`` array
+    syntax -- a run of length 1 still writes as a plain scalar edge, and a
+    run is never merged across an edge with a different label in between,
+    so this never reorders anything: ``read_oml(write_oml(node,
+    arrays=True)) == node`` holds unconditionally. Default ``False``
+    produces output byte-identical to ``arrays`` not existing at all.
     """
     if not isinstance(node, list):
         return _write_scalar(node)
     if indent is None:
-        return _write_edges_compact(node)
-    return _write_edges(node, 0, indent)
+        return _write_edges_compact(node, arrays)
+    return _write_edges(node, 0, indent, arrays)
+
+
+def _group_runs(
+    edges: List[Tuple[str, Any]],
+) -> List[Tuple[str, List[Any]]]:
+    """Group ``edges`` into maximal runs of consecutive same-label edges,
+    preserving order -- ``[('b',1),('b',2),('c',True),('b',3)]`` ->
+    ``[('b',[1,2]), ('c',[True]), ('b',[3])]``. Never reorders; a run only
+    ever contains edges that were already adjacent in the input."""
+    runs: List[Tuple[str, List[Any]]] = []
+    for label, child in edges:
+        if runs and runs[-1][0] == label:
+            runs[-1][1].append(child)
+        else:
+            runs.append((label, [child]))
+    return runs
 
 
 def check_oml(node: Any) -> "WriteReport":
@@ -687,31 +759,55 @@ def check_oml(node: Any) -> "WriteReport":
     return WriteReport()
 
 
-def _write_edges(edges: List[Tuple[str, Any]], depth: int, indent: int) -> str:
+def _write_edges(
+    edges: List[Tuple[str, Any]], depth: int, indent: int, arrays: bool = False,
+) -> str:
     pad = " " * (indent * depth)
     lines = []
-    for label, child in edges:
+    for label, children in (_group_runs(edges) if arrays else [(lbl, [c]) for lbl, c in edges]):
         lab = _write_label(label)
+        if arrays and len(children) > 1:
+            items = ", ".join(_write_array_element(c, depth, indent, arrays) for c in children)
+            lines.append(f"{pad}{lab}: [{items}]")
+            continue
+        child = children[0]
         if isinstance(child, list):
             if not child:
                 lines.append(f"{pad}{lab}: {{}}")
             else:
-                inner = _write_edges(child, depth + 1, indent)
+                inner = _write_edges(child, depth + 1, indent, arrays)
                 lines.append(f"{pad}{lab}: {{\n{inner}\n{pad}}}")
         else:
             lines.append(f"{pad}{lab}: {_write_scalar(child)}")
     return "\n".join(lines)
 
 
-def _write_edges_compact(edges: List[Tuple[str, Any]]) -> str:
+def _write_array_element(child: Any, depth: int, indent: int, arrays: bool) -> str:
+    """One element inside a pretty-mode ``[...]`` -- brace subtrees render
+    single-line (``{ ... }``) regardless of the surrounding indent mode,
+    matching the "arrays never wrap" decision (issue #218, 1A)."""
+    if isinstance(child, list):
+        if not child:
+            return "{}"
+        inner = _write_edges_compact(child, arrays)
+        return f"{{ {inner} }}"
+    return _write_scalar(child)
+
+
+def _write_edges_compact(edges: List[Tuple[str, Any]], arrays: bool = False) -> str:
     parts = []
-    for label, child in edges:
+    for label, children in (_group_runs(edges) if arrays else [(lbl, [c]) for lbl, c in edges]):
         lab = _write_label(label)
+        if arrays and len(children) > 1:
+            items = ", ".join(_write_array_element(c, 0, 0, arrays) for c in children)
+            parts.append(f"{lab}: [{items}]")
+            continue
+        child = children[0]
         if isinstance(child, list):
             if not child:
                 parts.append(f"{lab}: {{}}")
             else:
-                inner = _write_edges_compact(child)
+                inner = _write_edges_compact(child, arrays)
                 parts.append(f"{lab}: {{ {inner} }}")
         else:
             parts.append(f"{lab}: {_write_scalar(child)}")

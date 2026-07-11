@@ -301,11 +301,84 @@ write_oml(read_oml("a: 1  # this note is gone\n"))
 # 'a: 1'
 ```
 
+## Arrays
+
+`[...]` is sugar for repeated same-label edges, expanded at parse time —
+it is **not** a value type in the Document model. `label: [v1, v2, ..., vn]`
+means exactly `label: v1; label: v2; ...; label: vn` at that position in
+the edge list:
+
+```python
+from omnist import read_oml
+
+src = ('a: "x"\n'
+       'b: [1, 2, 3]\n'
+       'c: true\n'
+       'b: [4, 5, 6]\n')
+read_oml(src)
+# [('a', 'x'), ('b', 1), ('b', 2), ('b', 3), ('c', True),
+#  ('b', 4), ('b', 5), ('b', 6)]
+```
+
+That's exactly the same Document a fully spelled-out, no-arrays version of
+the same file would produce — arrays only change how you *write* repeated
+edges, never what they mean. An array element may be a scalar, `null`, or a
+`{ }` brace subtree — but never another array (arrays aren't values, so
+there's nothing to nest):
+
+```python
+read_oml('members: [{name: "Ann"}, {name: "Bob"}]')
+# [('members', [('name', 'Ann')]), ('members', [('name', 'Bob')])]
+```
+
+A few things are deliberate hard errors:
+
+```python
+from omnist import ParseError
+
+read_oml("b: [[1,2]]")   # ParseError: nested array is not allowed
+read_oml("b: []")        # ParseError: empty array is not allowed
+read_oml("b: [1\n2]")    # ParseError -- comma is the only element separator
+```
+
+Newlines and `#` comments *inside* `[...]` are legal and insignificant —
+only a bare newline or `;` used **as the separator** is rejected; a
+trailing comma before `]` is legal:
+
+```python
+read_oml("b: [\n  1, # one\n  2, # two\n]")   # [('b', 1), ('b', 2)]
+read_oml("b: [1, 2, 3,]")                      # [('b', 1), ('b', 2), ('b', 3)]
+```
+
+`write_oml(node, arrays=True)` collapses any maximal run of two or more
+consecutive same-label edges back into array form (a run of one edge stays
+a plain scalar edge); the default, `arrays=False`, is byte-identical to
+`write_oml` without the parameter at all — every existing caller sees no
+change:
+
+```python
+from omnist import write_oml
+
+node = [("a", "x"), ("b", 1), ("b", 2), ("b", 3), ("c", True)]
+write_oml(node)
+# 'a: "x"\nb: 1\nb: 2\nb: 3\nc: true'
+write_oml(node, arrays=True)
+# 'a: "x"\nb: [1, 2, 3]\nc: true'
+```
+
+Both forms round-trip through `read_oml` to the identical Document —
+`arrays=True` never reorders edges, so `read_oml(write_oml(node,
+arrays=True)) == node` holds unconditionally. Because arrays are a *write
+option*, not a value type, `read_oml`/`write_oml` operate on the exact same
+edge-list Document either way; there's no separate "array-aware" Document
+shape to reason about.
+
 ## Separators
 
-Edges are separated by one or more newlines and/or `;`. There's no comma —
-OML has no array literal, so nothing invites one. `;` is for one-line
-("inline") style: `{ a: 1; b: 2 }`.
+Edges are separated by one or more newlines and/or `;`. `;` is for one-line
+("inline") style: `{ a: 1; b: 2 }`. A comma is *not* a general edge
+separator — it's significant only inside `[...]` array syntax (see
+[Arrays](#arrays) above), where it's the sole element separator.
 
 ## Errors, not silent surprises
 

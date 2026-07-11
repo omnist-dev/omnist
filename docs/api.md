@@ -61,7 +61,7 @@ A guarded handle on a Document node — either a **leaf** (a scalar value) or an
 |---|---|
 | `.to_data()` | the canonical Python form — a scalar, or a list of `(label, …)` tuples |
 | `.to_grouped()` | a JSON-shaped projection: same-label edges grouped into a list |
-| `.to_oml(**opts)` | serialize to **OML** — the only format with zero adjustments |
+| `.to_oml(**opts)` | serialize to **OML** — the only format with zero adjustments; `arrays=True` collapses same-label runs into `[...]` array syntax (default `False`, byte-identical to today) |
 | `.to_json(**opts)` / `.to_yaml()` / `.to_toml()` / `.to_xml()` | serialize to a format |
 | `.to_format(name, **opts)` | serialize by format name |
 | `.check_oml() -> WriteReport` | always empty — see [OML](guide.md#oml--the-native-format) |
@@ -239,7 +239,7 @@ Low-level codecs over the canonical node form (a scalar, or a list of
 | | |
 |---|---|
 | `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node |
-| `write_oml(node, *, indent=2)` | a node → **OML**, losslessly — no `strict`/`report` needed (see below); `indent=None` for a single-line, compact form |
+| `write_oml(node, *, indent=2, arrays=False)` | a node → **OML**, losslessly — no `strict`/`report` needed (see below); `indent=None` for a single-line, compact form; `arrays=True` collapses any maximal run of ≥ 2 consecutive same-label edges into `label: [v1, v2, ...]` array syntax (a run of 1 stays a plain scalar edge, pretty mode never wraps an array onto multiple lines); default `arrays=False` is byte-identical to `write_oml` without the parameter at all |
 | `write_json(node, *, strict=False, report=None, indent=None)` | a node → JSON (groups same-label edges) |
 | `write_yaml(node, *, strict=False, report=None)` | a node → YAML |
 | `write_toml(node, *, strict=False, report=None)` | a node → TOML |

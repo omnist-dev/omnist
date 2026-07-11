@@ -13,7 +13,7 @@ import pathlib
 
 import pytest
 
-from omnist import Doc, DocumentError, parse_schema, read_yaml, write_oml
+from omnist import Doc, DocumentError, parse_schema, read_oml, read_yaml, write_oml
 from omnist.schema import AnyType
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -60,6 +60,28 @@ def test_committed_oml_matches_write_oml(schema):
     assert actual == expected, (
         f"{oml_path.name} is stale -- doesn't match write_oml(read_yaml("
         f"{fixture.name})). Regenerate it."
+    )
+
+
+def test_committed_arrays_oml_matches_write_oml(schema):
+    # steps: is the real-world case with the richest run structure in
+    # this whole four-example set: 5 consecutive steps mixing uses:- and
+    # run:-shaped subtrees, collapsed to one array. Also exercises a
+    # matrix python-version: run of 4 plain strings.
+    fixture = EXAMPLE_DIR / "fixtures" / "test-quoted-on.yml"
+    node = read_yaml(fixture.read_text(), schema=schema)
+    expected = write_oml(node, arrays=True)
+    arrays_path = fixture.parent / f"{fixture.stem}.arrays.oml"
+    assert arrays_path.exists(), f"missing committed arrays OML: {arrays_path.name}"
+    actual = arrays_path.read_text()
+    assert actual == expected, (
+        f"{arrays_path.name} is stale -- doesn't match write_oml(read_yaml("
+        f"{fixture.name}), arrays=True). Regenerate it."
+    )
+    oml_path = fixture.with_suffix(".oml")
+    assert read_oml(actual) == read_oml(oml_path.read_text()), (
+        f"{arrays_path.name} decodes to a different Document than "
+        f"{oml_path.name} -- arrays must never change what a file means."
     )
 
 

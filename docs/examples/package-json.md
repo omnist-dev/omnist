@@ -51,10 +51,12 @@ exact match.
 
 ## The fixtures
 
-| File | OML | What it is | What it exercises |
-|---|---|---|---|
-| [`npm-init-default.json`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/npm-init-default.json) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/npm-init-default.oml) | The official `npm init --yes` output from npm's own [creating-a-package-json-file guide](https://docs.npmjs.com/creating-a-package-json-file), verbatim | `repository` and `bugs` in **object** form; `author` as an empty string; `keywords` as an empty array |
-| [`invented-widget-cli.json`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/invented-widget-cli.json) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/invented-widget-cli.oml) | Synthetic, written for this example — **not** sourced from any real project | `author`, `bugs`, and `repository` in the **opposite** shapes from the other fixture (object/string/string vs. string/object/object); `bin` as a multi-command open map; `scripts`, `dependencies`, `devDependencies`, `engines` |
+| File | OML | Arrays OML | What it is | What it exercises |
+|---|---|---|---|---|
+| [`npm-init-default.json`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/npm-init-default.json) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/npm-init-default.oml) | [`.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/npm-init-default.arrays.oml) | The official `npm init --yes` output from npm's own [creating-a-package-json-file guide](https://docs.npmjs.com/creating-a-package-json-file), verbatim | `repository` and `bugs` in **object** form; `author` as an empty string; `keywords` as an empty array |
+| [`invented-widget-cli.json`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/invented-widget-cli.json) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/invented-widget-cli.oml) | [`.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/package-json/fixtures/invented-widget-cli.arrays.oml) | Synthetic, written for this example — **not** sourced from any real project | `author`, `bugs`, and `repository` in the **opposite** shapes from the other fixture (object/string/string vs. string/object/object); `bin` as a multi-command open map; `scripts`, `dependencies`, `devDependencies`, `engines` |
+
+The `.arrays.oml` siblings collapse `dependencies`/`devDependencies`/`keywords`-style repeated fields into `[...]` array syntax. See [OML arrays](../formats/oml.md#arrays).
 
 No third-party project's own `package.json` was used, for the same
 copyright reason as the pyproject example: everything here is either an

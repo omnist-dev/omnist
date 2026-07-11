@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from omnist import Doc, parse_schema, read_toml, write_oml
+from omnist import Doc, parse_schema, read_oml, read_toml, write_oml
 from omnist.schema import AnyType
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -55,6 +55,28 @@ def test_committed_oml_matches_write_oml(schema, fixture):
     assert actual == expected, (
         f"{oml_path.name} is stale -- doesn't match write_oml(read_toml("
         f"{fixture.name})). Regenerate it."
+    )
+
+
+@pytest.mark.parametrize("fixture", FIXTURES, ids=lambda p: p.name)
+def test_committed_arrays_oml_matches_write_oml(schema, fixture):
+    # write_oml(..., arrays=True) sibling (issue #218): collapses
+    # consecutive same-label edges (classifiers, keywords, dependencies,
+    # ...) into [...] form. Must decode to the identical Document as the
+    # plain .oml -- arrays are a write option, not a different Document.
+    node = read_toml(fixture.read_text(), schema=schema)
+    expected = write_oml(node, arrays=True)
+    arrays_path = fixture.parent / f"{fixture.stem}.arrays.oml"
+    assert arrays_path.exists(), f"missing committed arrays OML: {arrays_path.name}"
+    actual = arrays_path.read_text()
+    assert actual == expected, (
+        f"{arrays_path.name} is stale -- doesn't match write_oml(read_toml("
+        f"{fixture.name}), arrays=True). Regenerate it."
+    )
+    oml_path = fixture.with_suffix(".oml")
+    assert read_oml(actual) == read_oml(oml_path.read_text()), (
+        f"{arrays_path.name} decodes to a different Document than "
+        f"{oml_path.name} -- arrays must never change what a file means."
     )
 
 
