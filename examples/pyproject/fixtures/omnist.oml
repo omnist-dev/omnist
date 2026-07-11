@@ -1,0 +1,79 @@
+build-system: {
+  requires: "setuptools>=61"
+  build-backend: "setuptools.build_meta"
+}
+project: {
+  name: "omnist"
+  version: "0.5.4"
+  description: "One data model, many formats: read, validate, and write JSON, YAML, TOML, XML, and OML."
+  readme: "README.md"
+  requires-python: ">=3.11"
+  license: {
+    text: "Apache-2.0"
+  }
+  authors: {
+    name: "Thomas Y. Lee"
+  }
+  keywords: "schema"
+  keywords: "validation"
+  keywords: "json"
+  keywords: "yaml"
+  keywords: "toml"
+  keywords: "xml"
+  keywords: "data"
+  keywords: "convert"
+  classifiers: "Development Status :: 3 - Alpha"
+  classifiers: "Intended Audience :: Developers"
+  classifiers: "License :: OSI Approved :: Apache Software License"
+  classifiers: "Programming Language :: Python :: 3"
+  classifiers: "Programming Language :: Python :: 3.11"
+  classifiers: "Programming Language :: Python :: 3.12"
+  classifiers: "Programming Language :: Python :: 3.13"
+  classifiers: "Programming Language :: Python :: 3.14"
+  classifiers: "Topic :: Software Development :: Libraries"
+  scripts: {
+    omnist: "omnist.cli:main"
+  }
+  optional-dependencies: {
+    yaml: "pyyaml"
+    toml: "tomli_w"
+    xml: "defusedxml"
+    all: "pyyaml"
+    all: "tomli_w"
+    all: "defusedxml"
+    dev: "pytest~=9.1"
+    dev: "pyyaml~=6.0"
+    dev: "tomli_w~=1.2"
+    dev: "defusedxml~=0.7"
+    dev: "ruff~=0.15"
+    dev: "hypothesis~=6.155"
+    dev: "jsonschema~=4.26"
+    dev: "mypy~=2.1"
+  }
+  urls: {
+    Homepage: "https://github.com/omnist-dev/omnist"
+    Repository: "https://github.com/omnist-dev/omnist"
+    Issues: "https://github.com/omnist-dev/omnist/issues"
+    Changelog: "https://github.com/omnist-dev/omnist/blob/master/CHANGELOG.md"
+  }
+}
+tool: {
+  setuptools: {
+    packages: "omnist"
+    packages: "omnist.ops"
+    package-data: {
+      omnist: "py.typed"
+    }
+  }
+  ruff: {
+    target-version: "py311"
+    line-length: 100
+    lint: {
+      select: "E"
+      select: "F"
+      select: "I"
+      ignore: "E701"
+      ignore: "E702"
+    }
+  }
+}

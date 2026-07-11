@@ -42,6 +42,19 @@ def test_fixture_round_trips_to_oml(fixture):
     assert oml.strip()
 
 
+@pytest.mark.parametrize("fixture", FIXTURES, ids=lambda p: p.name)
+def test_committed_oml_matches_write_oml(fixture):
+    node = read_toml(fixture.read_text())
+    expected = write_oml(node)
+    oml_path = fixture.with_suffix(".oml")
+    assert oml_path.exists(), f"missing committed OML fixture: {oml_path.name}"
+    actual = oml_path.read_text()
+    assert actual == expected, (
+        f"{oml_path.name} is stale -- doesn't match write_oml(read_toml("
+        f"{fixture.name})). Regenerate it."
+    )
+
+
 def test_any_fields_match_documented_count(schema):
     project = schema.env["Project"]
     any_fields = {f.label for f in project.fields if isinstance(f.type, AnyType)}
