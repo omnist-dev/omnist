@@ -12,7 +12,7 @@ import pathlib
 
 import pytest
 
-from omnist import Doc, parse_schema, read_xml, write_oml
+from omnist import Doc, parse_schema, read_oml, read_xml, write_oml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 EXAMPLE_DIR = ROOT / "examples" / "sitemap"
@@ -68,4 +68,26 @@ def test_committed_oml_matches_write_oml(schema, fixture):
     assert actual == expected, (
         f"{oml_path.name} is stale -- doesn't match write_oml(read_xml("
         f"{fixture.name})). Regenerate it."
+    )
+
+
+@pytest.mark.parametrize("fixture", FIXTURES, ids=lambda p: p.name)
+def test_committed_arrays_oml_matches_write_oml(schema, fixture):
+    # invalid-values.xml has two <url> entries -- this is the one fixture
+    # in the whole four-example set where arrays=True collapses a run of
+    # brace subtrees (not just scalars), combined with the real `date`
+    # upgrade from schema-directed reading (lastmod).
+    node = read_xml(fixture.read_text(), schema=schema)
+    expected = write_oml(node, arrays=True)
+    arrays_path = fixture.parent / f"{fixture.stem}.arrays.oml"
+    assert arrays_path.exists(), f"missing committed arrays OML: {arrays_path.name}"
+    actual = arrays_path.read_text()
+    assert actual == expected, (
+        f"{arrays_path.name} is stale -- doesn't match write_oml(read_xml("
+        f"{fixture.name}), arrays=True). Regenerate it."
+    )
+    oml_path = fixture.with_suffix(".oml")
+    assert read_oml(actual) == read_oml(oml_path.read_text()), (
+        f"{arrays_path.name} decodes to a different Document than "
+        f"{oml_path.name} -- arrays must never change what a file means."
     )

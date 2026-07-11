@@ -69,7 +69,12 @@ validation succeeding once past this codec-level issue. Real workflow
 files almost never quote this key, which is exactly what makes the
 finding worth stating plainly rather than working around it silently.
 Its OML is committed as
-[`test-quoted-on.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/github-actions/fixtures/test-quoted-on.oml).
+[`test-quoted-on.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/github-actions/fixtures/test-quoted-on.oml),
+and its [OML arrays](../formats/oml.md#arrays) form as
+[`test-quoted-on.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/github-actions/fixtures/test-quoted-on.arrays.oml)
+— the richest run structure in this whole four-example set: each job's
+`steps:` is a run of 4–5 subtrees mixing `uses:`- and `run:`-shaped
+entries, collapsed into one array.
 
 This is a limitation of the **codec** (or arguably of PyYAML's YAML 1.1
 defaults), not of OSD's schema algebra — worth keeping separate from

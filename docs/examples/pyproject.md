@@ -60,11 +60,13 @@ produces.
 
 ## The fixtures, and why each one exists
 
-| File | OML | What it is | What it exercises |
-|---|---|---|---|
-| [`omnist.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.toml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.oml) | This repo's own `pyproject.toml`, copied verbatim | The legacy `license = {text=...}` table form; two real `[tool.*]` sections (`[tool.setuptools]`, `[tool.ruff]`) |
-| [`spam-eggs.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.toml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.oml) | The official ["full example"](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) from the Python Packaging User Guide, verbatim | Partial author entries (name-only, email-only); current SPDX-string `license`; two `optional-dependencies` extras; a quoted-label `urls` key; `scripts`, `gui-scripts`, and a custom `entry-points` group |
-| [`invented-dynamic-version.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.toml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.oml) | Synthetic, written for this example — **not** sourced from any real project | `dynamic = ["version"]`, the one field the other two fixtures don't touch |
+| File | OML | Arrays OML | What it is | What it exercises |
+|---|---|---|---|---|
+| [`omnist.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.toml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.oml) | [`.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.arrays.oml) | This repo's own `pyproject.toml`, copied verbatim | The legacy `license = {text=...}` table form; two real `[tool.*]` sections (`[tool.setuptools]`, `[tool.ruff]`) |
+| [`spam-eggs.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.toml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.oml) | [`.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.arrays.oml) | The official ["full example"](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) from the Python Packaging User Guide, verbatim | Partial author entries (name-only, email-only); current SPDX-string `license`; two `optional-dependencies` extras; a quoted-label `urls` key; `scripts`, `gui-scripts`, and a custom `entry-points` group |
+| [`invented-dynamic-version.toml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.toml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.oml) | [`.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.arrays.oml) | Synthetic, written for this example — **not** sourced from any real project | `dynamic = ["version"]`, the one field the other two fixtures don't touch |
+
+The `.arrays.oml` siblings are `write_oml(node, arrays=True)` — the same Document, with `keywords`/`classifiers`/`dependencies` (and similar repeated fields) collapsed into `[...]` array syntax instead of repeated edges. See [OML arrays](../formats/oml.md#arrays).
 
 No fixture was hand-edited to force a pass. External projects' own files
 weren't used as fixtures at all, to avoid any copyright ambiguity around

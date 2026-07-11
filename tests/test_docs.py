@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.5.7"
+    assert ds.__version__ == "0.6.0"
 
 
 def test_quickstart():
@@ -514,7 +514,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.5.7"
+    assert ds.__version__ == "0.6.0"
 
 
 def test_api_docs_schema_raises():
@@ -887,3 +887,36 @@ def test_formats_oml_comments_no_roundtrip():
     assert read_oml("a: 'x # y'") == [("a", "x # y")]
 
     assert write_oml(read_oml("a: 1  # this note is gone\n")) == 'a: 1'
+
+
+def test_formats_oml_arrays():
+    from omnist import ParseError, write_oml
+
+    src = ('a: "x"\n'
+           'b: [1, 2, 3]\n'
+           'c: true\n'
+           'b: [4, 5, 6]\n')
+    assert read_oml(src) == [
+        ("a", "x"),
+        ("b", 1), ("b", 2), ("b", 3),
+        ("c", True),
+        ("b", 4), ("b", 5), ("b", 6),
+    ]
+
+    assert read_oml('members: [{name: "Ann"}, {name: "Bob"}]') == [
+        ("members", [("name", "Ann")]), ("members", [("name", "Bob")])]
+
+    with pytest.raises(ParseError):
+        read_oml("b: [[1,2]]")
+    with pytest.raises(ParseError):
+        read_oml("b: []")
+    with pytest.raises(ParseError):
+        read_oml("b: [1\n2]")
+
+    assert read_oml("b: [\n  1, # one\n  2, # two\n]") == [("b", 1), ("b", 2)]
+    assert read_oml("b: [1, 2, 3,]") == [("b", 1), ("b", 2), ("b", 3)]
+
+    node = [("a", "x"), ("b", 1), ("b", 2), ("b", 3), ("c", True)]
+    assert write_oml(node) == 'a: "x"\nb: 1\nb: 2\nb: 3\nc: true'
+    assert write_oml(node, arrays=True) == 'a: "x"\nb: [1, 2, 3]\nc: true'
+    assert read_oml(write_oml(node, arrays=True)) == node

@@ -210,7 +210,7 @@ label       = STRING / bare-label
 bare-label  = IDENT                ; rejected at parse time if IDENT's text
                                     ; is "null", "true", or "false" (§4)
 
-value       = scalar / "{" [SEP] node-edges [SEP] "}"
+value       = scalar / "{" [SEP] node-edges [SEP] "}" / array
               ; "{}" (with only SEP, if any, between the braces) is a valid
               ; value: the empty edge list.
 
@@ -220,6 +220,25 @@ scalar      = STRING / INTEGER / NUMBER / DATE / TIME / DATETIME
               ; ParseError ("bare word ... is not a valid value here;
               ; strings must be quoted") -- there is no implicit
               ; string-from-identifier coercion anywhere in OML.
+
+; -- arrays (issue #218) --------------------------------------------------
+
+array       = "[" [SEP] array-element *( "," [SEP] array-element ) [","]
+              [SEP] "]"
+              ; sugar for edge-multiplication, expanded at *parse* time --
+              ; "label: [v1, v2]" becomes two edges, "label: v1" and
+              ; "label: v2", at that exact position in the edge list. An
+              ; array is not itself a value in the Document model, which is
+              ; why array-element excludes array: nesting has nothing to
+              ; nest into. Comma is the only element separator (a bare
+              ; newline/";" is a ParseError inside "[...]"); a trailing
+              ; comma before "]" is legal; "[]" (empty) is a ParseError,
+              ; not a zero-edge expansion; SEP (including "#" comments and
+              ; newlines) is otherwise insignificant inside "[...]", same
+              ; as everywhere else.
+
+array-element = scalar / "{" [SEP] node-edges [SEP] "}"
+              ; everything "value" allows except another array.
 ```
 
 Nesting depth — the number of `{` braces a value may be wrapped in — is
@@ -335,3 +354,4 @@ behavior (see `tests/test_grammar_docs.py` for the executable form).
 | 16 | `a: {}` | empty node value → `[('a', [])]` |
 | 17 | `"hello"` (top level, no label) | the whole document is the single scalar `'hello'` |
 | 18 | `write_oml([('a', 1), ('b', [('x', 1), ('y', 2)])], indent=None)` | compact form `'a: 1; b: { x: 1; y: 2 }'`, which `read_oml` parses back to the same node |
+| 19 | `b: [1, 2, 3]` | array sugar, expands at parse time to `[('b', 1), ('b', 2), ('b', 3)]` -- identical to three repeated `b:` edges (issue #218) |

@@ -108,6 +108,14 @@ didn't hold one of those three lines — usually because its real
 validator is prose plus executable code, which was never forced to
 commit to them in the first place.
 
+All four fixtures already carry the kind of long, repeated-label lists
+[OML array syntax](../formats/oml.md#arrays) (issue #218) exists for —
+pyproject.toml's `classifiers`/`keywords`, sitemap.xml's repeated `url`
+entries, package.json's dependency lists, and GitHub Actions' step
+sequences are all cases where `write_oml(node, arrays=True)`'s
+`label: [v1, v2, ...]` form reads more like the source format than a long
+run of repeated `label: v` edges does.
+
 ## Read the four in order
 
 1. [pyproject.toml](pyproject.md) — the most formally specified format

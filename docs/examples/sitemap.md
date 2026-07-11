@@ -39,10 +39,15 @@ UrlSet }` here) — not a gap, just XML's structural requirement.
 
 ## The fixtures
 
-| File | OML | What it is | What it exercises |
-|---|---|---|---|
-| [`minimal.xml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/minimal.xml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/minimal.oml) | The official example from the sitemaps.org protocol page, verbatim | The full, well-formed shape: `loc`, `lastmod`, `changefreq`, `priority`, all spec-valid |
-| [`invalid-values.xml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/invalid-values.xml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/invalid-values.oml) | Synthetic, written for this example — **not** sourced from any real site | `changefreq: sometimes` (not one of the spec's 7 allowed values) and `priority: 1.5`/`-0.2` (outside the spec's `[0.0, 1.0]` range) — both validate anyway |
+| File | OML | Arrays OML | What it is | What it exercises |
+|---|---|---|---|---|
+| [`minimal.xml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/minimal.xml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/minimal.oml) | [`.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/minimal.arrays.oml) | The official example from the sitemaps.org protocol page, verbatim | The full, well-formed shape: `loc`, `lastmod`, `changefreq`, `priority`, all spec-valid |
+| [`invalid-values.xml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/invalid-values.xml) | [`.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/invalid-values.oml) | [`.arrays.oml`](https://github.com/omnist-dev/omnist/blob/master/examples/sitemap/fixtures/invalid-values.arrays.oml) | Synthetic, written for this example — **not** sourced from any real site | `changefreq: sometimes` (not one of the spec's 7 allowed values) and `priority: 1.5`/`-0.2` (outside the spec's `[0.0, 1.0]` range) — both validate anyway |
+
+`invalid-values.xml` has two `<url>` entries — its `.arrays.oml` is the one
+example in this whole set where array collapse applies to a run of brace
+subtrees combined with a schema-directed `date` upgrade (`lastmod`). See
+[OML arrays](../formats/oml.md#arrays).
 
 ## What OSD can model exactly
 
