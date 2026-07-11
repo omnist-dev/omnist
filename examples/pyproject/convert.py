@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""Validate real pyproject.toml files against pyproject.osd, and show
+the resulting OML.
+
+For each fixture: read the TOML, validate it against the schema, and
+either print the equivalent OML or the exact validation error -- never
+an uncaught exception. This is also a stress test of ``read_toml`` and
+``write_oml`` against real-world TOML, independent of whether the
+schema itself is a good fit.
+
+Run: python3 examples/pyproject/convert.py
+"""
+from pathlib import Path
+
+from omnist import Doc, parse_schema, read_toml, write_oml
+
+HERE = Path(__file__).parent
+FIXTURES = sorted((HERE / "fixtures").glob("*.toml"))
+
+
+def main():
+    schema = parse_schema((HERE / "pyproject.osd").read_text())
+
+    for fixture in FIXTURES:
+        print(f"== {fixture.name} ==")
+        node = read_toml(fixture.read_text())
+        result = schema.validate(Doc(node))
+        if result.ok:
+            print("valid: True")
+            print(write_oml(node))
+        else:
+            print("valid: False")
+            print(result)
+        print()
+
+
+if __name__ == "__main__":
+    main()

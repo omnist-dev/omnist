@@ -115,3 +115,6 @@ Doc.of({"id": "A1"}).to_toml()          # 'id = "A1"\n'
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how TOML's native temporal types and array-of-tables stack up against the
   other formats.
+- For a real-world TOML schema modeled end to end — including where OSD's
+  algebra can't fully capture the format's own spec — see
+  [Worked example: modeling pyproject.toml](../examples/pyproject.md).

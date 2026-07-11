@@ -7,6 +7,10 @@ Document also reads in from JSON, YAML, TOML, and XML — see
 [Translating to other formats](#translating-to-other-formats). Every snippet
 here is verified against the library.
 
+For a second worked example — a real external format (`pyproject.toml`)
+rather than one designed for Omnist, including where OSD's algebra hits
+real limits — see [Worked example: modeling pyproject.toml](examples/pyproject.md).
+
 ## The schema
 
 An order: an id, a status, a total, a shipping address, one or more line

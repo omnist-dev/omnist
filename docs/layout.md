@@ -76,6 +76,12 @@ a thin argument-parsing layer over that same public surface.
   Document and Schema model definitions; self-contained, no paper required.
 - **`paper/`** -- the Lee & Cheung CIKM 2010 paper that inspired the model
   (background reading only, not required to use Omnist).
+- **`examples/`** -- one page per real-world worked example, alongside
+  `example.md`'s single canonical one:
+  [pyproject.md](examples/pyproject.md) models `pyproject.toml`, an
+  external format not designed for Omnist -- includes a candid
+  can/cannot-model analysis (unions, open key sets, cross-field
+  constraints) and a comparison against hand-written JSON Schema.
 
 ## `tests/` file map
 
@@ -95,6 +101,11 @@ Full test strategy (coverage target, fuzzing approach, CI) is in
   fails CI instead of rotting silently.
 - **`test_examples.py`** -- runs every `examples/*.py` file as a subprocess
   and asserts a clean exit, since examples are documentation too.
+- **`test_examples_pyproject.py`** -- validates each `examples/pyproject/
+  fixtures/*.toml` file against `pyproject.osd` directly (not just a
+  clean-exit check), and checks the `any`-field count against what
+  [docs/examples/pyproject.md](examples/pyproject.md) claims, so
+  that page can't drift from what validation actually does.
 - **`test_fuzz.py`** -- property-based fuzzing (Hypothesis) of the Document
   model, codecs, and the OSD parser.
 - **`test_cli.py`** -- the `omnist` CLI (`omnist/cli.py`), invoked

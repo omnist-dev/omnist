@@ -52,6 +52,7 @@ nav:
   - OML: formats/oml.md
   - Schema model & OSD: schema.md
   - A real-life example: example.md
+  - "pyproject.toml worked example": examples/pyproject.md
   - API reference: api.md
   - CLI: cli.md
   - Schema-directed deserialization: deserialization.md

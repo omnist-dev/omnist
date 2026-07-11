@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.5.5] — pyproject.toml worked example
+
+Documentation/examples-only release, no `omnist` package logic changed.
+Adds `examples/pyproject/`: an OSD schema modeling the real
+`pyproject.toml` spec (PEP 517/621/639/794), three TOML fixtures
+(first-party, an official PSF teaching example, and one synthetic
+fixture — no third-party project files, to avoid any copyright
+ambiguity), and `convert.py` validating each against the schema and
+printing the resulting OML.
+
+`docs/examples/pyproject.md` is the companion write-up: a candid
+can/cannot-model analysis (unions, open key sets, cross-field
+constraints — OSD structurally can't express any of the three), a
+false-reject vs. false-accept breakdown, a comparison against
+hand-written JSON Schema, and a "lessons learned" section on what
+structures to avoid when designing a new format meant for OSD.
+`tests/test_examples_pyproject.py` keeps the doc's claims (field counts,
+which fields are `any`) from drifting out of sync with the schema.
+
 ## [v0.5.4] — document `#` comments in OSD/OML
 
 Documentation-only release: `#` line comments have always worked in both OSD
