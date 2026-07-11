@@ -335,3 +335,4 @@ behavior (see `tests/test_grammar_docs.py` for the executable form).
 | 16 | `a: {}` | empty node value → `[('a', [])]` |
 | 17 | `"hello"` (top level, no label) | the whole document is the single scalar `'hello'` |
 | 18 | `write_oml([('a', 1), ('b', [('x', 1), ('y', 2)])], indent=None)` | compact form `'a: 1; b: { x: 1; y: 2 }'`, which `read_oml` parses back to the same node |
+| 19 | `a: 1  # comment␊b: 2` | `# comment` discarded to end of line; parses to `[('a', 1), ('b', 2)]`, same as without it |

@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.5.3"
+    assert ds.__version__ == "0.6.0"
 
 
 def test_quickstart():
@@ -72,6 +72,16 @@ def test_formats_oml_compact_write():
     node = [("name", "Ada"), ("tags", [("tag", "x"), ("tag", "y")])]
     assert write_oml(node) == 'name: "Ada"\ntags: {\n  tag: "x"\n  tag: "y"\n}'
     assert write_oml(node, indent=None) == 'name: "Ada"; tags: { tag: "x"; tag: "y" }'
+
+
+def test_formats_oml_comments():
+    from omnist import write_oml
+    o = read_oml('name: "Ann"   # required\n'
+                 '# a full-line comment is fine too\n'
+                 'tag: "x"\n')
+    assert o == [("name", "Ann"), ("tag", "x")]
+    # comments don't round-trip -- write_oml drops them
+    assert "#" not in write_oml(o)
 
 
 def test_formats_oml_edge_order_is_data_but_validation_ignores_it():
@@ -132,6 +142,20 @@ def test_schema_page_osd_shape_and_builder_equivalence():
     )
     s2 = schema(ref("User"), User=user, Address=address)
     assert s.equivalent(s2)
+
+
+def test_schema_page_comments():
+    s = parse_schema('''
+    record User {
+        "name": string,   # required
+        # a full-line comment is fine too
+        "age":  integer,
+    }
+    root User
+    ''')
+    assert s.validate(doc({"name": "Ann", "age": 30})).ok
+    # comments don't round-trip -- to_osd drops them
+    assert "#" not in to_osd(s)
 
 
 def test_schema_page_to_osd_pretty_and_compact():
@@ -514,7 +538,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.5.3"
+    assert ds.__version__ == "0.6.0"
 
 
 def test_api_docs_schema_raises():

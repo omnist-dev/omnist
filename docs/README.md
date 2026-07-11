@@ -20,6 +20,7 @@ Start here, in roughly this order:
 | **[Glossary](glossary.md)** | One definition per term used across the docs and code, grouped by concept area. |
 | **[Testing](testing.md)** | The test suite: layout, coverage tooling and target, the fuzzing approach, and what CI runs. |
 | **[Repo layout](layout.md)** | How the repo itself is organized: `omnist/*.py` module responsibilities, the docs page map, and the test file map. |
+| **[Stability and versioning](stability.md)** | What's public API, what's not, what a patch vs. minor release can change, and the beta-to-1.0 plan. |
 
 ## The model in one minute
 

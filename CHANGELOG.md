@@ -2,7 +2,31 @@
 
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
-**alpha** and the public API may still change between releases.
+**beta** — see [docs/stability.md](docs/stability.md) for what that means.
+
+## [v0.6.0] — beta
+
+Omnist is declared **beta**: the model is settled and the public API has
+stopped churning, so it's safe to build real things on. It isn't frozen —
+see [docs/stability.md](docs/stability.md) for exactly what's covered by the
+stability guarantees, what a patch vs. minor release can change, and the
+beta-to-1.0 plan. README's status badge and framing move from alpha to beta
+accordingly.
+
+Alongside the beta declaration:
+
+- Documented `#` comments for OSD and OML (`docs/schema.md`, `docs/formats/oml.md`)
+  — syntax, where they're valid, and the fact that they're lexical trivia and
+  **don't round-trip** through `write_oml`, `to_osd`, or `schema
+  format`/`normalize`. The feature already worked; it just wasn't written
+  down anywhere user-facing.
+- Two new worked examples: `examples/pyproject_validate.py` (validating a
+  `pyproject.toml` against a schema that models PEP 621's fixed metadata and
+  marks every genuinely open region `any`, using `#` comments to explain
+  each opening) and `examples/config_compat.py` (the `compatible_with`
+  flagship case — adding an optional field is safe, tightening one is not).
+  Both are wired into the test suite via `tests/test_examples.py` and run in
+  CI on every push.
 
 ## [v0.5.3] — uniform `--json` across the CLI
 

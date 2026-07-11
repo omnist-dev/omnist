@@ -69,6 +69,26 @@ graph LR
 All of this is defined formally, with proofs, in
 [the model spec](design/model.md).
 
+## Comments
+
+`#` starts a comment that runs to the end of the line. It's valid anywhere
+whitespace is valid — between fields, after a field, on its own line — and
+the parser discards it:
+
+```
+record User {
+    "name": string,   # required
+    # a full-line comment is fine too
+    "age":  integer,
+}
+root User
+```
+
+Comments are lexical trivia, not part of the Schema model, so they **don't
+round-trip**: `to_osd` and `omnist schema format`/`normalize` all drop them.
+Write your notes in comments for readers of the `.osd` source; don't expect
+them to survive a parse-and-write-back round trip.
+
 ## The `any` type
 
 A field may be typed `any` (v0.5.0): its value is accepted *unchecked* —

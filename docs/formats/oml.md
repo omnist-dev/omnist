@@ -275,6 +275,24 @@ Edges are separated by one or more newlines and/or `;`. There's no comma —
 OML has no array literal, so nothing invites one. `;` is for one-line
 ("inline") style: `{ a: 1; b: 2 }`.
 
+## Comments
+
+`#` starts a comment that runs to the end of the line, discarded by the
+tokenizer. It's valid anywhere whitespace is valid — a string can contain a
+literal `#` without it becoming a comment, since the tokenizer reads a
+quoted string as one token:
+
+```
+name: "Ann"   # required
+# a full-line comment is fine too
+tag: "x"
+```
+
+Comments are lexical trivia, not part of the Document model, so they
+**don't round-trip**: `write_oml` drops them. Write your notes in the
+`.oml` source for readers; don't expect them to survive a parse-and-write
+round trip.
+
 ## Errors, not silent surprises
 
 A few things that look almost-valid are deliberate hard errors, not lenient
