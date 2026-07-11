@@ -266,8 +266,40 @@ one and writing it back changes layout, never meaning):
 Newlines *inside* a multiline string are never confused with the structural
 line separator: the tokenizer reads `"""…"""` as one token from open to
 close (the same way a string can contain `#` without it becoming a
-comment), so only a newline *outside* any token separates one edge from the
-next.
+comment — see [Comments](#comments) below), so only a newline *outside* any
+token separates one edge from the next.
+
+## Comments
+
+`#` starts a comment that runs to end of line. It's valid anywhere
+whitespace is valid — on its own line, before an edge, or trailing after a
+value:
+
+```python
+node = read_oml("# a top comment\na: 1  # trailing comment\nb: 2\n")
+node
+# [('a', 1), ('b', 2)]
+```
+
+`#` inside any string literal (double-quoted, raw `'…'`, or multiline
+`"""…"""`) is always literal data, never a comment — a string token is
+consumed as one opaque unit by its own quote-matching rules, and the
+trivia scanner that recognizes `#` never runs until that literal is fully
+closed:
+
+```python
+read_oml('a: "x # y"')   # [('a', 'x # y')] -- not a comment
+read_oml("a: 'x # y'")   # [('a', 'x # y')] -- raw string, same
+```
+
+Comments are lexical trivia, discarded before parsing — they never affect
+the resulting Document and **don't round-trip**: `write_oml()` never
+re-emits them.
+
+```python
+write_oml(read_oml("a: 1  # this note is gone\n"))
+# 'a: 1'
+```
 
 ## Separators
 

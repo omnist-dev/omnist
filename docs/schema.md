@@ -429,6 +429,40 @@ Findings are sorted by `(code, location)`. The three `warning` codes each
 point at the transform that fixes them; the `any` inventory is `info` and
 never signals a problem on its own.
 
+## Comments
+
+`#` starts a comment that runs to end of line. It's valid anywhere
+whitespace is valid — before a `record` or `root` declaration, after a
+field, on its own line, inside a `record { }` body:
+
+```python
+s = parse_schema('''
+# a top-level comment
+record User {
+    "name": string,  # inline, trailing a field
+}
+root User
+''')
+print([f.label for f in s.env["User"].fields])
+# ['name']
+```
+
+`#` inside a quoted field name (e.g. `"a#b"`) is ordinary data, never a
+comment — string/quoted-label tokens are consumed whole before the trivia
+scanner that recognizes `#` ever runs.
+
+Comments are lexical trivia, discarded by the tokenizer before parsing —
+they have no effect on the resulting `Schema` and **don't round-trip**:
+`to_osd()` (and `schema format`/`schema normalize`) never re-emit them.
+
+```python
+from omnist import to_osd
+
+s2 = parse_schema('record R { "a": string } # this note is gone\nroot R')
+to_osd(s2)
+# 'record R {\n    "a": string,\n}\nroot R\n'
+```
+
 ## See also
 
 - [User guide](guide.md) — the practical tour, including the Python builder,

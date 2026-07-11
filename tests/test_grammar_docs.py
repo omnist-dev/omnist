@@ -246,3 +246,11 @@ def test_osd_ex22_record_named_any_is_rejected():
 def test_osd_ex23_capitalized_any_is_unknown_ref_not_reserved():
     with pytest.raises(SchemaError, match="unknown type"):
         parse_schema('record R { "data": Any }\nroot R')
+
+
+@pytest.mark.parametrize(
+    "ch", ["@", "&", "/", "^", "%", "!", "~", "`", "$"]
+)
+def test_osd_unknown_character_is_rejected(ch):
+    with pytest.raises(SchemaError, match="unexpected character"):
+        parse_schema('record R { "a": ' + ch + ' }\nroot R')
