@@ -1,0 +1,8 @@
+urlset: {
+  url: {
+    loc: "http://www.example.com/"
+    lastmod: 2005-01-01
+    changefreq: "monthly"
+    priority: 0.8
+  }
+}

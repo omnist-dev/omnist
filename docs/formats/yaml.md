@@ -113,3 +113,7 @@ Doc.of({"name": "Ada"}).to_yaml()
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how YAML's anchors, aliases, and native date handling stack up against the
   other formats.
+- For a real instance of the "non-string keys are outside the profile" limit
+  above -- PyYAML's YAML 1.1 boolean-coercion rule turning a bare `on:` key
+  into the Python boolean `True` -- see
+  [Worked example: modeling a GitHub Actions workflow](../examples/github-actions.md).

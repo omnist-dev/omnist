@@ -1,0 +1,66 @@
+# examples/package-json/package.osd
+#
+# Models npm's package.json, retrieved 2026-07-11 from
+# https://docs.npmjs.com/cli/v11/configuring-npm/package-json and
+# https://docs.npmjs.com/creating-a-package-json-file. Unlike
+# pyproject.toml, there is no formal spec (no PEP/RFC equivalent) --
+# just prose documentation plus whatever `npm install`/`npm publish`
+# actually enforce at runtime, and a third-party (SchemaStore) JSON
+# Schema, not an official npm artifact. "Full coverage" isn't even a
+# well-defined target the way it was for pyproject.toml's PEP-enumerated
+# fields -- this deliberately models a *scoped core subset* (16 of the
+# ~30+ fields npm documents), not the whole format.
+#
+# Coverage: 8 of 16 fields are fully closed and checked -- exactly half.
+# The other 8 are `any` (author, bugs, repository, bin, scripts,
+# dependencies, devDependencies, engines) -- a *higher* proportion than
+# pyproject.toml despite this schema being smaller, because
+# package.json's loose, spec-free design leans on unions and open maps
+# even in its core fields. See docs/examples/package-json.md for the
+# full analysis.
+
+record Author {
+    "name"  [0,1]: string,
+    "email" [0,1]: string,
+    "url"   [0,1]: string,
+    # documents the object arm of the "author" union -- the field itself
+    # must still be `any`; OSD can't express "string OR this record"
+}
+
+record Bugs {
+    "url"   [0,1]: string,
+    "email" [0,1]: string,
+}
+
+record Repository {
+    "type"      [0,1]: string,
+    "url"       [0,1]: string,
+    "directory" [0,1]: string,
+}
+
+record PackageJson {
+    "name"        [0,1]: string,   # required to publish per npm docs; not
+                                     # enforced generally -- resolved permissively
+    "version"     [0,1]: string,   # same
+    "description" [0,1]: string,
+    "keywords"    [0,]:  string,
+    "homepage"    [0,1]: string,
+    "license"     [0,1]: string,
+    "author"      [0,1]: any,      # string "Name <email> (url)" OR an
+                                     # Author table -- union
+    "bugs"        [0,1]: any,      # string (a URL) OR a Bugs table -- union
+    "repository"  [0,1]: any,      # string (several shorthand forms, e.g.
+                                     # "npm/example", "github:npm/example",
+                                     # "gitlab:user/repo") OR a Repository
+                                     # table -- union
+    "main"        [0,1]: string,
+    "bin"         [0,1]: any,      # string OR an open map (command name ->
+                                     # executable path) -- union AND open map
+                                     # in the same field
+    "scripts"     [0,1]: any,      # open map: lifecycle-event name -> shell command
+    "dependencies"    [0,1]: any,  # open map: package name -> semver range
+    "devDependencies" [0,1]: any,  # open map, same shape as dependencies
+    "engines"     [0,1]: any,      # open map, e.g. {"node": ">=18"}
+    "private"     [0,1]: boolean,
+}
+root PackageJson

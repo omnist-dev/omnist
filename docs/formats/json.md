@@ -115,3 +115,6 @@ write_json([("a", float("inf"))])              # '{"a": null}'
   its own — wrap it under a key.
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how JSON's quirks stack up against the other formats.
+- For a real-world JSON schema modeled end to end -- including a format
+  with no formal spec at all -- see
+  [Worked example: modeling package.json](../examples/package-json.md).

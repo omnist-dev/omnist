@@ -1,0 +1,31 @@
+{
+  "name": "widget-cli",
+  "version": "2.3.1",
+  "description": "A small synthetic example, not a real package.",
+  "author": {
+    "name": "Jordan Lee",
+    "email": "jordan@example.com",
+    "url": "https://example.com/jordan"
+  },
+  "bugs": "https://github.com/example/widget-cli/issues",
+  "repository": "github:example/widget-cli",
+  "main": "index.js",
+  "bin": {
+    "widget": "bin/widget.js",
+    "widget-admin": "bin/widget-admin.js"
+  },
+  "scripts": {
+    "test": "node test.js",
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "chalk": "^5.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": false
+}

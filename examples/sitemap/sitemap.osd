@@ -1,0 +1,44 @@
+# examples/sitemap/sitemap.osd
+#
+# Models the sitemaps.org protocol, retrieved 2026-07-11 from
+# https://www.sitemaps.org/protocol.html -- a genuine, small, official
+# spec (not a guide, not a third-party schema), the most formally
+# specified of the four examples in this set alongside pyproject.toml.
+#
+# XML always has exactly one document element, so the schema needs the
+# explicit wrapper record used in docs/example.md's order schema
+# ("record Root { \"order\": Order }" there; "urlset" here).
+#
+# Coverage: structurally, this is the cleanest of the four examples --
+# no unions, no open key sets, no cross-field constraints. All 4 Url
+# fields are closed and checked.
+#
+# But it surfaces a gap none of the other three did: value refinement.
+# The spec restricts `changefreq` to an enumerated set of 7 strings and
+# `priority` to the numeric range [0.0, 1.0] -- OSD's `string`/`number`
+# scalars have no enum or range constraint, so both are accepted
+# unchecked as long as the *type* matches. See
+# docs/examples/sitemap.md for a fixture that deliberately demonstrates
+# this false-accept.
+
+record Url {
+    "loc"        [1,1]: string,   # required, absolute URL, <2048 chars
+    "lastmod"    [0,1]: date,     # W3C datetime; schema-directed reading
+                                    # upgrades this to a real `date` --
+                                    # the only non-no-op case in this set
+    "changefreq" [0,1]: string,   # spec restricts to always/hourly/daily/
+                                    # weekly/monthly/yearly/never -- OSD
+                                    # has no enum type, so any string passes
+    "priority"   [0,1]: number,   # spec restricts to [0.0, 1.0] -- OSD
+                                    # has no range constraint, so any
+                                    # number passes
+}
+
+record UrlSet {
+    "url" [1,]: Url,
+}
+
+record Root {
+    "urlset": UrlSet,
+}
+root Root

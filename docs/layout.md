@@ -77,11 +77,22 @@ a thin argument-parsing layer over that same public surface.
 - **`paper/`** -- the Lee & Cheung CIKM 2010 paper that inspired the model
   (background reading only, not required to use Omnist).
 - **`examples/`** -- one page per real-world worked example, alongside
-  `example.md`'s single canonical one:
+  `example.md`'s single canonical one, plus
+  [index.md](examples/index.md) tying all four together (comparison
+  table, four gap categories, consolidated lessons):
   [pyproject.md](examples/pyproject.md) models `pyproject.toml`, an
   external format not designed for Omnist -- includes a candid
   can/cannot-model analysis (unions, open key sets, cross-field
   constraints) and a comparison against hand-written JSON Schema.
+  [package-json.md](examples/package-json.md) models `package.json`, a
+  format with no formal spec at all -- how that shows up as a *higher*
+  proportion of unchecked (`any`) fields despite a smaller schema.
+  [github-actions.md](examples/github-actions.md) models a GitHub
+  Actions workflow -- the highest `any` proportion of the four, plus a
+  real codec-level finding (YAML 1.1's boolean-coercion rule breaking
+  the ordinary `on:` key). [sitemap.md](examples/sitemap.md) models
+  sitemap.xml -- structurally the cleanest of the four, and the only one
+  to surface the fourth gap category (value refinement: enums, ranges).
 
 ## `tests/` file map
 
@@ -106,6 +117,18 @@ Full test strategy (coverage target, fuzzing approach, CI) is in
   clean-exit check), and checks the `any`-field count against what
   [docs/examples/pyproject.md](examples/pyproject.md) claims, so
   that page can't drift from what validation actually does.
+- **`test_examples_package_json.py`** -- the same discipline applied to
+  `examples/package-json/`: validates each fixture against
+  `package.osd`, checks committed `.oml` files stay byte-exact, and
+  checks the `any`-field count against
+  [docs/examples/package-json.md](examples/package-json.md).
+- **`test_examples_github_actions.py`** -- the same discipline for
+  `examples/github-actions/`, plus asserts the read-failure finding
+  itself: three fixtures with a bare `on:` key raise `DocumentError`,
+  not just fail validation.
+- **`test_examples_sitemap.py`** -- the same discipline for
+  `examples/sitemap/`, plus asserts the value-refinement finding: an
+  out-of-enum `changefreq` and out-of-range `priority` both validate.
 - **`test_fuzz.py`** -- property-based fuzzing (Hypothesis) of the Document
   model, codecs, and the OSD parser.
 - **`test_cli.py`** -- the `omnist` CLI (`omnist/cli.py`), invoked

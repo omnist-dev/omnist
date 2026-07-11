@@ -1,9 +1,10 @@
 # Worked example: modeling `pyproject.toml`
 
-A real, external format — not built for Omnist — run through the whole
-pipeline: OSD schema, TOML fixtures, validation, OML output. It's also a
-stress test: `read_toml`/`write_oml` against real-world TOML syntax, and
-a candid look at what OSD's algebra can and can't express.
+The first of [four real-world worked examples](index.md) — a real,
+external format, not built for Omnist, run through the whole pipeline:
+OSD schema, TOML fixtures, validation, OML output. It's also a stress
+test: `read_toml`/`write_oml` against real-world TOML syntax, and a
+candid look at what OSD's algebra can and can't express.
 
 Worth being upfront about the ceiling here: `pyproject.toml`'s real
 "schema" is a prose specification plus the Python code of whichever build
@@ -34,6 +35,16 @@ metadata), PEP 639 (`license`/`license-files`), PEP 794 (`import-names`/
 ```
 python3 examples/pyproject/convert.py
 ```
+
+`read_toml` is called with `schema=` — the idiomatic call once the
+schema is already in hand, which upgrades value-exact leaves (ISO
+strings to real `date`/`time`/`datetime`, ints to `number`) to match it.
+It's a **no-op here**: `pyproject.osd` has no `date`/`time`/`datetime`/
+`number` field, only `string`, `boolean`, `any`, and `Ref` — most
+real-world TOML/JSON metadata files are string/bool-heavy at the top
+level, so there's nothing for schema-directed reading to upgrade in
+practice. See [schema-directed deserialization](../deserialization.md)
+for where it does matter.
 
 For each fixture it prints `valid: True`/`False` and, on success, the
 document as OML. All three fixtures currently validate. Each fixture's
@@ -184,65 +195,12 @@ for free — in JSON Schema those require explicit
 easy to forget on any given field. Neither is strictly more expressive;
 they trade which mistakes are easy to make.
 
-## If you're designing a format for OSD: lessons from `pyproject.toml`
+## See also
 
-`pyproject.toml` wasn't designed with a structural schema language in
-mind — it evolved through several PEPs, each solving its own problem,
-with Python code as the real validator. That's what makes it a good
-stress test, and exactly what makes it a bad *template* to imitate if
-you want a new format OSD can model well. Concretely, avoid:
-
-1. **Same-key polymorphism.** `readme`/`license` being a string *or* a
-   table under one key is the single biggest source of unchecked surface
-   in this schema. If a format needs both a short and a long form of
-   something, give them **different keys** (`license` +
-   `license_detail`) rather than overloading one key's shape. A schema
-   language without unions can express "one of two named fields,
-   cleanly," never "one field, two shapes."
-
-2. **Open keys mixed into an otherwise closed section.** `urls`,
-   `scripts`, `gui-scripts`, and `entry-points` each put user-chosen keys
-   inside what's otherwise a fixed-field area (`[project]`). Contrast
-   with `[tool]`, which gets this right: it hoists *all* openness into
-   one dedicated, clearly-open top-level section. If part of a structure
-   needs arbitrary keys, give it its own namespace — that keeps the
-   closed parts fully checkable and makes the open boundary a single,
-   explicit decision instead of something scattered across many fields.
-
-3. **Conditional requiredness across sibling fields** ("at least one of
-   A or B," "A required unless B says otherwise"). `Author`'s
-   name-or-email and `version`'s dynamic-dependent requiredness both need
-   this. If you're the format designer: pick one field as the canonical,
-   always-required identifier instead of an either/or. Per-field
-   cardinality can express "required" or "optional," never "one of
-   these two."
-
-4. **Meta-referential fields** — a field whose *value* names other
-   fields and changes their requiredness. `dynamic` (a list of field
-   names that, if present, make those named fields optional) is a
-   schema-about-schema pattern: interpreting a string value as a pointer
-   back into the same record's structure. No static schema language can
-   express this at all; it requires runtime interpretation of the data
-   to know what shape is even expected.
-
-5. **Silent forward-extension of a closed section.** `import-names`/
-   `import-namespaces` arriving after the fact, into a record meant to
-   stay closed, is a versioning problem more than a modeling one. If a
-   section needs to grow over time, decide upfront whether it's genuinely
-   closed (and accept that growth needs a version marker driving an
-   explicit schema choice) or genuinely open (and give it its own
-   `[tool]`-style namespace from day one) — don't leave that decision
-   implicit and rediscover it as a false-reject later.
-
-The common thread: OSD models cleanly whatever a format's design keeps
-**structurally uniform and unconditional** — closed sections stay
-closed, open sections say so upfront, and no field's shape or
-requiredness depends on another field's value. `pyproject.toml` breaks
-all three, not because it's badly designed, but because its actual
-validator is Python code that never had to commit to those constraints
-in the first place.
-
-See also: [the `any` type](../schema.md#the-any-type),
+This is one of four real-world worked examples — see
+[the overview](index.md) for the full comparison table, the four gap
+categories found across all of them, and the consolidated "designing a
+format for OSD" lessons list. Also: [the `any` type](../schema.md#the-any-type),
 [the openness design record](../design/openness.md), and the
 order/address/line-item walkthrough in [example.md](../example.md) for
 the other, fully-closed worked example.

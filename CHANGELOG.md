@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.5.7] — package.json, GitHub Actions, and sitemap.xml examples
+
+Documentation/examples-only release, no `omnist` package logic changed.
+Adds three more real-world worked examples alongside pyproject.toml,
+and a new overview page tying all four together:
+
+- `examples/package-json/`: models npm's package.json -- deliberately
+  contrasted with pyproject.toml as a format with no formal spec at
+  all, only prose docs and a third-party schema.
+- `examples/github-actions/`: models a GitHub Actions workflow,
+  first-party fixtures from this repo's own `.github/workflows/`. Finds
+  a genuine codec-level issue: PyYAML's YAML 1.1 boolean-coercion rule
+  turns a bare `on:` key into the Python boolean `True`, which
+  `read_yaml` correctly refuses (`DocumentError`) -- three of the four
+  fixtures fail to even read, not just validate. Highest `any`
+  proportion of the four examples (75%).
+- `examples/sitemap/`: models the sitemaps.org protocol -- structurally
+  the cleanest of the four (0% `any`), but surfaces a fourth gap
+  category none of the others did: value refinement (OSD has no enum
+  or numeric-range constraint, so an out-of-spec `changefreq`/`priority`
+  still validates). Also the only example where `schema=` isn't a
+  no-op: `lastmod` gets upgraded to a real `date`.
+- `docs/examples/index.md`: a comparison table across all four
+  (computed from the schemas by `tests/test_examples_index.py`, not
+  typed by hand), the four-gap taxonomy, a spec-rigor spectrum, and the
+  consolidated "designing a format for OSD" lessons list (relocated
+  from `pyproject.md`, generalized with findings from all four).
+- `convert.py` in the pyproject.toml and package.json examples now call
+  `read_toml`/`read_json` with `schema=` -- the idiomatic call, though a
+  no-op for those two schemas (no `date`/`time`/`datetime`/`number`
+  field in either).
+- `mkdocs.yml` nav restructured: the four examples plus the overview
+  now live under one "Real-world examples" section instead of flat
+  top-level entries.
+
 ## [v0.5.6] — commit OML fixtures for the pyproject.toml example
 
 Documentation/examples-only release, no `omnist` package logic changed.
