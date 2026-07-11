@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.5.3"
+    assert ds.__version__ == "0.5.4"
 
 
 def test_quickstart():
@@ -514,7 +514,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.5.3"
+    assert ds.__version__ == "0.5.4"
 
 
 def test_api_docs_schema_raises():
@@ -861,3 +861,29 @@ def test_why_omnist_xml_strips_namespaces_silently():
 
     assert read_xml('<a xmlns:foo="http://x"><foo:b>hi</foo:b></a>') == \
         [("a", [("b", "hi")])]
+
+
+def test_schema_docs_comments_no_roundtrip():
+    s = parse_schema('''
+# a top-level comment
+record User {
+    "name": string,  # inline, trailing a field
+}
+root User
+''')
+    assert [f.label for f in s.env["User"].fields] == ["name"]
+
+    s2 = parse_schema('record R { "a": string } # this note is gone\nroot R')
+    assert to_osd(s2) == 'record R {\n    "a": string,\n}\nroot R\n'
+
+
+def test_formats_oml_comments_no_roundtrip():
+    from omnist import write_oml
+
+    node = read_oml("# a top comment\na: 1  # trailing comment\nb: 2\n")
+    assert node == [("a", 1), ("b", 2)]
+
+    assert read_oml('a: "x # y"') == [("a", "x # y")]
+    assert read_oml("a: 'x # y'") == [("a", "x # y")]
+
+    assert write_oml(read_oml("a: 1  # this note is gone\n")) == 'a: 1'

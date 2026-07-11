@@ -74,6 +74,14 @@ def test_stray_character_is_a_parse_error():
         read_oml("a: `")
 
 
+@pytest.mark.parametrize(
+    "ch", ["@", "&", "/", "^", "%", "!", "~", "`", "$"]
+)
+def test_stray_characters_are_rejected(ch):
+    with pytest.raises(ParseError, match="stray character"):
+        read_oml("a: " + ch)
+
+
 @pytest.mark.parametrize("src,match", [
     ("a: 2024-13-01", "invalid date"),
     ("a: 25:00:00", "invalid time"),
