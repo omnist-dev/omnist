@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
 **alpha** and the public API may still change between releases.
 
+## [v0.5.4] — document `#` comments in OSD/OML
+
+Documentation-only release: `#` line comments have always worked in both OSD
+(`docs/schema.md`) and OML (`docs/formats/oml.md`), but weren't documented as
+a first-class feature. Both docs now cover syntax, valid positions, a worked
+snippet, and the fact that comments are lexical trivia — they never
+round-trip through `to_osd()`/`write_oml()`. Each new doc snippet is mirrored
+as an executable test in `tests/test_docs.py`.
+
+Also adds a parametrized guard test (`tests/test_grammar_docs.py` for OSD,
+`tests/test_oml.py` for OML) sweeping stray out-of-grammar characters
+(`@ & / ^ % ! ~` backtick `$`) in bare/unquoted position, asserting each is
+rejected with `SchemaError`/`ParseError` as already documented. No parser or
+grammar changes — this closes a gap in what was *tested*, not a behavior
+change.
+
 ## [v0.5.3] — uniform `--json` across the CLI
 
 `--json` is now a **global flag on every command** (`format`, `convert`,
