@@ -183,3 +183,7 @@ read_xml("<p>\n  <b>world</b>\n</p>")   # [('p', [('b', 'world')])]
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how XML's attribute- and namespace-dropping stack up against the other
   formats.
+- For a real-world XML schema modeled end to end -- the cleanest of four
+  worked examples, and the one that surfaces a gap type (value refinement:
+  enums, numeric ranges) none of the others did -- see
+  [Worked example: modeling sitemap.xml](../examples/sitemap.md).

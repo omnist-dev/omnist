@@ -1,0 +1,66 @@
+# examples/github-actions/workflow.osd
+#
+# Models a GitHub Actions workflow file, retrieved 2026-07-11 against
+# SchemaStore's github-workflow.json -- community-maintained, not an
+# official GitHub artifact (same caveat as package.json's schema). No
+# formal spec exists; GitHub's own docs are prose, like npm's.
+#
+# Coverage: 2 of 8 top-level fields are fully closed and checked (name,
+# run-name) -- a quarter, lower than any of the other three examples.
+# The other 6 are `any`: `on` is a three-way union (bare event string,
+# array of events, or an event->config map) -- one step past the
+# two-way unions in the other examples. `jobs` is an open map whose
+# values themselves contain a `steps` array alternating between
+# `uses:`-shaped and `run:`-shaped items within the same list -- shape
+# depends on which sibling key is present, not just which of two record
+# shapes was chosen. `permissions`/`concurrency` are also unions
+# (string shorthand or object); `env`/`defaults` are open maps.
+#
+# Also see docs/examples/github-actions.md for a real codec-level
+# finding: PyYAML's YAML 1.1 boolean-coercion rule turns a bare `on:`
+# key into the Python boolean `True`, which omnist's Document model
+# rejects -- three of this example's four fixtures fail to even read,
+# not just validate. This is a limitation of the codec, not the schema.
+#
+# See docs/examples/github-actions.md for the full analysis.
+
+record Step {
+    "name" [0,1]: string,
+    "id"   [0,1]: string,
+    "if"   [0,1]: string,
+    "uses" [0,1]: string,   # documents the `uses:` step shape
+    "run"  [0,1]: string,   # documents the `run:` step shape --
+                              # exactly one of uses/run is expected, but
+                              # OSD has no cross-field "exactly one of"
+    "with" [0,1]: any,       # open map, action-specific inputs
+    "env"  [0,1]: any,       # open map
+}
+
+record Job {
+    "name"      [0,1]: string,
+    "runs-on"   [0,1]: any,   # string or list of strings (a runner label
+                                # or a matrix expression) -- union
+    "needs"     [0,]:  string,
+    "if"        [0,1]: string,
+    "steps"     [0,]:  Step,
+    "env"       [0,1]: any,   # open map
+    "strategy"  [0,1]: any,   # open map (matrix config)
+    "uses"      [0,1]: string, # reusable-workflow-call job shape
+    "with"      [0,1]: any,    # open map
+}
+
+record Workflow {
+    "name"        [0,1]: string,
+    "run-name"    [0,1]: string,
+    "on"          [0,1]: any,   # bare event string, array of events, or
+                                  # an event -> config map -- three-way union
+    "permissions" [0,1]: any,   # "read-all"/"write-all" string, or a
+                                  # granular permission-name -> level map
+    "env"         [0,1]: any,   # open map
+    "defaults"    [0,1]: any,   # open map (shell/working-directory)
+    "concurrency" [0,1]: any,   # string, or {group, cancel-in-progress} table
+    "jobs"        [0,1]: any,   # open map: job-id -> Job (documented above,
+                                  # but the field itself must be `any` --
+                                  # job-id is caller-chosen)
+}
+root Workflow

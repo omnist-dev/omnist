@@ -43,8 +43,11 @@ def test_fixture_round_trips_to_oml(fixture):
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=lambda p: p.name)
-def test_committed_oml_matches_write_oml(fixture):
-    node = read_toml(fixture.read_text())
+def test_committed_oml_matches_write_oml(schema, fixture):
+    # mirrors convert.py's actual call, including schema= -- a no-op here
+    # since pyproject.osd has no date/time/datetime/number field, but kept
+    # identical to what convert.py runs so this test can't drift from it
+    node = read_toml(fixture.read_text(), schema=schema)
     expected = write_oml(node)
     oml_path = fixture.with_suffix(".oml")
     assert oml_path.exists(), f"missing committed OML fixture: {oml_path.name}"

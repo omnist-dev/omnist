@@ -1,0 +1,40 @@
+# fixtures/test-quoted-on.yml -- test.yml with the bare `on:` key quoted
+# as `"on":`. Provenance: synthetic derivative, not sourced verbatim --
+# built specifically to demonstrate schema validation succeeding once
+# past the read_yaml issue documented in docs/examples/github-actions.md
+# (PyYAML's YAML 1.1 boolean-coercion rule turns a bare `on:` key into
+# the Python boolean `True`, which omnist's Document model rejects
+# since labels must be strings). Real-world workflow files almost never
+# quote this key, which is exactly the point being demonstrated.
+name: Tests
+
+"on":
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e .[dev]
+      - run: ruff check .
+      - run: pytest -q
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e .[dev]
+      - run: mypy --strict omnist

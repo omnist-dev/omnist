@@ -52,7 +52,12 @@ nav:
   - OML: formats/oml.md
   - Schema model & OSD: schema.md
   - A real-life example: example.md
-  - "pyproject.toml worked example": examples/pyproject.md
+  - Real-world examples:
+      - Overview: examples/index.md
+      - "pyproject.toml": examples/pyproject.md
+      - "package.json": examples/package-json.md
+      - "GitHub Actions workflow": examples/github-actions.md
+      - "sitemap.xml": examples/sitemap.md
   - API reference: api.md
   - CLI: cli.md
   - Schema-directed deserialization: deserialization.md

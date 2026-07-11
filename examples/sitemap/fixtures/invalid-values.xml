@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- fixtures/invalid-values.xml: synthetic, not sourced from any real
+     site. Deliberately violates the spec's changefreq enum and
+     priority range while staying type-correct (a string, a number),
+     demonstrating the value-refinement gap documented in sitemap.osd
+     and docs/examples/sitemap.md. This fixture SHOULD be rejected by a
+     spec-faithful validator and IS NOT by this OSD schema; that's the
+     point, not a bug in this fixture. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>https://example.com/page-one</loc>
+      <lastmod>2026-03-15</lastmod>
+      <changefreq>sometimes</changefreq>
+      <priority>1.5</priority>
+   </url>
+   <url>
+      <loc>https://example.com/page-two</loc>
+      <priority>-0.2</priority>
+   </url>
+</urlset>
