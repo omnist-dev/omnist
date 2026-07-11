@@ -23,6 +23,20 @@ def run(argv, stdin=None, capsys=None, monkeypatch=None):
 
 
 class TestFormat:
+    def test_format_arrays_flag_collapses_repeated_labels(self, tmp_path, capsys):
+        p = tmp_path / "in.oml"
+        p.write_text("b: 1\nb: 2\nb: 3\n")
+        code, out, err = run(["format", str(p), "--arrays"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "b: [1, 2, 3]\n"
+
+    def test_format_without_arrays_flag_leaves_repeated_labels_alone(self, tmp_path, capsys):
+        p = tmp_path / "in.oml"
+        p.write_text("b: 1\nb: 2\nb: 3\n")
+        code, out, err = run(["format", str(p)], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "b: 1\nb: 2\nb: 3\n"
+
     def test_reformats_oml_from_file_to_stdout(self, tmp_path, capsys):
         p = tmp_path / "in.oml"
         p.write_text('a: 1\nb: "x"\n')
@@ -55,7 +69,7 @@ class TestFormat:
 
     def test_invalid_oml_is_a_clean_error_not_a_traceback(self, tmp_path, capsys):
         p = tmp_path / "bad.oml"
-        p.write_text('a: [1, 2]\n')   # OML has no JSON-style array literal
+        p.write_text('a: [[1, 2]]\n')   # nested arrays are rejected (issue #218)
         code, out, err = run(["format", str(p)], capsys=capsys, monkeypatch=None)
         assert code == 2
         assert out == ""
@@ -106,6 +120,15 @@ class TestConvert:
             capsys=capsys, monkeypatch=None)
         assert code == 0
         assert out == 'a: 1; b: "x"\n'
+
+    def test_convert_to_oml_arrays_flag_collapses_repeated_labels(self, tmp_path, capsys):
+        p = tmp_path / "in.xml"
+        p.write_text("<root><b>1</b><b>2</b><b>3</b></root>")
+        code, out, err = run(
+            ["convert", str(p), "--from", "xml", "--to", "oml", "--arrays"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "root: {\n  b: [1, 2, 3]\n}\n"
 
     def test_writes_to_output_file(self, tmp_path, capsys):
         src = tmp_path / "in.json"
@@ -1059,7 +1082,7 @@ class TestGlobalJson:
 
     def test_format_error_json(self, tmp_path, capsys):
         p = tmp_path / "bad.oml"
-        p.write_text('a: [1, 2]\n')
+        p.write_text('a: [[1, 2]]\n')  # nested arrays are rejected (issue #218)
         base, _, _ = run(["format", str(p)], capsys=capsys, monkeypatch=None)
         code, out, err = run(["format", str(p), "--json"], capsys=capsys, monkeypatch=None)
         self._assert_json_error(out, err, code, base)

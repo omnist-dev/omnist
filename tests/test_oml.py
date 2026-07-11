@@ -78,8 +78,19 @@ def test_stray_character_is_a_parse_error():
     "ch", ["@", "&", "/", "^", "%", "!", "~", "`", "$"]
 )
 def test_stray_characters_are_rejected(ch):
+    # NOTE (#218): '[' used to be in this sweep too, but it's grammar now
+    # (array syntax) -- see test_array_* below.
     with pytest.raises(ParseError, match="stray character"):
         read_oml("a: " + ch)
+
+
+def test_unmatched_close_bracket_is_a_parse_error():
+    # ']' alone, not closing an array, is now a recognized-but-invalid
+    # token (RBRACKET) rather than a "stray character" -- '[' is grammar
+    # now, so the scanner tokenizes ']' too instead of falling through to
+    # the stray-character path. Still a ParseError either way.
+    with pytest.raises(ParseError):
+        read_oml("a: ]")
 
 
 @pytest.mark.parametrize("src,match", [
@@ -799,3 +810,219 @@ def test_write_oml_compact_bare_scalar_document():
 ])
 def test_write_oml_compact_round_trips(node):
     assert read_oml(write_oml(node, indent=None)) == node
+
+
+# ---------------------------------------------------------------------------
+# [...] array syntax (#218) -- pure syntactic sugar for repeated same-label
+# edges, expanded at parse time. No array type in the Document model.
+# ---------------------------------------------------------------------------
+
+def test_array_worked_example_from_issue():
+    src = (
+        'a: "x"\n'
+        "b: [1, 2, 3]\n"
+        "c: true\n"
+        "b: [4, 5, 6]\n"
+    )
+    assert read_oml(src) == [
+        ("a", "x"),
+        ("b", 1), ("b", 2), ("b", 3),
+        ("c", True),
+        ("b", 4), ("b", 5), ("b", 6),
+    ]
+
+
+def test_array_expands_to_repeated_edges_minimal():
+    assert read_oml("b: [1, 2, 3]") == [("b", 1), ("b", 2), ("b", 3)]
+
+
+def test_array_of_brace_subtrees():
+    src = 'members: [{name: "Ann"}, {name: "Bob"}]'
+    assert read_oml(src) == [
+        ("members", [("name", "Ann")]),
+        ("members", [("name", "Bob")]),
+    ]
+
+
+def test_array_nested_array_is_a_parse_error():
+    with pytest.raises(ParseError, match="(?i)nested array"):
+        read_oml("b: [[1,2]]")
+
+
+def test_array_empty_is_a_parse_error():
+    with pytest.raises(ParseError, match="(?i)empty array"):
+        read_oml("b: []")
+
+
+def test_array_trailing_comma_is_legal():
+    assert read_oml("b: [1, 2, 3,]") == [("b", 1), ("b", 2), ("b", 3)]
+
+
+def test_array_newlines_inside_brackets_are_legal_and_insignificant():
+    src = "b: [\n  1,\n  2,\n  3\n]"
+    assert read_oml(src) == [("b", 1), ("b", 2), ("b", 3)]
+
+
+def test_array_bare_newline_as_separator_is_illegal():
+    with pytest.raises(ParseError):
+        read_oml("b: [1\n2]")
+
+
+def test_array_semicolon_as_separator_is_illegal():
+    with pytest.raises(ParseError):
+        read_oml("b: [1; 2]")
+
+
+def test_array_comments_inside_brackets_are_legal():
+    src = "b: [\n  1, # one\n  2, # two\n]"
+    assert read_oml(src) == [("b", 1), ("b", 2)]
+
+
+def test_array_in_label_position_is_a_parse_error():
+    with pytest.raises(ParseError):
+        read_oml("[1, 2]: 3")
+
+
+def test_bare_array_at_top_level_is_a_parse_error():
+    with pytest.raises(ParseError):
+        read_oml("[1, 2, 3]")
+
+
+def test_array_with_null_elements():
+    assert read_oml("b: [1, null, 3]") == [("b", 1), ("b", None), ("b", 3)]
+
+
+# ---------------------------------------------------------------------------
+# write_oml(arrays=...) -- writer support
+# ---------------------------------------------------------------------------
+
+_GOLDEN_NODES_FOR_NO_REGRESSION = [
+    [("a", "x"), ("b", 1), ("c", True)],
+    [("tag", "x"), ("tag", "y")],
+    [("a", [("b", [("c", 1)])])],
+    [("title", "Conference"),
+     ("attendee", "Ann"),
+     ("session", [("id", 1), ("active", True)]),
+     ("attendee", "Bob"),
+     ("session", [("id", 2), ("active", False)]),
+     ("when", datetime.datetime(2024, 1, 1, 9, 30)),
+     ("price", 29.99),
+     ("notes", None)],
+    [("b", 1), ("b", 2), ("c", True), ("b", 3)],
+    [],
+]
+
+
+@pytest.mark.parametrize("node", _GOLDEN_NODES_FOR_NO_REGRESSION)
+def test_write_oml_arrays_false_is_byte_identical_to_default(node):
+    # arrays=False (the default) must never change existing output -- this
+    # is the no-regression proof for issue #218.
+    assert write_oml(node, arrays=False) == write_oml(node)
+    assert write_oml(node, arrays=False, indent=None) == write_oml(node, indent=None)
+
+
+def test_write_oml_arrays_true_collapses_runs_pretty():
+    node = [("a", "x"), ("b", 1), ("b", 2), ("b", 3), ("c", True)]
+    text = write_oml(node, arrays=True)
+    assert text == 'a: "x"\nb: [1, 2, 3]\nc: true'
+
+
+def test_write_oml_arrays_true_collapses_runs_compact():
+    node = [("a", "x"), ("b", 1), ("b", 2), ("b", 3), ("c", True)]
+    text = write_oml(node, arrays=True, indent=None)
+    assert text == 'a: "x"; b: [1, 2, 3]; c: true'
+
+
+def test_write_oml_arrays_true_run_of_one_stays_scalar():
+    node = [("b", 1), ("c", True)]
+    assert write_oml(node, arrays=True) == "b: 1\nc: true"
+
+
+def test_write_oml_arrays_true_never_merges_across_a_different_label():
+    # [('b',1),('b',2),('c',True),('b',3)] -- the two b-runs are NOT
+    # adjacent (interrupted by c), so they must stay two separate outputs:
+    # b: [1, 2], c: true, b: 3 -- never merged into one array.
+    node = [("b", 1), ("b", 2), ("c", True), ("b", 3)]
+    text = write_oml(node, arrays=True)
+    assert text == "b: [1, 2]\nc: true\nb: 3"
+    assert read_oml(text) == node
+
+
+def test_write_oml_arrays_true_of_brace_subtrees():
+    node = [("members", [("name", "Ann")]), ("members", [("name", "Bob")])]
+    text = write_oml(node, arrays=True)
+    assert text == 'members: [{ name: "Ann" }, { name: "Bob" }]'
+    assert read_oml(text) == node
+
+
+def test_write_oml_arrays_true_no_wrap_regardless_of_length():
+    # Pretty mode: arrays are always single-line, no line-wrapping, no
+    # matter how long the run is (explicit design decision, #218).
+    node = [("b", i) for i in range(20)]
+    text = write_oml(node, arrays=True)
+    assert "\n" not in text
+    assert text.startswith("b: [") and text.endswith("]")
+    assert read_oml(text) == node
+
+
+@pytest.mark.parametrize("node", _GOLDEN_NODES_FOR_NO_REGRESSION + [
+    [("b", 1), ("b", 2), ("c", True), ("b", 3)],
+    [("members", [("name", "Ann")]), ("members", [("name", "Bob")])],
+])
+def test_write_oml_arrays_true_round_trips_pretty_and_compact(node):
+    assert read_oml(write_oml(node, arrays=True)) == node
+    assert read_oml(write_oml(node, arrays=True, indent=None)) == node
+
+
+# ---------------------------------------------------------------------------
+# Hypothesis: array form == repeated-label form (reader equivalence), and
+# read_oml(write_oml(node, arrays=True)) == node for arbitrary nodes
+# (writer never-reorders property).
+# ---------------------------------------------------------------------------
+
+from hypothesis import given, settings  # noqa: E402
+from hypothesis import strategies as st  # noqa: E402
+
+_array_scalar = st.one_of(
+    st.integers(min_value=-1_000_000, max_value=1_000_000),
+    st.booleans(),
+    st.text(alphabet=st.characters(blacklist_categories=("Cs",), blacklist_characters='"\\'),
+             max_size=10),
+    st.none(),
+)
+
+
+@given(label=st.from_regex(r"[A-Za-z_][A-Za-z0-9_]{0,8}", fullmatch=True),
+       values=st.lists(_array_scalar, min_size=1, max_size=6))
+@settings(max_examples=100)
+def test_array_equivalence_property(label, values):
+    array_src = f"{label}: [" + ", ".join(_write_test_scalar(v) for v in values) + "]"
+    repeated_src = "\n".join(f"{label}: {_write_test_scalar(v)}" for v in values)
+    assert read_oml(array_src) == read_oml(repeated_src)
+
+
+def _write_test_scalar(v):
+    return write_oml([("x", v)]).split(": ", 1)[1]
+
+
+@given(node=st.recursive(
+    st.lists(
+        st.tuples(
+            st.from_regex(r"[A-Za-z_][A-Za-z0-9_]{0,6}", fullmatch=True),
+            _array_scalar,
+        ),
+        min_size=0, max_size=6,
+    ),
+    lambda children: st.lists(
+        st.tuples(
+            st.from_regex(r"[A-Za-z_][A-Za-z0-9_]{0,6}", fullmatch=True),
+            children,
+        ),
+        min_size=0, max_size=6,
+    ),
+    max_leaves=8,
+))
+@settings(max_examples=100)
+def test_write_oml_arrays_true_round_trip_property(node):
+    assert read_oml(write_oml(node, arrays=True)) == node
+    assert read_oml(write_oml(node, arrays=True, indent=None)) == node

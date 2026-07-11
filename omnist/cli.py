@@ -111,7 +111,9 @@ def _encode_validation_result(result: ValidationResult, fmt: str) -> str:
 
 def _cmd_format(args: argparse.Namespace) -> int:
     node = read_oml(_read_input(args.input))
-    _write_output(args.output, write_oml(node, indent=None if args.compact else 2))
+    _write_output(
+        args.output,
+        write_oml(node, indent=None if args.compact else 2, arrays=args.arrays))
     return 0
 
 
@@ -133,10 +135,11 @@ def _encode_write_report(rep: WriteReport, fmt: str) -> str:
 
 
 def _write_to_format(
-    fmt: str, node: Any, *, strict: bool, report: Optional[WriteReport], compact: bool
+    fmt: str, node: Any, *, strict: bool, report: Optional[WriteReport], compact: bool,
+    arrays: bool = False,
 ) -> str:
     if fmt == "oml":
-        return write_oml(node, indent=None if compact else 2)
+        return write_oml(node, indent=None if compact else 2, arrays=arrays)
     return _WRITERS[fmt](node, strict=strict, report=report)
 
 
@@ -151,7 +154,8 @@ def _cmd_convert(args: argparse.Namespace) -> int:
     report = WriteReport() if args.report else None
     try:
         text = _write_to_format(
-            args.to, node, strict=args.strict, report=report, compact=args.compact)
+            args.to, node, strict=args.strict, report=report, compact=args.compact,
+            arrays=args.arrays)
     except WriteError as exc:
         if exc.report is not None:
             # --strict refused a lossy write -- a definite "no," not a
@@ -378,6 +382,9 @@ def _build_parser() -> argparse.ArgumentParser:
     format_p.add_argument(
         "--compact", action="store_true",
         help="single-line, machine-oriented output instead of pretty-printed")
+    format_p.add_argument(
+        "--arrays", action="store_true",
+        help="collapse runs of >=2 consecutive same-label edges into [...] array syntax")
     format_p.add_argument("-o", "--output", help="output file; omit for stdout")
     format_p.set_defaults(func=_cmd_format)
 
@@ -400,6 +407,10 @@ def _build_parser() -> argparse.ArgumentParser:
     convert_p.add_argument(
         "--compact", action="store_true",
         help="single-line, machine-oriented output when --to oml; no effect otherwise")
+    convert_p.add_argument(
+        "--arrays", action="store_true",
+        help="collapse runs of >=2 consecutive same-label edges into [...] array syntax "
+             "when --to oml; no effect otherwise")
     convert_p.add_argument("-o", "--output", help="output file; omit for stdout")
     convert_p.set_defaults(func=_cmd_convert)
 
@@ -435,6 +446,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--compact", action="store_true",
         help="single-line, machine-oriented OSD output instead of pretty-printed")
     infer_p.add_argument(
+        "--arrays", action="store_true",
+        help="accepted for consistency with the other subcommands; OSD has no array "
+             "syntax, so this has no effect on infer's output")
+    infer_p.add_argument(
         "--allow-any", action="store_true",
         help="opt in to opening conflicting fields as `any` instead of erroring; "
              "reports which fields were opened, and why, on stderr")
@@ -451,6 +466,10 @@ def _build_parser() -> argparse.ArgumentParser:
     schema_format_p.add_argument(
         "--compact", action="store_true",
         help="single-line, machine-oriented output instead of pretty-printed")
+    schema_format_p.add_argument(
+        "--arrays", action="store_true",
+        help="accepted for consistency with the other subcommands; OSD has no array "
+             "syntax, so this has no effect on schema format's output")
     schema_format_p.add_argument("-o", "--output", help="output file; omit for stdout")
     schema_format_p.set_defaults(func=_cmd_schema_format)
 
@@ -462,6 +481,10 @@ def _build_parser() -> argparse.ArgumentParser:
     schema_normalize_p.add_argument(
         "--compact", action="store_true",
         help="single-line, machine-oriented output instead of pretty-printed")
+    schema_normalize_p.add_argument(
+        "--arrays", action="store_true",
+        help="accepted for consistency with the other subcommands; OSD has no array "
+             "syntax, so this has no effect on schema normalize's output")
     schema_normalize_p.add_argument("-o", "--output", help="output file; omit for stdout")
     schema_normalize_p.set_defaults(func=_cmd_schema_normalize)
 

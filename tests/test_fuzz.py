@@ -211,6 +211,17 @@ def test_oml_round_trip_is_exact(node):
     assert nan_safe_equal(back, node), f"OML round-trip mismatch: {node!r} -> {back!r}"
 
 
+@_SUPPRESS
+@given(node=nodes)
+def test_oml_round_trip_is_exact_with_arrays(node):
+    # issue #218: arrays=True must never reorder edges, so this must hold
+    # unconditionally for every Document, same as the arrays=False case.
+    text = write_oml(node, arrays=True)
+    back = read_oml(text)
+    assert nan_safe_equal(back, node), \
+        f"OML arrays=True round-trip mismatch: {node!r} -> {back!r}"
+
+
 # ---------------------------------------------------------------------------
 # 2. Lossy-format round-trip -- exact modulo documented adjustments
 # ---------------------------------------------------------------------------
