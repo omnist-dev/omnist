@@ -20,12 +20,17 @@ import pytest
 from omnist import (
     Doc,
     DocumentError,
+    Field,
+    Record,
+    Ref,
+    Schema,
     WriteError,
     check_json,
     check_oml,
     check_toml,
     check_xml,
     check_yaml,
+    infer,
     write_json,
     write_oml,
     write_toml,
@@ -173,3 +178,40 @@ class TestDocExport:
     def test_to_grouped_just_under_limit_succeeds(self):
         d = Doc(deep_node(JUST_UNDER))
         assert d.to_grouped()["a"] is not None
+
+
+class TestInfer:
+    """``infer`` walks a raw ``Doc`` node recursively to draft a schema; a
+    hand-assembled node that bypassed ``build_node``'s guard must still
+    fail cleanly (issue #224)."""
+
+    def test_too_deep_raises_document_error(self):
+        d = Doc(deep_node(DEEP))
+        with pytest.raises(DocumentError, match=r"nesting exceeds the maximum depth \(200\)"):
+            infer([d])
+
+    def test_just_under_limit_succeeds(self):
+        d = Doc(deep_node(JUST_UNDER))
+        schema = infer([d])
+        assert schema.root == Ref("Root")
+
+
+# A schema that actually recurses into the structure via a self-referential
+# record -- an ``any``-typed schema would short-circuit and never hit the
+# hole this guards against.
+RECURSIVE_SCHEMA = Schema(Ref("A"), {"A": Record([Field("a", Ref("A"), 0, 1)])})
+
+
+class TestValidate:
+    """``Schema.validate`` recurses into the document structure whenever the
+    schema itself recurses (issue #224)."""
+
+    def test_too_deep_raises_document_error(self):
+        d = Doc(deep_node(DEEP))
+        with pytest.raises(DocumentError, match=r"nesting exceeds the maximum depth \(200\)"):
+            RECURSIVE_SCHEMA.validate(d)
+
+    def test_just_under_limit_succeeds(self):
+        d = Doc(deep_node(JUST_UNDER))
+        res = RECURSIVE_SCHEMA.validate(d)
+        assert res is not None
