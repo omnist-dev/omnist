@@ -33,7 +33,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.7.0"
+    assert ds.__version__ == "0.7.1"
 
 
 def test_quickstart():
@@ -552,7 +552,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.7.0"
+    assert ds.__version__ == "0.7.1"
 
 
 def test_api_docs_schema_raises():

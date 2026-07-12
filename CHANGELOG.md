@@ -6,6 +6,35 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.1] — beta hardening
+
+A batch of hardening work in response to an external QA audit. No
+public API changes; safe to upgrade from 0.7.0 without any migration.
+
+- **Bug fix: `infer`/`validate` no longer crash on pathologically deep
+  documents.** A `Doc` built directly from a hand-assembled node deeper
+  than 200 levels (bypassing the reader's construction-time depth cap)
+  could overflow the call stack with a raw `RecursionError` in `infer`,
+  and in `validate` against a recursive schema. They now raise a clean
+  `DocumentError` naming the limit — matching the reader and writer
+  guards. Only inputs that previously crashed are affected; no valid
+  input changes.
+- **The stability policy is now mechanically enforced.** A new
+  `tests/test_public_api.py` freezes the public API surface
+  (`__all__` plus every exported name's signature) and fails CI if it
+  drifts, turning the deprecation-cycle promise from discipline into a
+  gate.
+- **Known-limitations page.** A new [`docs/limitations.md`](docs/limitations.md)
+  collects the deliberate edges of the model — the four expressiveness
+  gaps, `compatible_with` vacuity inside `any`, the depth limit, format
+  lossiness, and XML's data-profile narrowness — each linked to its
+  full explanation.
+- **Dev/CI hardening.** `coverage` is now a declared dev dependency
+  (so the documented coverage workflow runs from a fresh
+  `pip install .[dev]`); `mypy --strict` now also covers `tools/`; and
+  a weekly, non-gating benchmark workflow tracks performance without a
+  flaky latency gate.
+
 ## [v0.7.0] — beta
 
 Omnist is now **beta**. The new [stability policy](docs/stability.md)
