@@ -246,7 +246,12 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0 if result.ok else 1
 
 
+_ARRAYS_OSD_ONLY_MSG = "--arrays applies only to OML output (format, convert --to oml)"
+
+
 def _cmd_infer(args: argparse.Namespace) -> int:
+    if args.arrays:
+        return _fail(args, _ARRAYS_OSD_ONLY_MSG, 2)
     reader = _READERS[args.from_]
     docs = [Doc(reader(_read_input(p))) for p in args.input]
     if args.allow_any:
@@ -262,12 +267,16 @@ def _cmd_infer(args: argparse.Namespace) -> int:
 
 
 def _cmd_schema_format(args: argparse.Namespace) -> int:
+    if args.arrays:
+        return _fail(args, _ARRAYS_OSD_ONLY_MSG, 2)
     s = parse_schema(_read_input(args.schema_file))
     _write_output(args.output, to_osd(s, indent=None if args.compact else 4))
     return 0
 
 
 def _cmd_schema_normalize(args: argparse.Namespace) -> int:
+    if args.arrays:
+        return _fail(args, _ARRAYS_OSD_ONLY_MSG, 2)
     s = parse_schema(_read_input(args.schema_file))
     _write_output(args.output, to_osd(s.normalize(), indent=None if args.compact else 4))
     return 0
@@ -447,8 +456,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="single-line, machine-oriented OSD output instead of pretty-printed")
     infer_p.add_argument(
         "--arrays", action="store_true",
-        help="accepted for consistency with the other subcommands; OSD has no array "
-             "syntax, so this has no effect on infer's output")
+        help="rejected: OSD has no array syntax, --arrays applies only to OML output")
     infer_p.add_argument(
         "--allow-any", action="store_true",
         help="opt in to opening conflicting fields as `any` instead of erroring; "
@@ -468,8 +476,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="single-line, machine-oriented output instead of pretty-printed")
     schema_format_p.add_argument(
         "--arrays", action="store_true",
-        help="accepted for consistency with the other subcommands; OSD has no array "
-             "syntax, so this has no effect on schema format's output")
+        help="rejected: OSD has no array syntax, --arrays applies only to OML output")
     schema_format_p.add_argument("-o", "--output", help="output file; omit for stdout")
     schema_format_p.set_defaults(func=_cmd_schema_format)
 
@@ -483,8 +490,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="single-line, machine-oriented output instead of pretty-printed")
     schema_normalize_p.add_argument(
         "--arrays", action="store_true",
-        help="accepted for consistency with the other subcommands; OSD has no array "
-             "syntax, so this has no effect on schema normalize's output")
+        help="rejected: OSD has no array syntax, --arrays applies only to OML output")
     schema_normalize_p.add_argument("-o", "--output", help="output file; omit for stdout")
     schema_normalize_p.set_defaults(func=_cmd_schema_normalize)
 

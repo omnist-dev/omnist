@@ -100,6 +100,27 @@ Reach for OML whenever you're not constrained to a specific interchange
 format: for example, as a config or fixture format inside your own project,
 or as the artifact you snapshot/diff in tests.
 
+`#` starts a comment that runs to end of line, legal anywhere whitespace is
+legal. Comments are lexical trivia, discarded before parsing — they never
+round-trip:
+
+```python
+from omnist import read_oml
+
+read_oml('a: 1  # this note is gone\n')      # [('a', 1)]
+```
+
+`[...]` is sugar for repeated same-label edges, expanded at parse time — it
+is **not** a value type in the Document model, just an alternate way to
+write the same edge list:
+
+```python
+read_oml('b: [1, 2, 3]')                     # [('b', 1), ('b', 2), ('b', 3)]
+```
+
+See [Comments](formats/oml.md#comments) and [Arrays](formats/oml.md#arrays)
+on the OML format page for the full grammar and edge cases.
+
 ## Schemas — OSD
 
 A schema is written as **OSD** (Omnist Schema Definition): `record`
@@ -131,6 +152,15 @@ from omnist import parse_schema, to_osd
 s = parse_schema('record Car { "license": string }\nroot Car')
 to_osd(s)                  # prints the schema back as OSD
 ```
+
+A field may also be typed **`any`**: its value is accepted unchecked (any
+scalar, `null`, or a subtree of any shape) while the field's label stays
+fixed and counted — only the value's shape is unconstrained. Use it for
+genuinely unowned data (third-party payloads, spec'd-open config sections);
+`compatible_with` is vacuous inside an `any` region, so checking ends
+exactly where `any` begins. See [the schema doc: the `any`
+type](schema.md#the-any-type) for the full picture, including the
+opt-in-only `infer(..., allow_any=True)` bootstrap path.
 
 ## Schemas — the Python builder
 
@@ -214,6 +244,13 @@ empty.compatible_with(v1)      # True -- vacuous: empty accepts no documents
 See [the Schema model & OSD: Empty schemas](schema.md#empty-schemas) for the
 full explanation and `prune()` semantics.
 
+`lint()` diagnoses a schema's own structural problems — unreachable or
+unsatisfiable records, structurally-duplicate records, and an `any-field`
+inventory — without mutating anything; `prune`/`normalize` are the
+transforms that fix what it finds. It's also available from the CLI as
+`omnist schema lint`. See [the CLI reference: `omnist schema
+lint`](cli.md#omnist-schema-lint) for the full output and severity model.
+
 ## Reading & writing other formats
 
 `read_*` parse a format into a Document node; `Doc.from_*` wrap it; `Doc.to_*`
@@ -259,6 +296,21 @@ d.check_toml()                       # same report d.to_toml(report=...) would f
 
 See [the API reference](api.md#adjustment-reports-lossy-writes) for the full
 list of adjustment codes.
+
+`write_oml`/`to_oml` and `to_osd` also take `indent=None` for a compact,
+single-line, machine-oriented layout (edges/records joined by `; ` instead
+of newlines) — useful for log lines or diffless storage:
+
+```python
+from omnist import write_oml
+
+node = [("name", "Ada"), ("tags", [("tag", "x"), ("tag", "y")])]
+write_oml(node, indent=None)   # 'name: "Ada"; tags: { tag: "x"; tag: "y" }'
+```
+
+Compact output round-trips through the matching reader to the identical
+Document/`Schema` — `indent` only changes layout, never meaning. See
+[the OML format page: Writing](formats/oml.md#writing).
 
 ### Schema-directed deserialization
 
@@ -393,3 +445,8 @@ formats**, plus a compatibility check — see [a real-life example](example.md).
 end-to-end version; [the model spec](design/model.md) has the formal
 definitions; and [Formats](formats/overview.md) covers each format's mapping
 and caveats.
+
+For four schemas built from real, external formats never designed for
+Omnist — `pyproject.toml`, `package.json`, a GitHub Actions workflow, and
+`sitemap.xml` — with an honest accounting of where each one needed `any`
+and why, see [the real-world examples overview](examples/index.md).

@@ -148,6 +148,10 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 > See [adjustment reports](../api.md#adjustment-reports-lossy-writes) to
 > inspect any of these, or `strict=True` to raise instead of adjusting.
 
+`write_xml`/`check_xml` raise `WriteError` (naming the limit) if a
+Document nests past 200 levels — the same limit `read_xml` already
+enforces on parse. See [the API reference](../api.md#reading--writing-formats).
+
 ## Mixed content is rejected
 
 **Mixed content** — non-whitespace text alongside child elements (either the

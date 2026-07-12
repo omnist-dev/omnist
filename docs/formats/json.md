@@ -106,6 +106,10 @@ from omnist import write_json
 write_json([("a", float("inf"))])              # '{"a": null}'
 ```
 
+`write_json`/`check_json` raise `WriteError` (naming the limit) if a
+Document nests past 200 levels — the same limit `read_json` already
+enforces on parse. See [the API reference](../api.md#reading--writing-formats).
+
 ## Notes
 
 - `date`, `time`, and `datetime` strings are mutually exclusive even before a

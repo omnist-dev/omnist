@@ -102,6 +102,10 @@ Doc.of({"name": "Ada"}).to_yaml()
 > style was forced for that value). See
 > [adjustment reports](../api.md#adjustment-reports-lossy-writes).
 
+`write_yaml`/`check_yaml` raise `WriteError` (naming the limit) if a
+Document nests past 200 levels — the same limit `read_yaml` already
+enforces on parse. See [the API reference](../api.md#reading--writing-formats).
+
 ## Notes
 
 - Only YAML's JSON-compatible core is supported (string keys, standard scalars,

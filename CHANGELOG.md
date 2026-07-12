@@ -2,7 +2,42 @@
 
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
-**alpha** and the public API may still change between releases.
+**beta**, and the public API is covered by the
+[stability policy](docs/stability.md) — stable surfaces change only through a
+deprecation cycle, not silently between releases.
+
+## [v0.7.0] — beta
+
+Omnist is now **beta**. The new [stability policy](docs/stability.md)
+states what that means precisely: the Document and Schema models, the
+OSD/OML grammars (additive-only), the public API surface, and the
+exception types now change only through a deprecation cycle (deprecate
+in one minor release, remove no earlier than the next). Beta is not
+1.0 — v1.0 remains gated on the `any`-type openness decision.
+
+Two behavior fixes found in the pre-beta review:
+
+- **Writers no longer crash on deeply nested Documents.** `write_*`,
+  `check_*`, and `Doc.to_data()`/`to_grouped()` on a Document nesting
+  past 200 levels now raise a clean `WriteError`/`DocumentError` naming
+  the limit — matching the readers' existing parse-depth cap — instead
+  of a raw Python `RecursionError`. The limit is one shared constant
+  across readers and writers. (A `Doc` built directly from a raw
+  hand-assembled node can still overflow `validate`/`infer`; this is
+  documented in the API reference.)
+- **`--arrays` on OSD-only CLI commands is now an error.** `infer`,
+  `schema format`, and `schema normalize` previously accepted the flag
+  as a silent no-op; they now reject it with exit code 2 and a message
+  pointing at the commands it applies to (`format`, `convert --to
+  oml`).
+
+Docs coherence pass: `guide.md` now covers the `any` type, `#`
+comments, `[...]` arrays, compact mode, `schema lint`, and the four
+real-world worked examples; glossary entries added for all of those;
+the stability policy and the three design records
+(`any-type-spec`, `openness`, `cli-spec`) are in the site nav; the new
+write-depth limit is documented in the API reference and every format
+page.
 
 ## [v0.6.0] — `[...]` array syntax for OML
 

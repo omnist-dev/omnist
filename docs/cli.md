@@ -270,16 +270,16 @@ warning: $.age: null value dropped (TOML has no null)
 ## `omnist infer`
 
 ```
-omnist infer <input>... --from FMT [--compact] [--arrays] [--allow-any] [-o OUTPUT]
+omnist infer <input>... --from FMT [--compact] [--allow-any] [-o OUTPUT]
 ```
 
 All inputs must be the same format. Each is read as a `Doc`,
 [`infer(docs)`](schema.md#operations-compare-and-infer) drafts a schema
 from them, written out as OSD. `--compact` emits a single-line form
 (`to_osd(schema, indent=None)`) instead of the pretty-printed default.
-`--arrays` is accepted for consistency with the other four subcommands but
-has **no effect** here — the output is OSD, not OML, and OSD has no array
-syntax.
+Passing `--arrays` here is an **error** (exit code `2`): the output is OSD,
+not OML, and OSD has no array syntax — `--arrays` applies only to OML output
+(`format`, `convert --to oml`).
 
 By default a label that is an object in some samples and a scalar in others,
 or a scalar of more than one kind, is an error — `infer` never emits `any`.
@@ -393,7 +393,7 @@ $ echo '{not valid json' | omnist validate - --from json --schema examples/cli/p
 ## `omnist schema format`
 
 ```
-omnist schema format <schema-file> [--compact] [--arrays] [-o OUTPUT]
+omnist schema format <schema-file> [--compact] [-o OUTPUT]
 ```
 
 Canonicalizes an OSD ([Omnist Schema Definition](schema.md)) file —
@@ -423,8 +423,8 @@ $ omnist schema format examples/cli/messy-person.osd --compact
 record Person { "name": string, "age" [0,1]: integer } root Person
 ```
 
-`--arrays` is accepted here for consistency with `format`/`convert` but has
-**no effect** — the output is OSD, not OML, and OSD has no array syntax.
+Passing `--arrays` here is an **error** (exit code `2`) — the output is OSD,
+not OML; `--arrays` applies only to OML output (`format`, `convert --to oml`).
 
 Malformed OSD raises `SchemaError`, printed to stderr as `error: ...`,
 exit code `2`.
@@ -432,7 +432,7 @@ exit code `2`.
 ## `omnist schema normalize`
 
 ```
-omnist schema normalize <schema-file> [--compact] [--arrays] [-o OUTPUT]
+omnist schema normalize <schema-file> [--compact] [-o OUTPUT]
 ```
 
 `Schema.normalize()`, written back out as OSD — unlike `schema format`,
@@ -460,8 +460,8 @@ root Company
 ```
 
 `--compact` emits the same merged schema on a single line instead
-(`to_osd(schema, indent=None)`). `--arrays` is accepted for consistency but
-has no effect (OSD output, no array syntax).
+(`to_osd(schema, indent=None)`). Passing `--arrays` here is an
+**error** (exit code `2`) — OSD output has no array syntax.
 
 ## `omnist schema prune`
 

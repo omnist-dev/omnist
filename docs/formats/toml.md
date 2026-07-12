@@ -107,6 +107,10 @@ Doc.of({"id": "A1"}).to_toml()          # 'id = "A1"\n'
 > **Top-level must be a table.** A bare scalar or array at the root isn't valid
 > TOML; a single-rooted Document (one top-level key) writes cleanly.
 
+`write_toml`/`check_toml` raise `WriteError` (naming the limit) if a
+Document nests past 200 levels — the same limit `read_toml` already
+enforces on parse. See [the API reference](../api.md#reading--writing-formats).
+
 ## Notes
 
 - TOML round-trips `date`/`time`/`datetime` natively in both directions —

@@ -4,7 +4,7 @@
 [![pypi](https://img.shields.io/pypi/v/omnist)](https://pypi.org/project/omnist/)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](#installation)
 [![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey)](LICENSE)
-[![status](https://img.shields.io/badge/status-alpha-orange)](#status)
+[![status](https://img.shields.io/badge/status-beta-yellow)](#status)
 
 **Omnist** ("omni-structure") is **one canonical data model for JSON, YAML,
 TOML, XML, and its own native OML (Omnist Markup Language)** — read any of
@@ -187,9 +187,13 @@ Full index: **[docs/](docs/README.md)**, also browsable as a site at
 
 ## Status
 
-Omnist is **alpha**, built around a small, self-contained formalism; the
-public API may still change before a stable release. See the PyPI badge
-above (or [CHANGELOG.md](CHANGELOG.md)) for the current version.
+Omnist is **beta**. The surfaces you build on — the Document model, the OSD
+and OML grammars, the public API importable from `omnist`, and the error
+types — change only through a deprecation cycle; see the
+[stability policy](docs/stability.md) for exactly what is covered and what
+may still change. Beta is not 1.0: 1.0 remains gated on the `any`-type
+openness decision, spelled out in the same policy. See the PyPI badge above
+(or [CHANGELOG.md](CHANGELOG.md)) for the current version.
 
 Feedback and bug reports welcome:
 <https://github.com/omnist-dev/omnist/issues>. See [SECURITY.md](SECURITY.md) for

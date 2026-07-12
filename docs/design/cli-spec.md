@@ -11,11 +11,11 @@
 omnist format     <input>                          [--compact] [--arrays] [-o OUTPUT] [--json]
 omnist convert    <input>   --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [--arrays] [-o OUTPUT] [--json]
 omnist validate   <input>   --from FMT --schema FILE [--result-format text|json|oml] [--json]
-omnist infer      <input>...  --from FMT             [--compact] [--arrays] [--allow-any] [-o OUTPUT] [--json]
+omnist infer      <input>...  --from FMT             [--compact] [--allow-any] [-o OUTPUT] [--json]
 omnist check      <input>   --from FMT --to FMT [--strict] [--result-format text|json|oml] [--json]
 
-omnist schema format           <schema-file>  [--compact] [--arrays] [-o OUTPUT] [--json]
-omnist schema normalize        <schema-file>  [--compact] [--arrays] [-o OUTPUT] [--json]
+omnist schema format           <schema-file>  [--compact] [-o OUTPUT] [--json]
+omnist schema normalize        <schema-file>  [--compact] [-o OUTPUT] [--json]
 omnist schema prune            <schema-file>  [--compact] [-o OUTPUT] [--json]
 omnist schema is-empty         <schema-file>  [--result-format text|json|oml] [--json]
 omnist schema lint             <schema-file>  [--json] [--severity info|warning]
@@ -154,13 +154,13 @@ omnist validate order.json --from json --schema order.osd --json
 omnist validate order.xml --from xml --schema order.osd --json
 ```
 
-### `omnist infer <input>... --from FMT [--compact] [--arrays] [--allow-any] [-o OUTPUT]`
+### `omnist infer <input>... --from FMT [--compact] [--allow-any] [-o OUTPUT]`
 
 All inputs same format; `infer(docs)`, writes the result as OSD.
 `--compact` emits a single-line schema (`to_osd(schema, indent=None)`).
-`--arrays` is accepted for consistency with `format`/`convert`/`schema
-format`/`schema normalize` but has **no effect** — the output here is
-always OSD, and OSD has no array syntax (issue #218). `--allow-any` opts in
+Passing `--arrays` here is an **error** (exit code `2`) — the output is
+always OSD, and OSD has no array syntax; `--arrays` applies only to OML
+output (issues #218, #220). `--allow-any` opts in
 to opening the two `infer` conflict points
 (object/scalar mix, multi-kind scalar) as `any` fields instead of erroring;
 the schema still goes to stdout, and a per-field report of what was opened
@@ -183,27 +183,26 @@ omnist check data.json --from json --to toml
 omnist check data.json --from json --to toml --strict
 ```
 
-### `omnist schema format <schema-file> [--compact] [--arrays] [-o OUTPUT]`
+### `omnist schema format <schema-file> [--compact] [-o OUTPUT]`
 
 `parse_schema` → `to_osd`. Safe reformat only — same records, same names,
 canonical whitespace/field order. No structural change (contrast
 `normalize`). `--compact` emits a single-line schema (`to_osd(schema,
-indent=None)`). `--arrays` is accepted for consistency with `format`/
-`convert` but has **no effect** here — OSD output, no array syntax
-(issue #218).
+indent=None)`). Passing `--arrays` here is an **error** (exit code `2`) — OSD output, no
+array syntax (issues #218, #220).
 
 ```sh
 omnist schema format messy.osd -o clean.osd
 omnist schema format messy.osd --compact
 ```
 
-### `omnist schema normalize <schema-file> [--compact] [--arrays] [-o OUTPUT]`
+### `omnist schema normalize <schema-file> [--compact] [-o OUTPUT]`
 
 `Schema.normalize()`, written back as OSD. Computes the canonical minimal
 equivalent schema (partition refinement, fewest env records, unique up to
 naming) — a structural change, unlike `schema format`. `--compact` emits a
-single-line schema, same as `schema format`. `--arrays` is likewise
-accepted for consistency but has no effect (OSD output, no array syntax).
+single-line schema, same as `schema format`. Passing `--arrays` here is
+likewise an **error** (exit code `2`) — OSD output, no array syntax.
 
 ### `omnist schema prune <schema-file> [--compact] [-o OUTPUT]`
 

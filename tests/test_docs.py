@@ -32,7 +32,7 @@ def test_readme_at_a_glance():
                      'record Team { "name": string, "members" [1,]: Member }\nroot Team')
     assert s.validate(doc({"name": "X",
                            "members": [{"name": "Ann", "role": "dev"}]})).ok
-    assert ds.__version__ == "0.6.0"
+    assert ds.__version__ == "0.7.0"
 
 
 def test_quickstart():
@@ -65,6 +65,43 @@ def test_guide_oml_native_format():
     assert d.to_grouped() == {"name": "Ann", "tag": ["x", "y"],
                               "joined": datetime.date(2024, 1, 1)}
     assert d.to_oml() == 'name: "Ann"\ntag: "x"\ntag: "y"\njoined: 2024-01-01'
+
+
+def test_guide_oml_comments_and_arrays():
+    assert read_oml('a: 1  # this note is gone\n') == [('a', 1)]
+    assert read_oml('b: [1, 2, 3]') == [('b', 1), ('b', 2), ('b', 3)]
+
+
+def test_guide_osd_any_type():
+    s = parse_schema('''
+record Event {
+    "id":      string,
+    "type":    string,
+    "data":    any,
+}
+root Event
+''')
+    assert s.validate(doc({"id": "evt_1", "type": "user.created",
+                           "data": {"name": "Ann", "email": "a@x.com"}})).ok
+    assert s.validate(doc({"id": "evt_2", "type": "payment.settled",
+                           "data": {"amount_cents": 1250, "currency": "EUR"}})).ok
+
+
+def test_guide_operations_lint():
+    from omnist.ops.lint import lint
+    s = parse_schema('''
+record Customer { "name": string }
+record Employee { "name": string }
+root Customer
+''')
+    findings = lint(s)
+    assert any(f.code == "duplicate-record" for f in findings)
+
+
+def test_guide_reading_writing_compact_mode():
+    from omnist import write_oml
+    node = [("name", "Ada"), ("tags", [("tag", "x"), ("tag", "y")])]
+    assert write_oml(node, indent=None) == 'name: "Ada"; tags: { tag: "x"; tag: "y" }'
 
 
 def test_formats_oml_compact_write():
@@ -514,7 +551,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.6.0"
+    assert ds.__version__ == "0.7.0"
 
 
 def test_api_docs_schema_raises():

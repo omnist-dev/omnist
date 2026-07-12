@@ -656,6 +656,18 @@ class TestInfer:
         assert code == 2
         assert err.startswith("error: ")
 
+    def test_arrays_flag_is_rejected(self, tmp_path, capsys):
+        f1 = tmp_path / "a.json"
+        f1.write_text('{"x": 1}')
+        code, out, err = run(
+            ["infer", str(f1), "--from", "json", "--arrays"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert out == ""
+        assert err == (
+            "error: --arrays applies only to OML output "
+            "(format, convert --to oml)\n")
+
 
 class TestSchemaFormat:
     def test_reformats_osd_from_file_to_stdout(self, tmp_path, capsys):
@@ -710,6 +722,17 @@ class TestSchemaFormat:
         assert code == 0
         assert out == 'record R { "a": integer } root R\n'
 
+    def test_arrays_flag_is_rejected(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "a": integer }\nroot R\n')
+        code, out, err = run(
+            ["schema", "format", str(p), "--arrays"], capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert out == ""
+        assert err == (
+            "error: --arrays applies only to OML output "
+            "(format, convert --to oml)\n")
+
 
 class TestSchemaNormalize:
     def test_merges_structurally_identical_records(self, tmp_path, capsys):
@@ -748,6 +771,17 @@ class TestSchemaNormalize:
             ["schema", "normalize", str(p), "--compact"], capsys=capsys, monkeypatch=None)
         assert code == 0
         assert out == 'record R { "a": integer } root R\n'
+
+    def test_arrays_flag_is_rejected(self, tmp_path, capsys):
+        p = tmp_path / "in.osd"
+        p.write_text('record R { "a": integer }\nroot R\n')
+        code, out, err = run(
+            ["schema", "normalize", str(p), "--arrays"], capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert out == ""
+        assert err == (
+            "error: --arrays applies only to OML output "
+            "(format, convert --to oml)\n")
 
 
 class TestSchemaExtract:

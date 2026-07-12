@@ -48,6 +48,7 @@ nav:
   - Home: README.md
   - Quickstart: quickstart.md
   - Why Omnist: why-omnist.md
+  - Stability policy: stability.md
   - User guide: guide.md
   - OML: formats/oml.md
   - Schema model & OSD: schema.md
@@ -72,6 +73,9 @@ nav:
       - Document & Schema model: design/model.md
       - OML-Core grammar: design/oml-grammar.md
       - OSD grammar: design/schema-osd-grammar.md
+      - "any type spec": design/any-type-spec.md
+      - Openness decision record: design/openness.md
+      - CLI spec: design/cli-spec.md
   - Glossary: glossary.md
   - Testing: testing.md
   - Repo layout: layout.md

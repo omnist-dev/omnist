@@ -343,21 +343,25 @@ def doc(value: Any) -> Doc:
     return value if isinstance(value, Doc) else Doc.of(value)
 
 
-def _copy(node: Any) -> Any:
+def _copy(node: Any, depth: int = 0) -> Any:
     if isinstance(node, list):
-        return [(label, _copy(child)) for label, child in node]
+        if depth > _MAX_DEPTH:
+            raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        return [(label, _copy(child, depth + 1)) for label, child in node]
     return node
 
 
-def _grouped(node: Any) -> Any:
+def _grouped(node: Any, depth: int = 0) -> Any:
     if not isinstance(node, list):
         return node
+    if depth > _MAX_DEPTH:
+        raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
     counts: dict[str, int] = {}
     for label, _ in node:
         counts[label] = counts.get(label, 0) + 1
     out: dict[str, Any] = {}
     for label, child in node:
-        g = _grouped(child)
+        g = _grouped(child, depth + 1)
         if counts[label] > 1:
             out.setdefault(label, []).append(g)
         else:

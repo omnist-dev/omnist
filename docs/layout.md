@@ -24,7 +24,9 @@ is where the logic actually lives.
 - **`ops/`** -- schema operations package, one module per algorithm from
   the paper: `subschema.py` (`compatible_with`/`equivalent`), `prune.py`
   (`prune`/`is_empty`), `minimize.py` (`normalize`), `extract.py`
-  (`extract`), `isomorphic.py` (test-only equivalence oracle), plus
+  (`extract`), `lint.py` (`lint`: non-destructive structural diagnostics
+  for a schema -- unsatisfiable/unreachable/duplicate records, an `any`
+  inventory), `isomorphic.py` (test-only equivalence oracle), plus
   `signature.py` helpers.
 - **`deserialize.py`** -- `materialize()`: schema-directed upgrading of a
   freshly-read node's leaf values (e.g. ISO string -> `date`) when the
@@ -131,9 +133,16 @@ Full test strategy (coverage target, fuzzing approach, CI) is in
   out-of-enum `changefreq` and out-of-range `priority` both validate.
 - **`test_fuzz.py`** -- property-based fuzzing (Hypothesis) of the Document
   model, codecs, and the OSD parser.
+- **`test_depth_guards.py`** -- every writer/`check_*` path and the `Doc`
+  export helpers (`to_data`/`to_grouped`) fail cleanly (`WriteError` /
+  `DocumentError` naming the 200-level limit) instead of raising a raw
+  `RecursionError` on a Document nested past the shared max depth, plus a
+  just-under-the-limit success case per path.
 - **`test_cli.py`** -- the `omnist` CLI (`omnist/cli.py`), invoked
   in-process via `main(argv)`: per-command behavior, stdin/stdout/file I/O,
-  and clean (non-traceback) exits on malformed input.
+  clean (non-traceback) exits on malformed input, and the `--arrays`
+  rejection on OSD-only commands (`infer`, `schema format`,
+  `schema normalize`).
 - **`test_cli_fuzz.py`** -- property-based crash-freedom fuzzing of the
   CLI's own error-surfacing path (arbitrary input across every command/
   format combination); doesn't re-fuzz the codecs, already covered by
