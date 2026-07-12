@@ -4,6 +4,7 @@ import pytest
 import omnist as ds
 from omnist import (
     Doc,
+    DocumentError,
     Format,
     SchemaError,
     WriteError,
@@ -957,3 +958,38 @@ def test_formats_oml_arrays():
     assert write_oml(node) == 'a: "x"\nb: 1\nb: 2\nb: 3\nc: true'
     assert write_oml(node, arrays=True) == 'a: "x"\nb: [1, 2, 3]\nc: true'
     assert read_oml(write_oml(node, arrays=True)) == node
+
+
+def test_limitations_any_vacuity():
+    s = parse_schema('''
+record Event {
+    "id":   string,
+    "data": any,
+}
+root Event
+''')
+
+    # Two independently-parsed but identical schemas compare equivalent --
+    # there's nothing inside `data`'s `any` region left to distinguish.
+    s2 = parse_schema('''
+record Event {
+    "id":   string,
+    "data": any,
+}
+root Event
+''')
+    assert s.equivalent(s2)
+
+
+def test_limitations_depth_limit():
+    deep = {"a": 1}
+    for _ in range(205):
+        deep = {"a": deep}
+
+    try:
+        infer([doc(deep)])
+        raised = False
+    except DocumentError as e:
+        raised = "nesting exceeds the maximum depth" in str(e)
+
+    assert raised
