@@ -34,6 +34,7 @@ xml = ["defusedxml"]
 all = ["pyyaml", "tomli_w", "defusedxml"]
 dev = [
     "pytest~=9.1",
+    "coverage~=7.0",
     "pyyaml~=6.0",
     "tomli_w~=1.2",
     "defusedxml~=0.7",
