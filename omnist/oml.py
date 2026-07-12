@@ -34,14 +34,12 @@ import datetime as _dt
 import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
-from .document import _MAX_INT_DIGITS
-from .errors import ParseError
+from .document import _MAX_DEPTH, _MAX_INT_DIGITS
+from .errors import ParseError, WriteError
 from .schema import _DATE_RE, _DATETIME_RE, _TIME_RE
 
 if TYPE_CHECKING:
     from .report import WriteReport
-
-_MAX_DEPTH = 200          # matches Document's own nesting bound (document.py)
 
 
 # ---------------------------------------------------------------------------
@@ -733,8 +731,8 @@ def write_oml(node: Any, *, indent: Optional[int] = 2, arrays: bool = False) -> 
     if not isinstance(node, list):
         return _write_scalar(node)
     if indent is None:
-        return _write_edges_compact(node, arrays)
-    return _write_edges(node, 0, indent, arrays)
+        return _write_edges_compact(node, arrays, 0)
+    return _write_edges(node, 0, indent, arrays, 0)
 
 
 def _group_runs(
@@ -761,13 +759,17 @@ def check_oml(node: Any) -> "WriteReport":
 
 def _write_edges(
     edges: List[Tuple[str, Any]], depth: int, indent: int, arrays: bool = False,
+    node_depth: int = 0,
 ) -> str:
+    if node_depth > _MAX_DEPTH:
+        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
     pad = " " * (indent * depth)
     lines = []
     for label, children in (_group_runs(edges) if arrays else [(lbl, [c]) for lbl, c in edges]):
         lab = _write_label(label)
         if arrays and len(children) > 1:
-            items = ", ".join(_write_array_element(c, depth, indent, arrays) for c in children)
+            items = ", ".join(
+                _write_array_element(c, depth, indent, arrays, node_depth) for c in children)
             lines.append(f"{pad}{lab}: [{items}]")
             continue
         child = children[0]
@@ -775,31 +777,38 @@ def _write_edges(
             if not child:
                 lines.append(f"{pad}{lab}: {{}}")
             else:
-                inner = _write_edges(child, depth + 1, indent, arrays)
+                inner = _write_edges(child, depth + 1, indent, arrays, node_depth + 1)
                 lines.append(f"{pad}{lab}: {{\n{inner}\n{pad}}}")
         else:
             lines.append(f"{pad}{lab}: {_write_scalar(child)}")
     return "\n".join(lines)
 
 
-def _write_array_element(child: Any, depth: int, indent: int, arrays: bool) -> str:
+def _write_array_element(
+    child: Any, depth: int, indent: int, arrays: bool, node_depth: int = 0,
+) -> str:
     """One element inside a pretty-mode ``[...]`` -- brace subtrees render
     single-line (``{ ... }``) regardless of the surrounding indent mode,
     matching the "arrays never wrap" decision (issue #218, 1A)."""
     if isinstance(child, list):
         if not child:
             return "{}"
-        inner = _write_edges_compact(child, arrays)
+        inner = _write_edges_compact(child, arrays, node_depth + 1)
         return f"{{ {inner} }}"
     return _write_scalar(child)
 
 
-def _write_edges_compact(edges: List[Tuple[str, Any]], arrays: bool = False) -> str:
+def _write_edges_compact(
+    edges: List[Tuple[str, Any]], arrays: bool = False, node_depth: int = 0,
+) -> str:
+    if node_depth > _MAX_DEPTH:
+        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
     parts = []
     for label, children in (_group_runs(edges) if arrays else [(lbl, [c]) for lbl, c in edges]):
         lab = _write_label(label)
         if arrays and len(children) > 1:
-            items = ", ".join(_write_array_element(c, 0, 0, arrays) for c in children)
+            items = ", ".join(
+                _write_array_element(c, 0, 0, arrays, node_depth) for c in children)
             parts.append(f"{lab}: [{items}]")
             continue
         child = children[0]
@@ -807,7 +816,7 @@ def _write_edges_compact(edges: List[Tuple[str, Any]], arrays: bool = False) -> 
             if not child:
                 parts.append(f"{lab}: {{}}")
             else:
-                inner = _write_edges_compact(child, arrays)
+                inner = _write_edges_compact(child, arrays, node_depth + 1)
                 parts.append(f"{lab}: {{ {inner} }}")
         else:
             parts.append(f"{lab}: {_write_scalar(child)}")

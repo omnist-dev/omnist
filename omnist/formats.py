@@ -36,15 +36,25 @@ def _materialize(node: Any, schema: Optional["Schema"]) -> Any:
     return materialize(node, schema)
 
 
-def _leaves(node: Any, path: str = "$") -> Any:
+def _check_write_depth(depth: int) -> None:
+    """Shared guard for every writer/check_* recursion: raise cleanly instead
+    of letting the recursion blow the C stack with a raw ``RecursionError``.
+    Uses the same shared maximum depth the reader (oml.py) and the Document
+    model (document.py) enforce."""
+    if depth > _MAX_DEPTH:
+        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+
+
+def _leaves(node: Any, path: str = "$", depth: int = 0) -> Any:
     """Yield ``(path, value)`` for every scalar leaf in a node."""
     if isinstance(node, list):
+        _check_write_depth(depth)
         counts: dict[str, int] = {}
         for label, child in node:
             i = counts.get(label, 0)
             counts[label] = i + 1
             p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
-            yield from _leaves(child, p)
+            yield from _leaves(child, p, depth + 1)
     else:
         yield path, node
 
@@ -89,13 +99,14 @@ def _scan_json(node: Any) -> WriteReport:
     return rep
 
 
-def _prepare_json(node: Any) -> Any:
+def _prepare_json(node: Any, depth: int = 0) -> Any:
     """Lenient-mode substitution: a NaN/Infinity leaf becomes ``null`` so the
     written text is always valid JSON (mirrors XML's illegal-char -> U+FFFD
     substitution). ``strict=True`` skips this and refuses via WriteError
     instead, so it never sees the substituted value."""
     if isinstance(node, list):
-        return [(label, _prepare_json(child)) for label, child in node]
+        _check_write_depth(depth)
+        return [(label, _prepare_json(child, depth + 1)) for label, child in node]
     if isinstance(node, float) and (_math.isnan(node) or _math.isinf(node)):
         return None
     return node
@@ -143,7 +154,7 @@ def check_yaml(node: Any) -> WriteReport:
     return rep
 
 
-def _scan_yaml_labels(node: Any, path: str, rep: WriteReport) -> None:
+def _scan_yaml_labels(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
     """PyYAML's emitter/parser treat U+0085 (NEL) as a line-break character and
     normalize it away under the default (unquoted/single-quoted) scalar styles,
     so a label containing it would silently come back as a space.  We force
@@ -151,6 +162,7 @@ def _scan_yaml_labels(node: Any, path: str, rep: WriteReport) -> None:
     which round-trips correctly, but still flag it here for visibility."""
     if not isinstance(node, list):
         return
+    _check_write_depth(depth)
     counts: dict[str, int] = {}
     for label, child in node:
         i = counts.get(label, 0)
@@ -164,12 +176,13 @@ def _scan_yaml_labels(node: Any, path: str, rep: WriteReport) -> None:
             rep.add(p, "string.line-break-char",
                     "value contains U+0085 (NEL); written double-quoted to "
                     "round-trip correctly", "warning")
-        _scan_yaml_labels(child, p, rep)
+        _scan_yaml_labels(child, p, rep, depth + 1)
 
 
-def _prepare_yaml(node: Any) -> Any:
+def _prepare_yaml(node: Any, depth: int = 0) -> Any:
     if isinstance(node, list):
-        return [(label, _prepare_yaml(c)) for label, c in node]
+        _check_write_depth(depth)
+        return [(label, _prepare_yaml(c, depth + 1)) for label, c in node]
     if isinstance(node, _dt.time):
         return node.isoformat()
     return node
@@ -227,10 +240,11 @@ def check_toml(node: Any) -> WriteReport:
     return rep
 
 
-def _strip_nulls(node: Any, path: str, rep: WriteReport) -> Any:
+def _strip_nulls(node: Any, path: str, rep: WriteReport, depth: int = 0) -> Any:
     """Drop edges whose value is null (TOML can't hold null), recording each."""
     if not isinstance(node, list):
         return node
+    _check_write_depth(depth)
     out: list[tuple[str, Any]] = []
     counts: dict[str, int] = {}
     for label, child in node:
@@ -240,7 +254,7 @@ def _strip_nulls(node: Any, path: str, rep: WriteReport) -> Any:
         if child is None:
             rep.add(p, "null.omitted", "null value dropped (TOML has no null)", "warning")
             continue
-        out.append((label, _strip_nulls(child, p, rep)))
+        out.append((label, _strip_nulls(child, p, rep, depth + 1)))
     return out
 
 
@@ -311,8 +325,9 @@ def check_xml(node: Any) -> WriteReport:
     return rep
 
 
-def _scan_xml(node: Any, path: str, rep: WriteReport) -> None:
+def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
     if isinstance(node, list):
+        _check_write_depth(depth)
         if not node:
             rep.add(path, "shape.empty_ambiguous",
                     "empty internal node (no edges) written as <tag /> and "
@@ -328,7 +343,7 @@ def _scan_xml(node: Any, path: str, rep: WriteReport) -> None:
                 rep.add(p, "key.sanitized",
                         f"label {label!r} isn't a valid XML name; written sanitized",
                         "warning")
-            _scan_xml(child, p, rep)
+            _scan_xml(child, p, rep, depth + 1)
         return
     v = node
     if v is None:
