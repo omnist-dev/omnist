@@ -58,7 +58,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from omnist.document import Doc  # noqa: E402
 from omnist.errors import SchemaError  # noqa: E402
 from omnist.ops import compatible_with, extract, is_empty, normalize, prune  # noqa: E402
-from omnist.schema import AnyType, Field, Record, Ref, Scalar, Schema, t  # noqa: E402
+from omnist.schema import AnyType, Field, Record, Ref, Scalar, Schema, Type, t  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # 1. Universe construction
@@ -398,7 +398,7 @@ _MINIMAL_LEAF: Dict[str, object] = {
 }
 
 
-def _minimal_value(schema: Schema, ty, depth: int, building: FrozenSet[str]) -> object:
+def _minimal_value(schema: Schema, ty: Type, depth: int, building: FrozenSet[str]) -> object:
     """A minimal Document value for field type ``ty`` -- a leaf for a
     Scalar, or an edge-list built from that record's own mandatory fields
     for a Ref. ``building`` guards against infinite recursion through a
