@@ -25,7 +25,7 @@ import datetime as _dt
 import re as _re
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
-from .errors import SchemaError
+from .errors import DocumentError, SchemaError
 
 SCALAR_NAMES = {"string", "integer", "number", "boolean", "date", "time", "datetime"}
 
@@ -291,20 +291,24 @@ class Schema:
         if not isinstance(doc, Doc):
             raise TypeError("validate() expects a Doc; wrap your data with doc(...)")
         res = ValidationResult()
-        self._conform(doc, self.root, res)
+        self._conform(doc, self.root, res, 0)
         return res
 
     def accepts(self, doc: Any) -> bool:
         return self.validate(doc).ok
 
-    def _conform(self, doc: Any, t: Type, res: ValidationResult) -> None:
+    def _conform(self, doc: Any, t: Type, res: ValidationResult, depth: int) -> None:
+        from .document import _MAX_DEPTH
+        if depth > _MAX_DEPTH:
+            raise DocumentError(
+                f"{doc.path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
         d = self.resolve(t)
         if isinstance(d, AnyType):
             return
         if isinstance(d, Scalar):
             self._conform_scalar(doc, d, res)
         else:
-            self._conform_record(doc, d, res)
+            self._conform_record(doc, d, res, depth)
 
     def _conform_scalar(self, doc: Any, s: Scalar, res: ValidationResult) -> None:
         if not doc.is_leaf:
@@ -318,7 +322,8 @@ class Schema:
         if not matches_kind(v, s.name):
             res.add(doc.path, f"expected {s.name}, got {_typename(v)} ({v!r})", "type-mismatch")
 
-    def _conform_record(self, doc: Any, rec: Record, res: ValidationResult) -> None:
+    def _conform_record(self, doc: Any, rec: Record, res: ValidationResult,
+                        depth: int) -> None:
         if doc.is_leaf:
             res.add(doc.path, "expected an object, got a value", "shape-mismatch")
             return
@@ -329,7 +334,7 @@ class Schema:
             if f is None:
                 res.add(child.path, "unexpected field", "unexpected-field")
             else:
-                self._conform(child, f.type, res)
+                self._conform(child, f.type, res, depth + 1)
         for f in rec.fields:
             c = counts.get(f.label, 0)
             if c < f.min or (f.max is not None and c > f.max):

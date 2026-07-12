@@ -28,8 +28,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
-from .document import Doc, build_node
-from .errors import SchemaError
+from .document import _MAX_DEPTH, Doc, build_node
+from .errors import DocumentError, SchemaError
 from .schema import ANY, Field, Record, Ref, Scalar, Schema, value_kind
 
 
@@ -58,7 +58,7 @@ def infer_with_report(
     env: Dict[str, Any] = {}
     used: set[str] = set()
     fallbacks: list[AnyFallback] = []
-    _infer_record(nodes, root_name, env, used, allow_any, fallbacks)
+    _infer_record(nodes, root_name, env, used, allow_any, fallbacks, 0)
     return Schema(Ref(root_name), env), fallbacks
 
 
@@ -85,7 +85,9 @@ def _identifier(s: str) -> str:
 
 def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
                   used: set[str], allow_any: bool,
-                  fallbacks: list[AnyFallback]) -> None:
+                  fallbacks: list[AnyFallback], depth: int) -> None:
+    if depth > _MAX_DEPTH:
+        raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
     used.add(name)
     # Pass 1: which labels exist at all, in first-seen order. Pass 2: one
     # count per sample for *every* label, defaulting to 0 for samples that
@@ -121,18 +123,19 @@ def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
         else:
             cmin, cmax = lo, 1        # 0 or 1 -> optional/required
         typ = _infer_type(children[label], label, name, env, used,
-                          allow_any, fallbacks)
+                          allow_any, fallbacks, depth)
         fields.append(Field(label, typ, cmin, cmax))
     env[name] = Record(fields)
 
 
 def _infer_type(child_nodes: List[Any], label: str, record_name: str,
                 env: Dict[str, Any], used: set[str], allow_any: bool,
-                fallbacks: list[AnyFallback]) -> Any:
+                fallbacks: list[AnyFallback], depth: int) -> Any:
     is_obj = [isinstance(c, list) for c in child_nodes]
     if all(is_obj):
         rec_name = _unique(label, used)
-        _infer_record(child_nodes, rec_name, env, used, allow_any, fallbacks)
+        _infer_record(child_nodes, rec_name, env, used, allow_any, fallbacks,
+                      depth + 1)
         return Ref(rec_name)
     if any(is_obj):
         if allow_any:
