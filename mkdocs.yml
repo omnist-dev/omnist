@@ -49,6 +49,7 @@ nav:
   - Quickstart: quickstart.md
   - Why Omnist: why-omnist.md
   - Stability policy: stability.md
+  - Known limitations: limitations.md
   - User guide: guide.md
   - OML: formats/oml.md
   - Schema model & OSD: schema.md
