@@ -1,7 +1,9 @@
 # Contributing
 
-Omnist is **alpha** and the API can still change, but the workflow below is
-the real one this project uses — not a placeholder.
+Omnist is **beta**: the public API is covered by the
+[stability policy](docs/stability.md), so stable surfaces change only through
+a deprecation cycle. The workflow below is the real one this project uses —
+not a placeholder.
 
 ## Setup
 
@@ -39,9 +41,9 @@ Changes go through a pull request, not a direct push to `master`:
 - This codebase uses `;`-joined one-liners and one-line class/def bodies in a
   few places (notably `osd.py`) — that's intentional (see the `E701`/`E702`
   ignores in `pyproject.toml`), not something to "clean up" in an unrelated PR.
-- No type checker is wired in yet; `omnist/py.typed` exists so callers'
-  type checkers trust the package's hints, but nothing currently verifies the
-  hints themselves.
+- Type hints are enforced: CI runs `mypy --strict omnist` on every push
+  and PR, and `omnist/py.typed` ships so callers' type checkers trust the
+  package's hints. Run it locally before pushing.
 
 ## Tests
 
@@ -61,10 +63,14 @@ Changes go through a pull request, not a direct push to `master`:
 ## Releases
 
 Tags follow `v<version>` matching `pyproject.toml`'s `version`. This project
-is still pre-1.0 alpha (`0.1.1aN`), so a version bump is just a marker for
-"a meaningful batch of work landed," not a stability promise — bump it,
-update `CHANGELOG.md`, tag, push the tag. Not published to PyPI yet; see
-the README's Status section for the current plan.
+is pre-1.0 beta (`0.x`), so a version bump still marks "a meaningful batch of
+work landed" rather than declaring the model final — but the public API is no
+longer free to change silently: the [stability policy](docs/stability.md)
+governs what a bump may change, and any break of a stable surface goes
+through the deprecation cycle it describes (deprecate in one minor, remove no
+earlier than the next). Bump the version, update `CHANGELOG.md` — noting any
+deprecation — tag, and push the tag. See the README's Status section for the
+current release plan.
 
 ## Reporting issues
 

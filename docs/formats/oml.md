@@ -243,6 +243,11 @@ write_oml(node, indent=None) # 'name: "Ada"; tags: { tag: "x"; tag: "y" }'
 Both forms round-trip through `read_oml` to the same Document — `indent`
 only changes layout, never meaning.
 
+`write_oml` raises `WriteError` (naming the limit) if a Document nests past
+200 levels — the same limit `read_oml` already enforces on parse — in
+either the pretty or compact (`indent=None`) form. See
+[the API reference](../api.md#reading--writing-formats).
+
 ## Strings: escaping, raw, and multiline
 
 A normal string escapes the usual set: `\"`, `\\`, `\n`, `\t`, `\r`, `\b`,
@@ -268,6 +273,13 @@ line separator: the tokenizer reads `"""…"""` as one token from open to
 close (the same way a string can contain `#` without it becoming a
 comment — see [Comments](#comments) below), so only a newline *outside* any
 token separates one edge from the next.
+
+## Separators
+
+Edges are separated by one or more newlines and/or `;`. `;` is for one-line
+("inline") style: `{ a: 1; b: 2 }`. A comma is *not* a general edge
+separator — it's significant only inside `[...]` array syntax (see
+[Arrays](#arrays) below), where it's the sole element separator.
 
 ## Comments
 
@@ -372,13 +384,6 @@ arrays=True)) == node` holds unconditionally. Because arrays are a *write
 option*, not a value type, `read_oml`/`write_oml` operate on the exact same
 edge-list Document either way; there's no separate "array-aware" Document
 shape to reason about.
-
-## Separators
-
-Edges are separated by one or more newlines and/or `;`. `;` is for one-line
-("inline") style: `{ a: 1; b: 2 }`. A comma is *not* a general edge
-separator — it's significant only inside `[...]` array syntax (see
-[Arrays](#arrays) above), where it's the sole element separator.
 
 ## Errors, not silent surprises
 

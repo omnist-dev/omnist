@@ -158,6 +158,14 @@ valid. Defined formally in
   to record naming (paper Theorems 3-4). Two equivalent schemas normalize
   to isomorphic results. See
   [model spec §13](design/model.md#13-minimization-and-canonical-form).
+- **lint** / **`Schema.lint()`** / **`LintFinding`** — non-destructive
+  structural diagnostics for a *schema itself* (as opposed to `validate`,
+  which checks a *document* against a schema): `unsatisfiable-record`,
+  `unreachable-record`, and `duplicate-record` (all `warning`), plus an
+  `any-field` inventory (`info`, advisory only). `lint` only reports —
+  `prune`/`normalize` are the transforms that fix what it finds. Each
+  finding is a `LintFinding(code, severity, location, message)`. See
+  [the CLI reference](cli.md#omnist-schema-lint).
 - **subschema extraction** / **`Schema.extract(*labels)`** — the paper's
   Algorithm 5 (ExtractSubschema): given a set of permissible labels,
   produces the minimal subschema recognizing only documents built from
@@ -180,6 +188,26 @@ valid. Defined formally in
   while OSD is a *schema* text syntax — they look superficially similar
   (both use `label: value`-ish syntax) but describe different things (data
   vs. constraints). See [the OML format page](formats/oml.md).
+- **array syntax** (`[...]`) — OML/OSD parse-time sugar for repeated
+  same-label edges: `label: [v1, v2, ...]` means exactly `label: v1;
+  label: v2; ...` at that position. It is **not** a value type in the
+  Document model — there's no separate "array" node shape, only an
+  edge list with a repeated label, written one of two equivalent ways.
+  `write_oml(node, arrays=True)` collapses runs back into this form on
+  write; the default (`arrays=False`) never produces it. See
+  [the OML format page](formats/oml.md#arrays).
+- **comments** — `#`-to-end-of-line lexical trivia in OML and OSD text,
+  legal anywhere whitespace is legal. Discarded by the tokenizer before
+  parsing; they have no effect on the resulting Document/`Schema` and
+  **never round-trip** — `write_oml()`/`to_osd()` never re-emit them.
+  See [the OML format page](formats/oml.md#comments) and
+  [the schema doc](schema.md#comments).
+- **compact mode** / `indent=None` — the single-line, machine-oriented
+  layout for `write_oml`/`to_osd` (edges/records joined by `; ` instead
+  of newlines) — useful for log lines or diffless storage. Layout only:
+  both the pretty and compact forms round-trip through the matching
+  reader to the identical Document/`Schema`. See
+  [the OML format page](formats/oml.md#writing).
 - **codec** — a `Format`'s `read`/`write` (and optional `check`) functions,
   bundled together and registered by name (`register_format`), letting
   `Doc.from_format`/`to_format`/`check_format` use it like a built-in

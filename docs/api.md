@@ -69,6 +69,10 @@ A guarded handle on a Document node — either a **leaf** (a scalar value) or an
 | `.check_format(name) -> WriteReport` | simulate `to_format(name)`, no output (needs the format's `check`) |
 | `.validate(schema) -> ValidationResult` | shorthand for `schema.validate(self)` |
 
+`.to_*`/`.check_*` raise `WriteError` past 200 levels of nesting;
+`.to_data()`/`.to_grouped()` raise `DocumentError` instead — see
+[Adjustment reports](#adjustment-reports-lossy-writes) below.
+
 `Doc` also supports `==` (compares the underlying data, against a `Doc` or a
 plain value).
 
@@ -250,6 +254,15 @@ Low-level codecs over the canonical node form (a scalar, or a list of
 `read_yaml`/`write_yaml` need `pyyaml`; `write_toml` needs `tomli_w`; `read_xml`
 requires `defusedxml` (raises `ImportError` if it's missing). See
 [Formats](formats/overview.md) for per-format mapping and caveats.
+
+**Depth limit on write.** Every `write_*`/`check_*` above raises `WriteError`
+(naming the limit) if a Document nests past 200 levels — the same shared
+limit the readers already enforce on parse. `Doc.to_data()`/`.to_grouped()`
+raise `DocumentError` instead, for the same reason. The one residual
+caveat: a `Doc` built directly from a raw hand-assembled node (bypassing
+`Doc.of`/`build_node`/the readers, which guard depth themselves) can still
+overflow `validate`/`infer` on such a node — accepted, documented behavior,
+not a bug.
 
 ### Schema-directed deserialization
 

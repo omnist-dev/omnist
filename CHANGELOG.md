@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/); this project is
-**alpha** and the public API may still change between releases.
+**beta**, and the public API is covered by the
+[stability policy](docs/stability.md) — stable surfaces change only through a
+deprecation cycle, not silently between releases.
 
 ## [v0.6.0] — `[...]` array syntax for OML
 
