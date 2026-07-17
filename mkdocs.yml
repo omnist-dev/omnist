@@ -46,6 +46,7 @@ markdown_extensions:
 
 nav:
   - Home: README.md
+  - Introduction deck: presentation.html
   - Quickstart: quickstart.md
   - Why Omnist: why-omnist.md
   - Stability policy: stability.md

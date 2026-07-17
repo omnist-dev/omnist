@@ -1,5 +1,7 @@
 # Why Omnist
 
+Prefer slides? See the [introduction deck](presentation.html).
+
 ## The thesis
 
 JSON, YAML, TOML, and XML are markup languages that got a schema system
