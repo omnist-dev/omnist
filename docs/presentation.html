@@ -221,37 +221,7 @@ graph LR
       <p class="footnote">This is OML — Omnist Markup Language. The two <code>databases</code> edges share one label — that repetition <b>is</b> the array; there is no separate list node.</p>
     </section>
 
-    <!-- 8: OSD automaton diagram -->
-    <section data-background-color="#f5ead8">
-      <h2>OSD — a schema is an automaton</h2>
-      <div class="cols cols-2">
-        <pre class="codeblock"><span class="kw">record</span> Database {
-    <span class="str">"type"</span>: string,
-    <span class="str">"server"</span>: string,
-    <span class="str">"port"</span>: integer,
-}
-<span class="kw">record</span> Service {
-    <span class="str">"host"</span>: string,
-    <span class="str">"port"</span>: integer,
-    <span class="str">"databases"</span> [1,]: Database,
-    <span class="str">"tags"</span> [0,]: string,
-}
-<span class="kw">root</span> Service</pre>
-        <pre class="mermaid">
-graph LR
-    Svc(("Service")) -->|"host [1,1]"| String(("string"))
-    Svc -->|"port [1,1]"| Integer(("integer"))
-    Svc -->|"databases [1,&#8734;)"| Db(("Database"))
-    Svc -->|"tags [0,&#8734;)"| String
-    Db -->|"type [1,1]"| String
-    Db -->|"server [1,1]"| String
-    Db -->|"port [1,1]"| Integer
-        </pre>
-      </div>
-      <p class="footnote">Every record is a state; a field is a labeled, cardinality-counted transition to another state. Fields are order-free, so this is a fan, not a sequence. Comparing two such automata is what makes <code>compatible_with</code> decidable.</p>
-    </section>
-
-    <!-- 9: format comparison -->
+    <!-- 8: format comparison -->
     <section data-background-color="#f5ead8">
       <h2>The same document, in JSON, YAML, TOML, XML</h2>
       <div class="format-grid">
@@ -305,6 +275,36 @@ port = 5433</pre></div>
 &lt;tags&gt;us-east&lt;/tags&gt;</pre></div>
       </div>
       <p class="footnote">Every reader converges on the same Document — converting between any of them is just read one, write another.</p>
+    </section>
+
+    <!-- 9: OSD automaton diagram -->
+    <section data-background-color="#f5ead8">
+      <h2>OSD — a schema is an automaton</h2>
+      <div class="cols cols-2">
+        <pre class="codeblock"><span class="kw">record</span> Database {
+    <span class="str">"type"</span>: string,
+    <span class="str">"server"</span>: string,
+    <span class="str">"port"</span>: integer,
+}
+<span class="kw">record</span> Service {
+    <span class="str">"host"</span>: string,
+    <span class="str">"port"</span>: integer,
+    <span class="str">"databases"</span> [1,]: Database,
+    <span class="str">"tags"</span> [0,]: string,
+}
+<span class="kw">root</span> Service</pre>
+        <pre class="mermaid">
+graph LR
+    Svc(("Service")) -->|"host [1,1]"| String(("string"))
+    Svc -->|"port [1,1]"| Integer(("integer"))
+    Svc -->|"databases [1,&#8734;)"| Db(("Database"))
+    Svc -->|"tags [0,&#8734;)"| String
+    Db -->|"type [1,1]"| String
+    Db -->|"server [1,1]"| String
+    Db -->|"port [1,1]"| Integer
+        </pre>
+      </div>
+      <p class="footnote">Every record is a state; a field is a labeled, cardinality-counted transition to another state. Fields are order-free, so this is a fan, not a sequence. Comparing two such automata is what makes <code>compatible_with</code> decidable.</p>
     </section>
 
     <!-- 10: the algebra, in code -->
@@ -370,7 +370,7 @@ s.validate(doc({<span class="str">"host"</span>: <span class="str">"api.internal
     <section data-background-color="#f5ead8">
       <h2>Checked, not asserted</h2>
       <ul class="bullets">
-        <li><b>99% line coverage</b>, and a <code>mypy --strict</code> CI gate.</li>
+        <li><b>100% line coverage</b>, and a <code>mypy --strict</code> CI gate.</li>
         <li>Property-based fuzzing, plus formal ABNF grammars for OML and OSD verified against the parsers.</li>
         <li>The schema algebra is <b>cross-checked three separate ways</b> against the same test cases, so no single method's blind spot can hide a bug.</li>
         <li>Performance is measured, not implied: a 100k-edge document validates in about a third of a second.</li>

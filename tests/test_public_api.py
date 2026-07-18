@@ -177,7 +177,8 @@ def test_function_signatures_are_frozen():
         obj = getattr(omnist, name)
         actual = str(inspect.signature(obj))
         if actual != expected:
-            mismatches.append(f"{name}: expected {expected!r}, got {actual!r}")
+            # Only hit if the API actually broke.
+            mismatches.append(f"{name}: expected {expected!r}, got {actual!r}")  # pragma: no cover
     assert not mismatches, (
         "Public function signature(s) changed:\n"
         + "\n".join(mismatches)
@@ -301,7 +302,7 @@ def test_class_method_signatures_are_frozen():
             attr = getattr(cls, method_name)
             actual = str(inspect.signature(attr))
             if actual != expected:
-                mismatches.append(
+                mismatches.append(  # pragma: no cover -- only hit if the API actually broke
                     f"{class_name}.{method_name}: expected {expected!r}, got {actual!r}"
                 )
     assert not mismatches, (
@@ -327,7 +328,8 @@ def test_namedtuple_fields_are_frozen():
     for name, expected in FROZEN_NAMEDTUPLE_FIELDS.items():
         actual = getattr(omnist, name)._fields
         if actual != expected:
-            mismatches.append(f"{name}: expected {expected!r}, got {actual!r}")
+            # Only hit if the API actually broke.
+            mismatches.append(f"{name}: expected {expected!r}, got {actual!r}")  # pragma: no cover
     assert not mismatches, (
         "NamedTuple field names changed:\n"
         + "\n".join(mismatches)

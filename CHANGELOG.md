@@ -6,7 +6,31 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
-## [v0.7.4] — deck algebra slide, deep-link fix, coverage gap closed
+## [v0.7.5] — 100% line coverage, deck slide reorder
+
+- Closed the repo's last remaining coverage gaps, bringing the whole
+  repository (not just the `omnist` package) to 100% line coverage.
+  Every missing line was individually classified before being fixed:
+  defensive `assert False, "expected X"` trip-wires that, by
+  construction, never execute while the suite passes got a
+  `# pragma: no cover` and a one-line reason, not a test written to
+  deliberately break the library. Genuinely rare-but-real branches (a
+  helper's mismatch case Hypothesis rarely generates by chance, a
+  recursion base case at max depth, a NEL-handling branch not hit by
+  every Hypothesis seed) were forced deterministically with a direct
+  unit test or an explicit `@example(...)`, not left to random-seed
+  luck. Two branches turned out to be unreachable dead code on
+  inspection — an empty-`env` `Schema` the constructor can't actually
+  produce, and a `write_toml` failure path that never fires once the
+  root is constrained to a list (verified directly against a
+  3000-example run) — and were deleted rather than tested around.
+- Reordered the introduction deck: the JSON/YAML/TOML/XML format-grid
+  slide now follows directly after the OML tree-diagram slide, since
+  it's the direct payoff of "here's the tree" -> "here's that tree in
+  four formats" -- previously it was separated from OML by the OSD
+  automaton slide, an unrelated schema-level concept.
+- Updated `docs/testing.md` and `docs/presentation.html` to state the
+  now-accurate 100% coverage figure (previously 99%).
 
 - Added a "The algebra, in code" slide to `docs/presentation.html`,
   showing `compatible_with`, `equivalent`, `normalize`, and `extract`

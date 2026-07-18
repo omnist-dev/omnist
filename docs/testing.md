@@ -55,8 +55,9 @@ Run the full suite under coverage with:
 coverage run -m pytest -q && coverage report -m
 ```
 
-**Target: 100% line coverage across the `omnist` package** (every module
-under `omnist/`). At the time of writing this measured as:
+**Target: 100% line coverage across the whole repository** — the
+`omnist` package itself, and the test/tooling files that exercise it.
+The package-level breakdown, at the time of writing:
 
 ```
 Name                       Stmts   Miss  Cover
@@ -90,12 +91,20 @@ in-line: three `raise ValueError` guards behind argparse `choices=`
 restrictions, and the `if __name__ == "__main__"` entry point in
 `cli.py`.
 
-(`tests/test_fuzz.py` and `tests/test_docs.py` themselves show a handful of
-missed lines in any single run — defensive `except Exception` branches
-inside the fuzz/doc tests that only fire when a property actually fails, or
-a NaN-handling branch not hit by every Hypothesis seed. That's expected and
-unrelated to the 100% target, which applies to the package under test, not
-to the test files.)
+Test files carry the same discipline. A recurring pattern there is the
+defensive trip-wire: `assert False, "expected SomeError"` (or equivalent)
+inside a `try/except`-negative test, which by construction never executes
+while the suite passes — writing a test that deliberately breaks the
+library to hit it would be actively wrong, so these are annotated
+`# pragma: no cover` with a one-line reason instead. Genuinely rare-but-real
+branches (e.g. a helper's mismatch case Hypothesis rarely generates by
+chance, or a recursion base case at max depth) are forced deterministically
+with a direct unit test or an explicit `@example(...)`, not suppressed —
+Hypothesis's own random seed isn't a reliable way to guarantee a branch
+runs on every CI run. A handful of branches turned out to be unreachable
+dead code on inspection (e.g. an empty-`env` `Schema` that the constructor
+can't actually produce, since `root` must always resolve in `env`) — those
+were deleted, not tested around.
 
 **How a gap is treated**, following the precedent set in #63 (the PR that
 first brought the package to 100%, omnist-dev/omnist#74): for every line/branch

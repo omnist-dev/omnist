@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.4"
+        assert ds.__version__ == "0.7.5"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -905,7 +905,8 @@ class TestCodecs:
         def fake_import(name, *args, **kwargs):
             if name.startswith("defusedxml"):
                 raise ImportError("simulated: defusedxml not installed")
-            return real_import(name, *args, **kwargs)
+            # Only reached if some unrelated import fires during this mock window.
+            return real_import(name, *args, **kwargs)  # pragma: no cover
 
         import unittest.mock
         with unittest.mock.patch("builtins.__import__", side_effect=fake_import):
@@ -927,7 +928,8 @@ class TestCodecs:
         def fake_import(name, *args, **kwargs):
             if name == "defusedxml.ElementTree":
                 raise ImportError("simulated: submodule import failure")
-            return real_import(name, *args, **kwargs)
+            # Only reached if some unrelated import fires during this mock window.
+            return real_import(name, *args, **kwargs)  # pragma: no cover
 
         import unittest.mock
         with unittest.mock.patch("builtins.__import__", side_effect=fake_import):
@@ -946,7 +948,8 @@ class TestCodecs:
         def fake_import(name, *args, **kwargs):
             if name.startswith("defusedxml"):
                 raise ImportError("simulated: defusedxml not installed")
-            return real_import(name, *args, **kwargs)
+            # Only reached if some unrelated import fires during this mock window.
+            return real_import(name, *args, **kwargs)  # pragma: no cover
 
         with unittest.mock.patch("builtins.__import__", side_effect=fake_import):
             with pytest.raises(ImportError, match="defusedxml is required"):

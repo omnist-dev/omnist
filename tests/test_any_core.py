@@ -25,7 +25,7 @@ from omnist.infer import infer
 from omnist.ops import compatible_with, equivalent, is_empty, normalize
 from omnist.ops.isomorphic import _isomorphic
 from omnist.ops.signature import local_signature
-from omnist.schema import ANY, AnyType, Schema, nullable
+from omnist.schema import ANY, STRING, AnyType, Field, Record, Ref, Schema, nullable
 
 # tools/ is repo-root-relative, not an installed package; bare `pytest -q`
 # (as CI runs it) does not put the repo root on sys.path the way
@@ -380,13 +380,24 @@ _samples_strategy = st.lists(
 
 
 def _no_any_in_schema(s: Schema) -> bool:
-    if isinstance(s.root, AnyType):
-        return False
+    # No isinstance(s.root, AnyType) check: Schema.__init__ requires root to
+    # be a Ref, never an AnyType, so that would be dead code for any valid
+    # Schema -- an any-typed root can only ever appear as a field's type.
     for rec in s.env.values():
         for f in rec.fields:
             if isinstance(f.type, AnyType):
                 return False
     return True
+
+
+def test_no_any_in_schema_detects_any_typed_field():
+    # infer() is asserted to never produce this, so the property test above
+    # never exercises the False branch -- checked directly here.
+    any_field_schema = Schema(Ref("R"), {"R": Record([Field("x", AnyType(), 1, 1)])})
+    assert not _no_any_in_schema(any_field_schema)
+
+    ok_schema = Schema(Ref("R"), {"R": Record([Field("x", STRING, 1, 1)])})
+    assert _no_any_in_schema(ok_schema)
 
 
 @settings(max_examples=100)

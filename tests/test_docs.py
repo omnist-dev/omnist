@@ -37,7 +37,7 @@ def test_readme_at_a_glance():
                                           "server": "db1.internal.example.com",
                                           "port": 5432}],
                            "tags": ["prod", "us-east"]})).ok
-    assert ds.__version__ == "0.7.4"
+    assert ds.__version__ == "0.7.5"
 
 
 def test_quickstart():
@@ -556,7 +556,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.7.4"
+    assert ds.__version__ == "0.7.5"
 
 
 def test_api_docs_schema_raises():
@@ -566,21 +566,21 @@ def test_api_docs_schema_raises():
     # root isn't a Ref
     try:
         Schema(Scalar("string"))
-        assert False, "expected SchemaError"
+        assert False, "expected SchemaError"  # pragma: no cover
     except SchemaError:
         pass
 
     # an env entry isn't a Record
     try:
         Schema(Ref("R"), {"R": Scalar("string")})
-        assert False, "expected SchemaError"
+        assert False, "expected SchemaError"  # pragma: no cover
     except SchemaError:
         pass
 
     # a Ref names an entry not present in env
     try:
         Schema(Ref("R"), {})
-        assert False, "expected SchemaError"
+        assert False, "expected SchemaError"  # pragma: no cover
     except SchemaError:
         pass
 
@@ -807,13 +807,13 @@ def test_formats_xml_docs_mixed_content_rejected():
     from omnist import ParseError
     try:
         read_xml("<p>Hello <b>world</b></p>")
-        assert False, "expected ParseError"
+        assert False, "expected ParseError"  # pragma: no cover
     except ParseError as e:
         assert "mixed content" in str(e)
 
     try:
         read_xml("<p><b>world</b> tail</p>")
-        assert False, "expected ParseError"
+        assert False, "expected ParseError"  # pragma: no cover
     except ParseError as e:
         assert "mixed content" in str(e)
 
@@ -1002,7 +1002,7 @@ def test_limitations_depth_limit():
 
     try:
         infer([doc(deep)])
-        raised = False
+        raised = False  # pragma: no cover -- only hit if infer() failed to reject over-deep nesting
     except DocumentError as e:
         raised = "nesting exceeds the maximum depth" in str(e)
 
