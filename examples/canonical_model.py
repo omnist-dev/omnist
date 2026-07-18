@@ -63,8 +63,10 @@ def main():
                   "  - type: prod\n    server: db1.internal.example.com\n    port: 5432\n"
                   "  - type: test\n    server: db2.internal.example.com\n    port: 5433\n")
     t = read_toml('host = "api.internal"\nport = 8443\ntags = ["prod", "us-east"]\n'
-                  '[[databases]]\ntype = "prod"\nserver = "db1.internal.example.com"\nport = 5432\n'
-                  '[[databases]]\ntype = "test"\nserver = "db2.internal.example.com"\nport = 5433\n')
+                  '[[databases]]\ntype = "prod"\n'
+                  'server = "db1.internal.example.com"\nport = 5432\n'
+                  '[[databases]]\ntype = "test"\n'
+                  'server = "db2.internal.example.com"\nport = 5433\n')
     print("oml == json == yaml == toml:", o == j == y == t)
 
     print("\n== XML keeps the document element as one top-level edge ==")

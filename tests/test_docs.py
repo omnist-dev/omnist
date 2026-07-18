@@ -33,7 +33,9 @@ def test_readme_at_a_glance():
                      'record Service { "host": string, "port": integer, '
                      '"databases" [1,]: Database, "tags" [0,]: string }\nroot Service')
     assert s.validate(doc({"host": "api.internal", "port": 8443,
-                           "databases": [{"type": "prod", "server": "db1.internal.example.com", "port": 5432}],
+                           "databases": [{"type": "prod",
+                                          "server": "db1.internal.example.com",
+                                          "port": 5432}],
                            "tags": ["prod", "us-east"]})).ok
     assert ds.__version__ == "0.7.2"
 
@@ -690,8 +692,10 @@ root Service
 ''')
     node = [("host", "api.internal"),
             ("port", 8443),
-            ("databases", [("type", "prod"), ("server", "db1.internal.example.com"), ("port", 5432)]),
-            ("databases", [("type", "test"), ("server", "db2.internal.example.com"), ("port", 5433)]),
+            ("databases", [("type", "prod"),
+                           ("server", "db1.internal.example.com"), ("port", 5432)]),
+            ("databases", [("type", "test"),
+                           ("server", "db2.internal.example.com"), ("port", 5433)]),
             ("tags", "prod"),
             ("tags", "us-east")]
     d = Doc(node)
