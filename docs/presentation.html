@@ -307,7 +307,17 @@ port = 5433</pre></div>
       <p class="footnote">Every reader converges on the same Document — converting between any of them is just read one, write another.</p>
     </section>
 
-    <!-- 10: shortest tour -->
+    <!-- 10: the algebra, in code -->
+    <section data-background-color="#f5ead8">
+      <h2>The algebra, in code</h2>
+      <pre class="tour-code">s1.compatible_with(s2)   <span class="com"># can readers of s2 still read s1's docs?</span>
+s1.equivalent(s2)        <span class="com"># same documents, different shape?</span>
+s1.normalize()           <span class="com"># canonical minimal form</span>
+s1.extract(<span class="str">"host"</span>, <span class="str">"port"</span>, <span class="str">"databases"</span>, <span class="str">"type"</span>, <span class="str">"server"</span>)  <span class="com"># drop tags, keep the rest</span></pre>
+      <p class="footnote">Same three operations named on the next two slides — this is what actually calling them looks like. Decidable because the schema is an automaton, not a heuristic over examples.</p>
+    </section>
+
+    <!-- 11: shortest tour -->
     <section data-background-color="#f5ead8">
       <h2>The shortest possible tour</h2>
       <pre class="tour-code"><span class="kw">from</span> omnist <span class="kw">import</span> parse_schema, doc
@@ -324,12 +334,12 @@ s.validate(doc({<span class="str">"host"</span>: <span class="str">"api.internal
                 <span class="str">"tags"</span>: [<span class="str">"prod"</span>, <span class="str">"us-east"</span>]})).ok   <span class="com"># True</span></pre>
     </section>
 
-    <!-- 11: divider 03 -->
+    <!-- 12: divider 03 -->
     <section data-background-color="#272e1b" class="s-divider">
       <div class="num">03</div><h2>What it enables</h2>
     </section>
 
-    <!-- 12: genuinely hard -->
+    <!-- 13: genuinely hard -->
     <section data-background-color="#f5ead8">
       <h2>Genuinely hard, made decidable</h2>
       <div class="card-grid">
@@ -340,7 +350,7 @@ s.validate(doc({<span class="str">"host"</span>: <span class="str">"api.internal
       </div>
     </section>
 
-    <!-- 13: why omnist -->
+    <!-- 14: why omnist -->
     <section data-background-color="#f5ead8">
       <h2>Why Omnist, and not a heuristic</h2>
       <ul class="bullets">
@@ -351,12 +361,12 @@ s.validate(doc({<span class="str">"host"</span>: <span class="str">"api.internal
       </ul>
     </section>
 
-    <!-- 14: divider 04 -->
+    <!-- 15: divider 04 -->
     <section data-background-color="#272e1b" class="s-divider">
       <div class="num">04</div><h2>Boringly correct</h2>
     </section>
 
-    <!-- 15: checked not asserted -->
+    <!-- 16: checked not asserted -->
     <section data-background-color="#f5ead8">
       <h2>Checked, not asserted</h2>
       <ul class="bullets">
@@ -367,12 +377,12 @@ s.validate(doc({<span class="str">"host"</span>: <span class="str">"api.internal
       </ul>
     </section>
 
-    <!-- 16: divider 05 -->
+    <!-- 17: divider 05 -->
     <section data-background-color="#272e1b" class="s-divider">
       <div class="num">05</div><h2>Get started</h2>
     </section>
 
-    <!-- 17: give it a try -->
+    <!-- 18: give it a try -->
     <section data-background-color="#f5ead8" class="s-title">
       <h2>Give it a try</h2>
       <p class="tagline"><a href="https://github.com/omnist-dev/omnist#readme">Get started</a> — feedback and issues are genuinely welcome.</p>
@@ -433,6 +443,15 @@ pip install omnist[all]     <span class="com"># + pyyaml, tomli_w, defusedxml</s
     return renderMermaid();
   }).then(function () {
     Reveal.layout();
+    // reveal's own cold-load hash parse can land one slide early for some
+    // indices (issue #243) -- root cause is inside its minified hash/
+    // history internals, not this script. Rather than depend on that
+    // parse, re-derive the intended slide from location.hash ourselves
+    // and force it explicitly, overriding whatever reveal landed on.
+    var m = /^#\/(\d+)(?:\/(\d+))?/.exec(location.hash);
+    if (m) {
+      Reveal.slide(parseInt(m[1], 10), m[2] ? parseInt(m[2], 10) : 0);
+    }
   });
 })();
 </script>

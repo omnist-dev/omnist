@@ -6,6 +6,25 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.4] — deck algebra slide, deep-link fix, coverage gap closed
+
+- Added a "The algebra, in code" slide to `docs/presentation.html`,
+  showing `compatible_with`, `equivalent`, `normalize`, and `extract`
+  called against the deck's running Service/Database example — the
+  algebra was named on two other slides but never actually demonstrated.
+  Every call in the code panel is verified against the real library, not
+  hand-typed.
+- Fixed #243: cold-loading a direct link to certain slides (e.g.
+  `presentation.html#/12`) landed one slide early, a bug inside
+  reveal.js's own hash-parsing internals. Rather than depend on that
+  parse, the deck now re-derives the intended slide from `location.hash`
+  itself and explicitly forces it after init settles, overriding
+  whatever reveal landed on. Root load and normal navigation (swipe,
+  keyboard, click) are unaffected.
+- Fixed #239: closed a coverage gap in `omnist/oml.py`'s compact-array
+  writer — the empty-record (`{}`) branch of `_write_array_element` had
+  no test. `omnist/` is back to 100% line coverage.
+
 ## [v0.7.3] — introduction deck now scales on mobile
 
 - Rebuilt `docs/presentation.html` on reveal.js (MIT, vendored) instead of

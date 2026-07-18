@@ -955,6 +955,15 @@ def test_write_oml_arrays_true_of_brace_subtrees():
     assert read_oml(text) == node
 
 
+def test_write_oml_arrays_true_of_empty_record_element():
+    # An empty record inside a multi-element array run renders as the
+    # bare brace pair "{}" (issue #239 -- previously untested branch).
+    node = [("members", []), ("members", [("name", "Ann")])]
+    text = write_oml(node, arrays=True)
+    assert text == 'members: [{}, { name: "Ann" }]'
+    assert read_oml(text) == node
+
+
 def test_write_oml_arrays_true_no_wrap_regardless_of_length():
     # Pretty mode: arrays are always single-line, no line-wrapping, no
     # matter how long the run is (explicit design decision, #218).
@@ -968,6 +977,7 @@ def test_write_oml_arrays_true_no_wrap_regardless_of_length():
 @pytest.mark.parametrize("node", _GOLDEN_NODES_FOR_NO_REGRESSION + [
     [("b", 1), ("b", 2), ("c", True), ("b", 3)],
     [("members", [("name", "Ann")]), ("members", [("name", "Bob")])],
+    [("members", []), ("members", [("name", "Ann")])],
 ])
 def test_write_oml_arrays_true_round_trips_pretty_and_compact(node):
     assert read_oml(write_oml(node, arrays=True)) == node
