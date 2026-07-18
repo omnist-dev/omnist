@@ -15,261 +15,180 @@
 <meta name="twitter:title" content="Omnist — project introduction">
 <meta name="twitter:description" content="One canonical schema and data model for JSON, YAML, TOML, XML — and its own native OML and OSD languages.">
 <meta name="twitter:image" content="https://omnist.dev/images/og-presentation.png">
-<style>
-/* Fonts: Caprasimo (headings) + Figtree (body), both Google Fonts under
-   the SIL Open Font License, vendored locally so the deck has no external
-   dependency. See docs/assets/fonts/. */
-@font-face {
-  font-family: 'Caprasimo';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("assets/fonts/caprasimo-latin.woff2") format('woff2');
-}
-@font-face {
-  font-family: 'Figtree';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("assets/fonts/figtree-latin.woff2") format('woff2');
-}
-@font-face {
-  font-family: 'Figtree';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("assets/fonts/figtree-latin.woff2") format('woff2');
-}
-@font-face {
-  font-family: 'Figtree';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("assets/fonts/figtree-latin.woff2") format('woff2');
-}
 
-/* Design tokens, extracted verbatim from the original deck's stylesheet. */
+<!-- reveal.js (MIT) — vendored, no CDN. See docs/assets/reveal/LICENSE. -->
+<link rel="stylesheet" href="assets/reveal/reset.css">
+<link rel="stylesheet" href="assets/reveal/reveal.css">
+
+<style>
+/* Fonts: Caprasimo (headings) + Figtree (body), Google Fonts under the SIL
+   Open Font License, vendored locally so the deck has no external dependency. */
+@font-face { font-family: 'Caprasimo'; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/caprasimo-latin.woff2") format('woff2'); }
+@font-face { font-family: 'Figtree'; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/figtree-latin.woff2") format('woff2'); }
+@font-face { font-family: 'Figtree'; font-style: normal; font-weight: 600; font-display: swap; src: url("assets/fonts/figtree-latin.woff2") format('woff2'); }
+@font-face { font-family: 'Figtree'; font-style: normal; font-weight: 700; font-display: swap; src: url("assets/fonts/figtree-latin.woff2") format('woff2'); }
+
+/* Omnist design tokens, extracted verbatim from the original deck. */
 :root {
   --color-bg: #f5ead8;
   --color-surface: #ebddc5;
   --color-text: #201e1d;
   --color-accent: #c67139;
-  --color-accent-2: #7a8a5e;
-
-  --color-neutral-100: #f9f4ed;
-  --color-neutral-200: #eee7db;
-  --color-neutral-300: #dcd3c4;
-  --color-neutral-700: #645c50;
-  --color-neutral-900: #2e2b25;
-
-  --color-accent-100: #fff2eb;
   --color-accent-700: #8c491a;
-
+  --color-neutral-200: #eee7db;
+  --color-neutral-700: #645c50;
+  --color-accent-100: #fff2eb;
   --color-accent-2-100: #f0fae1;
-  --color-accent-2-200: #e1eecc;
-  --color-accent-2-700: #56633f;
+  --color-accent-2-100b: #e1eecc;
   --color-accent-2-900: #272e1b;
-
   --font-heading: "Caprasimo", Georgia, serif;
   --font-body: "Figtree", system-ui, sans-serif;
-
-  --space-2: 8.8px;
-  --space-3: 13.2px;
-  --space-4: 17.6px;
-  --space-6: 26.4px;
-  --space-8: 35.2px;
-
-  --radius-md: 16px;
-  --radius-lg: 28px;
 }
 
-* { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0; height: 100%;
-  background: var(--color-neutral-900);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: 15px; line-height: 1.55;
+/* Cream letterbox bars around the scaled slide (not reveal's default black). */
+html, body, .reveal-viewport { background: var(--color-bg); }
+
+.reveal { font-family: var(--font-body); color: var(--color-text); font-size: 30px; }
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+  font-family: var(--font-heading); font-weight: 400; text-transform: none;
+  color: var(--color-text); line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 0.5em;
 }
-h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 400; margin: 0 0 var(--space-2); }
-code, pre { font-family: "SFMono-Regular", Consolas, monospace; }
+.reveal h1 { font-size: 2.9em; }
+.reveal h2 { font-size: 1.7em; margin-bottom: 0.7em; }
+.reveal h3 { font-size: 0.92em; }
+.reveal h4 { font-size: 0.92em; }
+.reveal p { margin: 0 0 0.6em; }
+.reveal a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
+.reveal code { font-family: "SFMono-Regular", Consolas, monospace; background: rgba(0,0,0,0.06); padding: 1px 6px; border-radius: 5px; font-size: 0.85em; }
+.reveal .slides { text-align: left; }
+.reveal .slides section { top: 0 !important; }
+.text-muted { color: var(--color-neutral-700); }
 
-#app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+/* Title + closing slides */
+.s-title { text-align: center; }
+.s-title h1 { font-size: 3.4em; margin-bottom: 0.3em; }
+.s-title .tagline { font-size: 1.15em; color: var(--color-neutral-700); max-width: 20em; margin: 0.6em auto; }
+.s-title .meta { font-size: 0.62em; color: var(--color-neutral-700); margin-top: 1.2em; }
 
-/* — sidebar — */
-#sidebar {
-  width: 168px; flex: none; overflow-y: auto;
-  background: var(--color-neutral-900);
-  padding: var(--space-3) 0;
-}
-.thumb {
-  display: flex; gap: 8px; align-items: flex-start;
-  padding: 6px var(--space-3); cursor: pointer; border: none; background: none;
-  width: 100%; text-align: left;
-}
-.thumb-num {
-  font-family: var(--font-heading); font-size: 11px; color: var(--color-neutral-300);
-  width: 16px; flex: none; padding-top: 4px;
-}
-.thumb-preview {
-  width: 132px; height: 76px; border-radius: 6px; overflow: hidden;
-  background: var(--color-neutral-100); border: 2px solid transparent;
-  display: flex; align-items: center; justify-content: center;
-  padding: 6px; font-size: 6px; line-height: 1.2; color: var(--color-text);
-}
-.thumb-preview.divider { background: var(--color-accent-2-900); color: var(--color-accent-2-100); }
-.thumb.active .thumb-preview { border-color: var(--color-accent-500, #d67f48); }
-.thumb-preview b { font-family: var(--font-heading); font-weight: 400; display: block; font-size: 7px; margin-bottom: 2px; }
+/* Divider slides (dark green, set via data-background-color) */
+.s-divider { color: #f0fae1; }
+.s-divider .num { font-family: var(--font-heading); font-size: 5.2em; line-height: 1; color: #56633f; }
+.s-divider h2 { color: #f0fae1; font-size: 1.9em; margin-top: 0.1em; }
 
-/* — main stage — */
-#stage { flex: 1; position: relative; background: #000; overflow: hidden; }
-.slide {
-  position: absolute; inset: 0; display: flex; visibility: hidden; z-index: 0;
-  align-items: center; justify-content: center;
-  background: var(--color-bg); padding: 6vh 8vw;
-}
-.slide.active { visibility: visible; z-index: 1; }
-.slide-inner { width: 100%; max-width: 980px; }
+.kicker { font-size: 0.5em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-accent-700); }
 
-/* section divider slides */
-.slide.divider { background: var(--color-accent-2-900); color: var(--color-accent-2-100); }
-.slide.divider .slide-inner { text-align: left; }
-.divider-num { font-family: var(--font-heading); font-size: 96px; color: var(--color-accent-2-700); line-height: 1; }
-.slide.divider h2 { color: var(--color-accent-2-100); font-size: 34px; margin-top: var(--space-2); }
+/* Bullets */
+.reveal ul.bullets { list-style: none; margin: 0; padding: 0; }
+.reveal ul.bullets li { position: relative; padding-left: 1em; margin: 0 0 0.65em; }
+.reveal ul.bullets li::before { content: "•"; position: absolute; left: 0; color: var(--color-accent); }
+.reveal ol.contents { list-style: none; padding: 0; margin: 0; text-align: center; }
+.reveal ol.contents li { margin: 0.35em 0; font-size: 1.05em; }
 
-/* title slide */
-.slide.title { text-align: center; }
-.slide.title h1 { font-size: 64px; }
-.slide.title .tagline { font-size: 19px; color: var(--color-neutral-700); max-width: 560px; margin: var(--space-4) auto; }
-.slide.title .meta { font-size: 13px; color: var(--color-neutral-700); margin-top: var(--space-8); }
-.slide.title .meta a { color: var(--color-neutral-700); }
-
-.kicker { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-accent-700); margin-bottom: 4px; }
-.slide h2 { font-size: 30px; margin-bottom: var(--space-4); }
-
-.bullets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
-.bullets li { padding-left: 20px; position: relative; }
-.bullets li::before { content: "•"; position: absolute; left: 4px; color: var(--color-accent); }
-
-.cols { display: grid; gap: var(--space-6); }
-.cols-2 { grid-template-columns: 1fr 1fr; }
+/* Columns */
+.cols { display: grid; gap: 1em; }
+.cols-2 { grid-template-columns: 1fr 1fr; align-items: center; }
 .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-.col h3 { font-size: 15px; color: var(--color-accent-700); text-decoration: underline; text-decoration-color: var(--color-accent-300, #ffc6a5); text-underline-offset: 3px; margin-bottom: 6px; }
-.col p { font-size: 13.5px; margin: 0; }
+.col h3 { color: var(--color-accent-700); text-decoration: underline; text-decoration-color: #ffc6a5; text-underline-offset: 3px; margin-bottom: 0.3em; }
+.col p { font-size: 0.82em; margin: 0; }
 
-.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
-.feature-card { border-radius: var(--radius-md); padding: var(--space-4); }
+/* Feature cards */
+.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6em; }
+.feature-card { border-radius: 14px; padding: 0.8em 0.9em; }
 .feature-card.a { background: var(--color-accent-100); }
 .feature-card.b { background: var(--color-accent-2-100); }
-.feature-card h4 { font-size: 16px; margin-bottom: 6px; }
-.feature-card p { font-size: 13px; margin: 0; }
-.feature-card code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; }
+.feature-card h4 { margin-bottom: 0.25em; }
+.feature-card p { font-size: 0.78em; margin: 0; }
 
-pre.codeblock {
-  background: var(--color-neutral-200); border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4); font-size: 12.5px; line-height: 1.5;
-  overflow-x: auto; margin: 0;
+/* Code blocks */
+.reveal pre.codeblock, .reveal pre.tour-code {
+  display: block; background: var(--color-neutral-200); border-radius: 14px;
+  padding: 0.7em 0.9em; font-size: 0.62em; line-height: 1.5; box-shadow: none;
+  width: 100%; overflow: visible; white-space: pre-wrap; word-break: break-word;
+  font-family: "SFMono-Regular", Consolas, monospace;
 }
-.codeblock .kw { color: #56633f; }
-.codeblock .str { color: #b2622d; }
-.codeblock .com { color: #82796a; font-style: italic; }
+.reveal pre.tour-code { font-size: 0.66em; }
+.codeblock .kw, .tour-code .kw { color: #56633f; }
+.codeblock .str, .tour-code .str { color: #b2622d; }
+.codeblock .com, .tour-code .com { color: #82796a; font-style: italic; }
 
-.format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-.format-panel h3 { color: var(--color-accent-700); font-size: 14px; margin-bottom: 6px; }
-.format-panel pre { background: var(--color-neutral-200); border-radius: 10px; padding: 10px 12px; font-size: 10.5px; white-space: pre-wrap; word-break: break-word; }
+/* Format comparison grid */
+.format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7em; }
+.format-panel h3 { color: var(--color-accent-700); font-size: 0.62em; margin-bottom: 0.25em; }
+.reveal .format-panel pre {
+  display: block; background: var(--color-neutral-200); border-radius: 10px;
+  padding: 0.5em 0.6em; font-size: 0.42em; line-height: 1.45; box-shadow: none;
+  width: 100%; white-space: pre; overflow: hidden;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
 
+/* Mermaid */
 .mermaid { display: flex; justify-content: center; }
 .mermaid svg { max-width: 100%; height: auto; }
 
-.slide-inner { width: 100%; }
-.codeblock, .tour-code { white-space: pre-wrap; word-break: break-word; }
+.tag-pill { display: inline-flex; align-items: center; font-size: 0.7em; padding: 3px 12px; border-radius: 999px; background: var(--color-accent-2-100b); color: var(--color-accent-2-900); }
 
-@media (max-width: 900px) {
-  .cols-2, .cols-3, .card-grid, .format-grid { grid-template-columns: 1fr; }
-  .slide.title h1 { font-size: 44px; }
-  .slide h2 { font-size: 24px; }
-}
-
-footer.slide-footer { position: absolute; bottom: 4vh; left: 8vw; font-size: 11px; color: var(--color-neutral-700); }
-.tour-code { background: var(--color-neutral-200); border-radius: var(--radius-md); padding: var(--space-4); font-size: 12.5px; line-height: 1.6; overflow-x: auto; }
-
-.tag-pill {
-  display: inline-flex; align-items: center; font-size: 11px;
-  padding: 3px 10px; border-radius: 999px; background: var(--color-accent-2-200); color: var(--color-accent-2-900);
-}
-
-#nav-hint { position: fixed; bottom: 12px; right: 16px; font-size: 11px; color: var(--color-neutral-300); }
+.footnote { font-size: 0.6em; color: var(--color-neutral-700); margin-top: 0.8em; }
 </style>
 </head>
 <body>
-<div id="app">
-  <nav id="sidebar"></nav>
-  <main id="stage">
+<div class="reveal">
+  <div class="slides">
 
     <!-- 1: title -->
-    <section class="slide title active">
-      <div class="slide-inner">
-        <h1>Omnist</h1>
-        <p class="tagline">One canonical schema and data model for JSON, YAML, TOML, XML — and its own native OML and OSD languages.</p>
-        <p class="meta"><a href="https://omnist.dev">omnist.dev</a> &nbsp;·&nbsp; <a href="https://github.com/omnist-dev/omnist">github.com/omnist-dev/omnist</a></p>
-      </div>
+    <section data-background-color="#f5ead8" class="s-title">
+      <h1>Omnist</h1>
+      <p class="tagline">One canonical schema and data model for JSON, YAML, TOML, XML — and its own native OML and OSD languages.</p>
+      <p class="meta"><a href="https://omnist.dev">omnist.dev</a> &nbsp;·&nbsp; <a href="https://github.com/omnist-dev/omnist">github.com/omnist-dev/omnist</a></p>
     </section>
 
     <!-- 2: contents -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2 style="text-align:center;">Contents</h2>
-        <ol class="bullets" style="list-style:none; text-align:center; padding:0;">
-          <li style="padding-left:0;"><span class="text-muted">01</span> &nbsp;The problem</li>
-          <li style="padding-left:0;"><span class="text-muted">02</span> &nbsp;The model</li>
-          <li style="padding-left:0;"><span class="text-muted">03</span> &nbsp;What it enables</li>
-          <li style="padding-left:0;"><span class="text-muted">04</span> &nbsp;Boringly correct</li>
-          <li style="padding-left:0;"><span class="text-muted">05</span> &nbsp;Get started</li>
-        </ol>
-      </div>
+    <section data-background-color="#f5ead8">
+      <h2 style="text-align:center;">Contents</h2>
+      <ol class="contents">
+        <li><span class="text-muted">01</span> &nbsp;The problem</li>
+        <li><span class="text-muted">02</span> &nbsp;The model</li>
+        <li><span class="text-muted">03</span> &nbsp;What it enables</li>
+        <li><span class="text-muted">04</span> &nbsp;Boringly correct</li>
+        <li><span class="text-muted">05</span> &nbsp;Get started</li>
+      </ol>
     </section>
 
     <!-- 3: divider 01 -->
-    <section class="slide divider">
-      <div class="slide-inner"><div class="divider-num">01</div><h2>The problem</h2></div>
+    <section data-background-color="#272e1b" class="s-divider">
+      <div class="num">01</div><h2>The problem</h2>
     </section>
 
     <!-- 4: one shape hidden -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>One shape, hidden behind four formats</h2>
-        <ul class="bullets">
-          <li>JSON, YAML, TOML, and XML encode the same tree of data, but each ships its own parser, its own types, and its own edge cases — there's no shared model underneath.</li>
-          <li>Schema evolution is unchecked: "will every old document still validate?" is a reviewer's guess, not a computed answer.</li>
-          <li>Trimming a schema to what one service needs, or learning one from examples, means hand-editing — there's no principled operation for either.</li>
-          <li>Omnist exists to close these gaps: one model, one schema language, and decidable operations over both.</li>
-        </ul>
-      </div>
+    <section data-background-color="#f5ead8">
+      <h2>One shape, hidden behind four formats</h2>
+      <ul class="bullets">
+        <li>JSON, YAML, TOML, and XML encode the same tree of data, but each ships its own parser, its own types, and its own edge cases — there's no shared model underneath.</li>
+        <li>Schema evolution is unchecked: "will every old document still validate?" is a reviewer's guess, not a computed answer.</li>
+        <li>Trimming a schema to what one service needs, or learning one from examples, means hand-editing — there's no principled operation for either.</li>
+        <li>Omnist exists to close these gaps: one model, one schema language, and decidable operations over both.</li>
+      </ul>
     </section>
 
     <!-- 5: divider 02 -->
-    <section class="slide divider">
-      <div class="slide-inner"><div class="divider-num">02</div><h2>The model</h2></div>
+    <section data-background-color="#272e1b" class="s-divider">
+      <div class="num">02</div><h2>The model</h2>
     </section>
 
     <!-- 6: simple yet expressive -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>A simple yet expressive formal model</h2>
-        <div class="cols cols-3">
-          <div class="col"><h3>Document</h3><p>A <b>tree</b> — an ordered list of labeled edges. An array is just a label that repeats, so the same Document represents JSON, YAML, TOML, XML, and OML.</p></div>
-          <div class="col"><h3>Omnist Markup Language (OML)</h3><p>The exact syntactical representation of the Document model: the native format with lossless serialization and deserialization.</p></div>
-          <div class="col"><h3>Omnist Schema Definition (OSD)</h3><p>Named record definitions — closed fields, each with a cardinality, typed as one scalar, one Ref to another record, or an explicitly marked any. <b>Closed by default</b>, open only where marked.</p></div>
-        </div>
+    <section data-background-color="#f5ead8">
+      <h2>A simple yet expressive formal model</h2>
+      <div class="cols cols-3">
+        <div class="col"><h3>Document</h3><p>A <b>tree</b> — an ordered list of labeled edges. An array is just a label that repeats, so the same Document represents JSON, YAML, TOML, XML, and OML.</p></div>
+        <div class="col"><h3>Omnist Markup Language (OML)</h3><p>The exact syntactical representation of the Document model: the native format with lossless serialization and deserialization.</p></div>
+        <div class="col"><h3>Omnist Schema Definition (OSD)</h3><p>Named record definitions — closed fields, each with a cardinality, typed as one scalar, one Ref to another record, or an explicitly marked any. <b>Closed by default</b>, open only where marked.</p></div>
       </div>
     </section>
 
     <!-- 7: OML tree diagram -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>OML — a document is a tree</h2>
-        <div class="cols cols-2" style="align-items:center;">
-          <pre class="codeblock">host: <span class="str">"api.internal"</span>
+    <section data-background-color="#f5ead8">
+      <h2>OML — a document is a tree</h2>
+      <div class="cols cols-2">
+        <pre class="codeblock">host: <span class="str">"api.internal"</span>
 port: 8443
 databases: {
     type: <span class="str">"prod"</span>
@@ -283,7 +202,7 @@ databases: {
 }
 tags: <span class="str">"prod"</span>
 tags: <span class="str">"us-east"</span></pre>
-          <pre class="mermaid">
+        <pre class="mermaid">
 graph LR
     Root(("node")) -->|host| Host["api.internal"]
     Root -->|port| Port["8443"]
@@ -297,18 +216,16 @@ graph LR
     D2 -->|type| D2T["test"]
     D2 -->|server| D2S["db2.internal.example.com"]
     D2 -->|port| D2P["5433"]
-          </pre>
-        </div>
-        <p class="text-muted" style="margin-top:var(--space-4); font-size:13px;">This is OML — Omnist Markup Language. The two <code>databases</code> edges share one label — that repetition <b>is</b> the array; there is no separate list node.</p>
+        </pre>
       </div>
+      <p class="footnote">This is OML — Omnist Markup Language. The two <code>databases</code> edges share one label — that repetition <b>is</b> the array; there is no separate list node.</p>
     </section>
 
     <!-- 8: OSD automaton diagram -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>OSD — a schema is an automaton</h2>
-        <div class="cols cols-2" style="align-items:center;">
-          <pre class="codeblock"><span class="kw">record</span> Database {
+    <section data-background-color="#f5ead8">
+      <h2>OSD — a schema is an automaton</h2>
+      <div class="cols cols-2">
+        <pre class="codeblock"><span class="kw">record</span> Database {
     <span class="str">"type"</span>: string,
     <span class="str">"server"</span>: string,
     <span class="str">"port"</span>: integer,
@@ -320,7 +237,7 @@ graph LR
     <span class="str">"tags"</span> [0,]: string,
 }
 <span class="kw">root</span> Service</pre>
-          <pre class="mermaid">
+        <pre class="mermaid">
 graph LR
     Svc(("Service")) -->|"host [1,1]"| String(("string"))
     Svc -->|"port [1,1]"| Integer(("integer"))
@@ -329,18 +246,16 @@ graph LR
     Db -->|"type [1,1]"| String
     Db -->|"server [1,1]"| String
     Db -->|"port [1,1]"| Integer
-          </pre>
-        </div>
-        <p class="text-muted" style="margin-top:var(--space-4); font-size:13px;">Every record is a state; a field is a labeled, cardinality-counted transition to another state. Fields are order-free, so this is a fan, not a sequence. Comparing two such automata is what makes <code>compatible_with</code> decidable.</p>
+        </pre>
       </div>
+      <p class="footnote">Every record is a state; a field is a labeled, cardinality-counted transition to another state. Fields are order-free, so this is a fan, not a sequence. Comparing two such automata is what makes <code>compatible_with</code> decidable.</p>
     </section>
 
     <!-- 9: format comparison -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>The same document, in JSON, YAML, TOML, XML</h2>
-        <div class="format-grid">
-          <div class="format-panel"><h3>JSON</h3><pre>{
+    <section data-background-color="#f5ead8">
+      <h2>The same document, in JSON, YAML, TOML, XML</h2>
+      <div class="format-grid">
+        <div class="format-panel"><h3>JSON</h3><pre>{
   "host": "api.internal",
   "port": 8443,
   "databases": [
@@ -349,7 +264,7 @@ graph LR
   ],
   "tags": ["prod", "us-east"]
 }</pre></div>
-          <div class="format-panel"><h3>YAML</h3><pre>host: api.internal
+        <div class="format-panel"><h3>YAML</h3><pre>host: api.internal
 port: 8443
 databases:
   - type: prod
@@ -361,7 +276,7 @@ databases:
 tags:
   - prod
   - us-east</pre></div>
-          <div class="format-panel"><h3>TOML</h3><pre>host = "api.internal"
+        <div class="format-panel"><h3>TOML</h3><pre>host = "api.internal"
 port = 8443
 tags = ["prod", "us-east"]
 
@@ -374,7 +289,7 @@ port = 5432
 type = "test"
 server = "db2.internal.example.com"
 port = 5433</pre></div>
-          <div class="format-panel"><h3>XML</h3><pre>&lt;host&gt;api.internal&lt;/host&gt;
+        <div class="format-panel"><h3>XML</h3><pre>&lt;host&gt;api.internal&lt;/host&gt;
 &lt;port&gt;8443&lt;/port&gt;
 &lt;databases&gt;
   &lt;type&gt;prod&lt;/type&gt;
@@ -388,16 +303,14 @@ port = 5433</pre></div>
 &lt;/databases&gt;
 &lt;tags&gt;prod&lt;/tags&gt;
 &lt;tags&gt;us-east&lt;/tags&gt;</pre></div>
-        </div>
-        <p class="text-muted" style="margin-top:var(--space-4); font-size:13px;">Every reader converges on the same Document — converting between any of them is just read one, write another.</p>
       </div>
+      <p class="footnote">Every reader converges on the same Document — converting between any of them is just read one, write another.</p>
     </section>
 
     <!-- 10: shortest tour -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>The shortest possible tour</h2>
-        <pre class="tour-code"><span class="kw">from</span> omnist <span class="kw">import</span> parse_schema, doc
+    <section data-background-color="#f5ead8">
+      <h2>The shortest possible tour</h2>
+      <pre class="tour-code"><span class="kw">from</span> omnist <span class="kw">import</span> parse_schema, doc
 
 s = parse_schema(<span class="str">'''
     record Database { "type": string, "server": string, "port": integer }
@@ -409,142 +322,119 @@ s = parse_schema(<span class="str">'''
 s.validate(doc({<span class="str">"host"</span>: <span class="str">"api.internal"</span>, <span class="str">"port"</span>: 8443,
                 <span class="str">"databases"</span>: [{<span class="str">"type"</span>: <span class="str">"prod"</span>, <span class="str">"server"</span>: <span class="str">"db1.internal.example.com"</span>, <span class="str">"port"</span>: 5432}],
                 <span class="str">"tags"</span>: [<span class="str">"prod"</span>, <span class="str">"us-east"</span>]})).ok   <span class="com"># True</span></pre>
-      </div>
     </section>
 
     <!-- 11: divider 03 -->
-    <section class="slide divider">
-      <div class="slide-inner"><div class="divider-num">03</div><h2>What it enables</h2></div>
+    <section data-background-color="#272e1b" class="s-divider">
+      <div class="num">03</div><h2>What it enables</h2>
     </section>
 
     <!-- 12: genuinely hard -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>Genuinely hard, made decidable</h2>
-        <div class="card-grid">
-          <div class="feature-card a"><h4>Gate schema changes in CI</h4><p><code>compatible_with</code> answers "does every old document still validate?" with a proven yes or no.</p></div>
-          <div class="feature-card b"><h4>One model, five formats</h4><p>Read JSON, YAML, TOML, XML, or OML into the same tree, validate against the same schema, write back to any of the others.</p></div>
-          <div class="feature-card b"><h4>Cut a schema down to size</h4><p><code>schema.extract()</code> computes the minimal subschema recognizing only the labels one service keeps.</p></div>
-          <div class="feature-card a"><h4>Infer a schema from examples</h4><p>Learn OSD straight from real documents instead of writing it by hand.</p></div>
-        </div>
+    <section data-background-color="#f5ead8">
+      <h2>Genuinely hard, made decidable</h2>
+      <div class="card-grid">
+        <div class="feature-card a"><h4>Gate schema changes in CI</h4><p><code>compatible_with</code> answers "does every old document still validate?" with a proven yes or no.</p></div>
+        <div class="feature-card b"><h4>One model, five formats</h4><p>Read JSON, YAML, TOML, XML, or OML into the same tree, validate against the same schema, write back to any of the others.</p></div>
+        <div class="feature-card b"><h4>Cut a schema down to size</h4><p><code>schema.extract()</code> computes the minimal subschema recognizing only the labels one service keeps.</p></div>
+        <div class="feature-card a"><h4>Infer a schema from examples</h4><p>Learn OSD straight from real documents instead of writing it by hand.</p></div>
       </div>
     </section>
 
     <!-- 13: why omnist -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>Why Omnist, and not a heuristic</h2>
-        <ul class="bullets">
-          <li><b>Records are closed by default</b>, and scalar types are never composed into enums or unions — the one deliberate opening is an explicitly marked <code>any</code>.</li>
-          <li>That discipline is what makes <code>compatible_with</code>, <code>equivalent</code>, <code>extract</code>, <code>infer</code>, and <code>normalize</code> <b>well-defined, decidable operations</b> — not best-effort heuristics.</li>
-          <li>Most schema tools check one document at a time; Omnist's algebra <b>compares two whole schemas</b> and proves the answer.</li>
-          <li>Every operation is also a command, not just a Python call — the <code>omnist</code> CLI puts convert, validate, infer, and the schema comparisons on the command line too.</li>
-        </ul>
-      </div>
+    <section data-background-color="#f5ead8">
+      <h2>Why Omnist, and not a heuristic</h2>
+      <ul class="bullets">
+        <li><b>Records are closed by default</b>, and scalar types are never composed into enums or unions — the one deliberate opening is an explicitly marked <code>any</code>.</li>
+        <li>That discipline is what makes <code>compatible_with</code>, <code>equivalent</code>, <code>extract</code>, <code>infer</code>, and <code>normalize</code> <b>well-defined, decidable operations</b> — not best-effort heuristics.</li>
+        <li>Most schema tools check one document at a time; Omnist's algebra <b>compares two whole schemas</b> and proves the answer.</li>
+        <li>Every operation is also a command, not just a Python call — the <code>omnist</code> CLI puts convert, validate, infer, and the schema comparisons on the command line too.</li>
+      </ul>
     </section>
 
     <!-- 14: divider 04 -->
-    <section class="slide divider">
-      <div class="slide-inner"><div class="divider-num">04</div><h2>Boringly correct</h2></div>
+    <section data-background-color="#272e1b" class="s-divider">
+      <div class="num">04</div><h2>Boringly correct</h2>
     </section>
 
     <!-- 15: checked not asserted -->
-    <section class="slide">
-      <div class="slide-inner">
-        <h2>Checked, not asserted</h2>
-        <ul class="bullets">
-          <li><b>99% line coverage</b>, and a <code>mypy --strict</code> CI gate.</li>
-          <li>Property-based fuzzing, plus formal ABNF grammars for OML and OSD verified against the parsers.</li>
-          <li>The schema algebra is <b>cross-checked three separate ways</b> against the same test cases, so no single method's blind spot can hide a bug.</li>
-          <li>Performance is measured, not implied: a 100k-edge document validates in about a third of a second.</li>
-        </ul>
-      </div>
+    <section data-background-color="#f5ead8">
+      <h2>Checked, not asserted</h2>
+      <ul class="bullets">
+        <li><b>99% line coverage</b>, and a <code>mypy --strict</code> CI gate.</li>
+        <li>Property-based fuzzing, plus formal ABNF grammars for OML and OSD verified against the parsers.</li>
+        <li>The schema algebra is <b>cross-checked three separate ways</b> against the same test cases, so no single method's blind spot can hide a bug.</li>
+        <li>Performance is measured, not implied: a 100k-edge document validates in about a third of a second.</li>
+      </ul>
     </section>
 
     <!-- 16: divider 05 -->
-    <section class="slide divider">
-      <div class="slide-inner"><div class="divider-num">05</div><h2>Get started</h2></div>
+    <section data-background-color="#272e1b" class="s-divider">
+      <div class="num">05</div><h2>Get started</h2>
     </section>
 
     <!-- 17: give it a try -->
-    <section class="slide title">
-      <div class="slide-inner">
-        <h2>Give it a try</h2>
-        <p class="tagline"><a href="https://github.com/omnist-dev/omnist#readme">Get started</a> — feedback and issues are genuinely welcome.</p>
-        <pre class="tour-code" style="max-width:480px; margin:0 auto; text-align:left;">pip install omnist          <span class="com"># core + JSON</span>
+    <section data-background-color="#f5ead8" class="s-title">
+      <h2>Give it a try</h2>
+      <p class="tagline"><a href="https://github.com/omnist-dev/omnist#readme">Get started</a> — feedback and issues are genuinely welcome.</p>
+      <pre class="tour-code" style="max-width:14em; margin:0.4em auto; text-align:left;">pip install omnist          <span class="com"># core + JSON</span>
 pip install omnist[all]     <span class="com"># + pyyaml, tomli_w, defusedxml</span></pre>
-        <p class="meta" style="margin-top:var(--space-4);"><span class="tag-pill">Beta</span> &nbsp; Apache-2.0 · Python 3.11+</p>
-        <p class="meta"><a href="https://omnist.dev">omnist.dev</a> &nbsp;·&nbsp; <a href="https://github.com/omnist-dev/omnist">github.com/omnist-dev/omnist</a></p>
-      </div>
+      <p class="meta"><span class="tag-pill">Beta</span> &nbsp; Apache-2.0 · Python 3.11+</p>
+      <p class="meta"><a href="https://omnist.dev">omnist.dev</a> &nbsp;·&nbsp; <a href="https://github.com/omnist-dev/omnist">github.com/omnist-dev/omnist</a></p>
     </section>
 
-  </main>
+  </div>
 </div>
-<div id="nav-hint">↑ ↓ or click to navigate</div>
 
 <script src="assets/mermaid.min.js"></script>
+<script src="assets/reveal/reveal.js"></script>
 <script>
-mermaid.initialize({
-  startOnLoad: false, theme: 'base',
-  themeVariables: {
-    primaryColor: '#f9f4ed', primaryBorderColor: '#645c50', primaryTextColor: '#201e1d',
-    lineColor: '#645c50', fontSize: '15px', fontFamily: 'Figtree, sans-serif'
-  }
-});
-
-const slides = [
-  { kind: 'title', title: 'Omnist' },
-  { kind: 'content', title: 'Contents' },
-  { kind: 'divider', num: '01', label: 'The problem' },
-  { kind: 'content', title: 'One shape, hidden behind four formats' },
-  { kind: 'divider', num: '02', label: 'The model' },
-  { kind: 'content', title: 'A simple yet expressive formal model' },
-  { kind: 'content', title: 'OML — a document is a tree' },
-  { kind: 'content', title: 'OSD — a schema is an automaton' },
-  { kind: 'content', title: 'The same document, in JSON, YAML, TOML, XML' },
-  { kind: 'content', title: 'The shortest possible tour' },
-  { kind: 'divider', num: '03', label: 'What it enables' },
-  { kind: 'content', title: 'Genuinely hard, made decidable' },
-  { kind: 'content', title: 'Why Omnist, and not a heuristic' },
-  { kind: 'divider', num: '04', label: 'Boringly correct' },
-  { kind: 'content', title: 'Checked, not asserted' },
-  { kind: 'divider', num: '05', label: 'Get started' },
-  { kind: 'content', title: 'Give it a try' },
-];
-
-function buildSidebar() {
-  const sb = document.getElementById('sidebar');
-  slides.forEach((s, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'thumb';
-    btn.dataset.i = i;
-    const previewClass = s.kind === 'divider' ? 'thumb-preview divider' : 'thumb-preview';
-    const previewText = s.kind === 'divider' ? `<b>${s.num}</b>${s.label}` : `<b>${s.title}</b>`;
-    btn.innerHTML = `<span class="thumb-num">${i + 1}</span><span class="${previewClass}">${previewText}</span>`;
-    btn.addEventListener('click', () => goTo(i));
-    sb.appendChild(btn);
+(function () {
+  mermaid.initialize({
+    startOnLoad: false, theme: 'base',
+    themeVariables: {
+      primaryColor: '#f9f4ed', primaryBorderColor: '#645c50', primaryTextColor: '#201e1d',
+      lineColor: '#645c50', fontFamily: 'Figtree, sans-serif'
+    }
   });
-}
 
-let current = 0;
-function goTo(i) {
-  if (i < 0 || i >= slides.length) return;
-  document.querySelectorAll('.slide')[current].classList.remove('active');
-  document.querySelectorAll('.thumb')[current].classList.remove('active');
-  current = i;
-  document.querySelectorAll('.slide')[current].classList.add('active');
-  document.querySelectorAll('.thumb')[current].classList.add('active');
-  document.querySelectorAll('.thumb')[current].scrollIntoView({ block: 'nearest' });
-}
+  // Render mermaid via mermaid.render() (layout-independent, so it works
+  // even though reveal keeps non-current slides hidden). Then recompute
+  // reveal's scaling now that the SVGs have real sizes.
+  async function renderMermaid() {
+    var blocks = document.querySelectorAll('pre.mermaid');
+    for (var i = 0; i < blocks.length; i++) {
+      var el = blocks[i];
+      try {
+        var out = await mermaid.render('mmd-' + i, el.textContent.trim());
+        el.innerHTML = out.svg;
+      } catch (e) { console.error('mermaid render failed', e); }
+    }
+  }
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') { goTo(current + 1); e.preventDefault(); }
-  if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { goTo(current - 1); e.preventDefault(); }
-});
-
-buildSidebar();
-document.querySelectorAll('.thumb')[0].classList.add('active');
-mermaid.run({ querySelector: '.mermaid' });
+  // Reveal.initialize() reads location.hash to pick the initial slide, so
+  // it must run immediately -- delaying it behind the async mermaid render
+  // let reveal's own hash/history setup race against it, landing on the
+  // wrong slide when the URL had a #/N fragment on cold load. Mermaid
+  // renders after, then Reveal.layout() re-fits now that diagrams have
+  // real sizes.
+  Reveal.initialize({
+    width: 1050,
+    height: 720,
+    margin: 0.05,
+    minScale: 0.1,
+    maxScale: 1.6,
+    hash: true,
+    controls: true,
+    progress: true,
+    center: true,
+    touch: true,
+    transition: 'slide'
+  }).then(function () {
+    return renderMermaid();
+  }).then(function () {
+    Reveal.layout();
+  });
+})();
 </script>
 </body>
 </html>
