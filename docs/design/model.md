@@ -87,7 +87,7 @@ Document = node                              -- (or a bare value at a leaf)
 
 **Properties**
 
-- **"Many" is a repeated label.** An array of `Member`s is the label `member` occurring N times — not a field pointing to an array. JSON `{"member":[A,B]}` and XML `<member>A</member><x/><member>B</member>` both become `[(member,A), …, (member,B)]`.
+- **"Many" is a repeated label.** An array of `Database` replicas is the label `replica` occurring N times — not a field pointing to an array. JSON `{"replica":[A,B]}` and XML `<replica>A</replica><x/><replica>B</replica>` both become `[(replica,A), …, (replica,B)]`.
 - **Object and array unify.** A node is just an ordered edge list; the object-vs-array distinction vanishes.
 - **Order is preserved in the Document** (it is the canonical, faithful record) but is **data, never a schema constraint** (§7). A reordered round-trip remains schema-valid.
 
@@ -126,16 +126,18 @@ Scalar  = (kind, nullable: bool)             -- kind ∈ { string, integer, numb
 **Surface syntax** (shorthands desugar to the model)
 
 ```
-record Member {
-    "name": string,                  -- Scalar{string}
-    "role": string,
+record Database {
+    "engine": string,                -- Scalar{string}
+    "port": integer,
 }
-record Team {
-    "name":         string,
-    "members" [0,]: Member,          -- cardinality [0,∞]; Ref(Member)
-    "lead" [0,1]:   Member,          -- optional
+record Service {
+    "host":             string,
+    "port":             integer,
+    "database":         Database,    -- cardinality [1,1]; Ref(Database)
+    "replicas" [0,]:    Database,    -- cardinality [0,∞]; Ref(Database)
+    "backup" [0,1]:     Database,    -- optional
 }
-root Team
+root Service
 ```
 
 - **Quoting rule:** `"quoted"` = a **data string** (a field label); an **unquoted identifier** = a **schema name** (a scalar kind or a `Ref`).
@@ -444,39 +446,62 @@ An alternative test oracle for equivalence is available in `ops/isomorphic.py`, 
 Schema:
 
 ```
-record Member {
-    "name": string,
-    "role": string,
+record Database {
+    "engine": string,
+    "port": integer,
 }
-record Team {
-    "name":         string,
-    "members" [0,]: Member,
+record Service {
+    "host":          string,
+    "port":          integer,
+    "database":      Database,
+    "replicas" [0,]: Database,
 }
-root Team
+root Service
 ```
 
-Document (canonical edge list) for a two-member team:
+Document (canonical edge list) for a service with two replicas:
 
 ```
-[ ("name", "Platform"),
-  ("members", [ ("name","Ann"), ("role","dev") ]),
-  ("members", [ ("name","Bob"), ("role","pm")  ]) ]
+[ ("host", "api.internal"),
+  ("port", 8443),
+  ("database", [ ("engine","postgres"), ("port",5432) ]),
+  ("replicas", [ ("engine","postgres"), ("port",5433) ]),
+  ("replicas", [ ("engine","postgres"), ("port",5434) ]) ]
 ```
 
-- JSON projection: `{"name":"Platform", "members":[{"name":"Ann","role":"dev"},{"name":"Bob","role":"pm"}]}`
-- XML projection: `<name>…</name><members>…Ann…</members><members>…Bob…</members>` (and an interleaved XML input round-trips through the *same* Document).
-- Conformance: `members` occurs twice ∈ `[0,∞]` ✓; each `members` target conforms to `Member` ✓; `name` once ∈ `[1,1]` ✓; no unlisted labels ✓.
+- JSON projection: `{"host":"api.internal","port":8443,"database":{"engine":"postgres","port":5432},"replicas":[{"engine":"postgres","port":5433},{"engine":"postgres","port":5434}]}`
+- XML projection: `<host>…</host><port>…</port><database>…</database><replicas>…5433…</replicas><replicas>…5434…</replicas>` (and an interleaved XML input round-trips through the *same* Document).
+- Conformance: `replicas` occurs twice ∈ `[0,∞]` ✓; each `replicas` target conforms to `Database` ✓; `database` once ∈ `[1,1]` ✓; `host` once ∈ `[1,1]` ✓; `port` once ∈ `[1,1]` ✓; no unlisted labels ✓.
 
-The same Document as a tree of labeled edges. The two `members` edges share
+The same Document as a tree of labeled edges. The two `replicas` edges share
 one label — that repetition *is* the array; there is no separate list node:
 
 ```mermaid
 graph LR
-    Root(("node")) -->|name| Platform["Platform"]
-    Root -->|members| M1(("node"))
-    Root -->|members| M2(("node"))
-    M1 -->|name| Ann["Ann"]
-    M1 -->|role| Dev["dev"]
-    M2 -->|name| Bob["Bob"]
-    M2 -->|role| Pm["pm"]
+    Root(("node")) -->|host| Host["api.internal"]
+    Root -->|port| Port["8443"]
+    Root -->|database| D(("node"))
+    Root -->|replicas| R1(("node"))
+    Root -->|replicas| R2(("node"))
+    D -->|engine| DEngine["postgres"]
+    D -->|port| DPort["5432"]
+    R1 -->|engine| R1Engine["postgres"]
+    R1 -->|port| R1Port["5433"]
+    R2 -->|engine| R2Engine["postgres"]
+    R2 -->|port| R2Port["5434"]
+```
+
+And the schema behind it, as a graph: every record is a state, and a
+field is a labeled, cardinality-counted edge to another state (`database`
+and `replicas` both target `Database`, since a schema graph reuses a
+target wherever it's referenced — it isn't a tree):
+
+```mermaid
+graph LR
+    Svc(("Service")) -->|"host [1,1]"| String(("string"))
+    Svc -->|"port [1,1]"| Integer(("integer"))
+    Svc -->|"database [1,1]"| Db(("Database"))
+    Svc -->|"replicas [0,∞]"| Db
+    Db -->|"engine [1,1]"| String
+    Db -->|"port [1,1]"| Integer
 ```
