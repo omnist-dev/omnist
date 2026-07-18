@@ -39,7 +39,7 @@ from __future__ import annotations
 import datetime as _dt
 import math
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 from omnist import (
@@ -198,6 +198,17 @@ def nan_safe_equal_grouped(a, b) -> bool:
     return nan_safe_equal(_grouped(a), _grouped(b))
 
 
+def test_nan_safe_equal_reports_mismatched_lists_and_dicts():
+    # The fuzz tests above only ever compare a value against its own
+    # round-trip, so these two mismatch branches never fire there -- both
+    # shapes always agree by construction. Exercised directly here instead.
+    assert nan_safe_equal(float("nan"), float("nan"))        # self-equal NaN
+    assert not nan_safe_equal([1, 2], [1, 2, 3])            # length mismatch
+    assert not nan_safe_equal({"a": 1}, {"b": 1})            # key mismatch
+    assert nan_safe_equal([1, 2], [1, 2])
+    assert nan_safe_equal({"a": 1}, {"a": 1})
+
+
 # ---------------------------------------------------------------------------
 # 1. OML round-trip -- exact equality, no adjustments possible
 # ---------------------------------------------------------------------------
@@ -270,6 +281,7 @@ def _has_nel(node) -> bool:
 
 @_SUPPRESS
 @given(node=nodes)
+@example(node=[("a", "\x85")])  # forces the #69 NEL exclusion branch deterministically
 def test_yaml_round_trip_modulo_documented_adjustments(node):
     if _has_nel(node):
         return  # see #69
@@ -289,12 +301,14 @@ def test_toml_round_trip_modulo_documented_adjustments(node):
     assert {a.code for a in rep} <= _ALLOWED_CODES["toml"], rep
     if not isinstance(node, list):
         return  # TOML requires a top-level table; non-object roots are out of scope
-    try:
-        text = write_toml(node)
-    except Exception:
-        if rep.adjustments:
-            return  # a documented adjustment can still leave an unwritable shape
-        raise
+    # Once the root is a list, write_toml never actually raises for this
+    # generator's domain -- _grouped always yields a dict for a list root,
+    # tomli_w.dumps is permissive for every scalar/date/time/datetime shape
+    # produced here, and depth is capped below _MAX_DEPTH. Verified directly
+    # (3000-example run, zero exceptions) rather than assumed; no try/except
+    # needed, unlike the crash-freedom fuzzing below which targets malformed
+    # *text* input, not well-formed nodes.
+    text = write_toml(node)
     back = read_toml(text)
     if not rep.adjustments:
         assert nan_safe_equal_grouped(back, node), \
@@ -322,6 +336,14 @@ def _xml_safe_node(node):
     if isinstance(node, str):
         return not any((ord(ch) < 0x20 and ch not in "\t\n") for ch in node)
     return True
+
+
+def test_xml_safe_node_classifies_empty_nonempty_and_control_chars():
+    assert not _xml_safe_node([])                          # #68: indistinguishable from ""
+    assert _xml_safe_node([("a", "hello")])                 # non-empty, safe -- recurses
+    assert not _xml_safe_node([("a", "bad\x01char")])        # #67: C0 control char
+    assert _xml_safe_node("hello")
+    assert _xml_safe_node(42)
 
 
 @_SUPPRESS
@@ -364,8 +386,18 @@ def _plain_values(depth: int):
 plain_values = st.deferred(lambda: _plain_values(0))
 
 
+def test_plain_values_depth_cutoff_returns_scalars_only():
+    # _plain_values recurses lazily as Hypothesis draws nested containers, so
+    # its depth-limit branch only fires for an actually-deeply-nested drawn
+    # value -- exponentially unlikely by chance given the max_size caps at
+    # every level. Exercised directly here instead of hoping the engine
+    # wanders that deep.
+    assert _plain_values(_MAX_DEPTH) is scalars
+
+
 @_SUPPRESS
 @given(value=plain_values)
+@example(value={"a": [[1, 2]]})  # a bare list nested in a list: a legal rejection
 def test_doc_and_build_node_round_trip_from_plain_python_value(value):
     try:
         expected = build_node(value)
@@ -650,9 +682,9 @@ def _with_unreachable_record(draw, s: Schema) -> Schema:
 def _with_max_zero_field(draw, s: Schema) -> Schema:
     """A copy of ``s`` with one extra never-emittable (``max == 0``) field
     added to some record -- such a field is dropped by ``prune()`` and so
-    never affects the language."""
-    if not s.env:
-        return s
+    never affects the language. No empty-env guard: ``Schema.__init__``
+    requires the root ref to resolve in ``env``, so a valid ``Schema``'s
+    ``env`` is never empty."""
     name = draw(st.sampled_from(sorted(s.env)))
     rec = s.env[name]
     extra_label = next(

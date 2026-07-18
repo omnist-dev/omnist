@@ -37,10 +37,13 @@ _syntax_like_text = st.text(alphabet=_SYNTAX_ALPHABET, max_size=200)
 
 
 def _assert_clean_exit(call, *, text, label):
+    # No except SystemExit here: from_fmt/to_fmt are always drawn from the
+    # valid FMT_CHOICES set (never an arbitrary string), so argparse itself
+    # never rejects them -- verified directly (2000-example run, zero
+    # SystemExits). A real usage-error path would need a separate fuzzer
+    # that also mutates the format flags themselves, not this one.
     try:
         code = call()
-    except SystemExit:
-        raise  # argparse usage errors are expected and already exit-coded
     except Exception as exc:  # pragma: no cover -- a crash-freedom bug, not expected
         raise AssertionError(
             f"{label} raised {type(exc).__name__} instead of a clean exit "
