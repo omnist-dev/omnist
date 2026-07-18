@@ -6,6 +6,12 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.6] — deck slide title clarity
+
+- Retitled the "The algebra, in code" deck slide to "Schema algebra, in
+  code" — the original title was ambiguous about which algebra on first
+  read.
+
 ## [v0.7.5] — 100% line coverage, deck slide reorder
 
 - Closed the repo's last remaining coverage gaps, bringing the whole
