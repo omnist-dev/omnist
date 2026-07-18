@@ -307,9 +307,9 @@ graph LR
       <p class="footnote">Every record is a state; a field is a labeled, cardinality-counted transition to another state. Fields are order-free, so this is a fan, not a sequence. Comparing two such automata is what makes <code>compatible_with</code> decidable.</p>
     </section>
 
-    <!-- 10: the algebra, in code -->
+    <!-- 10: schema algebra, in code -->
     <section data-background-color="#f5ead8">
-      <h2>The algebra, in code</h2>
+      <h2>Schema algebra, in code</h2>
       <pre class="tour-code">s1.compatible_with(s2)   <span class="com"># can readers of s2 still read s1's docs?</span>
 s1.equivalent(s2)        <span class="com"># same documents, different shape?</span>
 s1.normalize()           <span class="com"># canonical minimal form</span>
