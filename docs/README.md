@@ -44,9 +44,10 @@ Start here, in roughly this order:
 from omnist import parse_schema, doc
 
 s = parse_schema('''
-    record Member { "name": string, "role": string }
-    record Team   { "name": string, "members" [1,]: Member }
-    root Team
+    record Database { "engine": string, "port": integer }
+    record Service  { "host": string, "port": integer, "database": Database }
+    root Service
 ''')
-s.validate(doc({"name": "X", "members": [{"name": "Ann", "role": "dev"}]})).ok   # True
+s.validate(doc({"host": "api.internal", "port": 8443,
+                "database": {"engine": "postgres", "port": 5432}})).ok   # True
 ```

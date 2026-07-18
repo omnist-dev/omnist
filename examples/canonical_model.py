@@ -21,16 +21,18 @@ from omnist import (
 )
 
 SCHEMA = """
-record Member {
-    "name": string,
-    "role": string,
+record Database {
+    "engine": string,
+    "port": integer,
 }
-record Team {
-    "name":         string,
-    "members" [1,]: Member,        # at least one member (array of records)
-    "lead" [0,1]:   string,        # optional
+record Service {
+    "host":           string,
+    "port":           integer,
+    "database":       Database,      # required (default cardinality [1,1])
+    "replicas" [0,]:  Database,      # zero or more (array of records)
+    "backup" [0,1]:   Database,      # optional
 }
-root Team
+root Service
 """
 
 
@@ -40,35 +42,45 @@ def main():
     print("== schema round-trips through to_osd ==")
     print("equivalent:", s.equivalent(parse_schema(to_osd(s))))
 
-    print("\n== the Team, in OML (omnist's own format) ==")
-    o = read_oml('name: "Platform"\n'
-                 'members: { name: "Ann"; role: "dev" }\n'
-                 'members: { name: "Bob"; role: "pm" }\n')
+    print("\n== the Service, in OML (omnist's own format) ==")
+    o = read_oml('host: "api.internal"\n'
+                 'port: 8443\n'
+                 'database: { engine: "postgres"; port: 5432 }\n'
+                 'replicas: { engine: "postgres"; port: 5433 }\n')
     print("valid:", s.validate(Doc(o)).ok)
 
     print("\n== and the identical Document from JSON/YAML/TOML, too ==")
-    j = read_json('{"name":"Platform","members":[{"name":"Ann","role":"dev"},'
-                  '{"name":"Bob","role":"pm"}]}')
-    y = read_yaml("name: Platform\nmembers:\n  - name: Ann\n    role: dev\n"
-                  "  - name: Bob\n    role: pm\n")
-    t = read_toml('name = "Platform"\n[[members]]\nname = "Ann"\nrole = "dev"\n'
-                  '[[members]]\nname = "Bob"\nrole = "pm"\n')
+    j = read_json('{"host":"api.internal","port":8443,'
+                  '"database":{"engine":"postgres","port":5432},'
+                  '"replicas":[{"engine":"postgres","port":5433}]}')
+    y = read_yaml("host: api.internal\nport: 8443\n"
+                  "database:\n  engine: postgres\n  port: 5432\n"
+                  "replicas:\n  - engine: postgres\n    port: 5433\n")
+    t = read_toml('host = "api.internal"\nport = 8443\n'
+                  '[database]\nengine = "postgres"\nport = 5432\n'
+                  '[[replicas]]\nengine = "postgres"\nport = 5433\n')
     print("oml == json == yaml == toml:", o == j == y == t)
 
     print("\n== XML keeps the document element as one top-level edge ==")
-    x = read_xml("<team><name>Platform</name>"
-                 "<member><name>Ann</name><role>dev</role></member>"
-                 "<member><name>Bob</name><role>pm</role></member></team>")
+    x = read_xml("<service><host>api.internal</host><port>8443</port>"
+                 "<database><engine>postgres</engine><port>5432</port></database>"
+                 "<replicas><engine>postgres</engine><port>5433</port></replicas>"
+                 "</service>")
     print("xml document:", x)
 
     print("\n== a rejected document, errors at exact paths ==")
-    bad = doc({"name": "Platform", "members": [{"name": 7, "role": "boss"}]})
+    bad = doc({"host": "api.internal", "port": 8443,
+               "database": {"engine": 7, "port": 5432}})
     print(s.validate(bad))
 
     print("\n== compatible_with: adding an optional field is backward-compatible ==")
-    v1 = parse_schema('record Team { "name": string, "members" [1,]: string }\nroot Team')
-    v2 = parse_schema('record Team { "name": string, "members" [1,]: string, '
-                      '"lead" [0,1]: string }\nroot Team')
+    v1 = parse_schema('record Database { "engine": string, "port": integer }\n'
+                      'record Service { "host": string, "port": integer, '
+                      '"database": Database }\nroot Service')
+    v2 = parse_schema('record Database { "engine": string, "port": integer }\n'
+                      'record Service { "host": string, "port": integer, '
+                      '"database": Database, "backup" [0,1]: Database }\n'
+                      'root Service')
     print("v1.compatible_with(v2):", v1.compatible_with(v2))
     print("v2.compatible_with(v1):", v2.compatible_with(v1))
 

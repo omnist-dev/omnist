@@ -29,10 +29,11 @@ from omnist import (
 
 
 def test_readme_at_a_glance():
-    s = parse_schema('record Member { "name": string, "role": string }\n'
-                     'record Team { "name": string, "members" [1,]: Member }\nroot Team')
-    assert s.validate(doc({"name": "X",
-                           "members": [{"name": "Ann", "role": "dev"}]})).ok
+    s = parse_schema('record Database { "engine": string, "port": integer }\n'
+                     'record Service { "host": string, "port": integer, '
+                     '"database": Database }\nroot Service')
+    assert s.validate(doc({"host": "api.internal", "port": 8443,
+                           "database": {"engine": "postgres", "port": 5432}})).ok
     assert ds.__version__ == "0.7.1"
 
 
@@ -673,24 +674,30 @@ def test_model_docs_count1_no_schema_param():
 
 def test_model_docs_appendix_worked_example():
     s = parse_schema('''
-record Member {
-    "name": string,
-    "role": string,
+record Database {
+    "engine": string,
+    "port": integer,
 }
-record Team {
-    "name":         string,
-    "members" [0,]: Member,
+record Service {
+    "host":          string,
+    "port":          integer,
+    "database":      Database,
+    "replicas" [0,]: Database,
 }
-root Team
+root Service
 ''')
-    node = [("name", "Platform"),
-            ("members", [("name", "Ann"), ("role", "dev")]),
-            ("members", [("name", "Bob"), ("role", "pm")])]
+    node = [("host", "api.internal"),
+            ("port", 8443),
+            ("database", [("engine", "postgres"), ("port", 5432)]),
+            ("replicas", [("engine", "postgres"), ("port", 5433)]),
+            ("replicas", [("engine", "postgres"), ("port", 5434)])]
     d = Doc(node)
     assert s.validate(d).ok
     assert d.to_json() == (
-        '{"name": "Platform", "members": '
-        '[{"name": "Ann", "role": "dev"}, {"name": "Bob", "role": "pm"}]}')
+        '{"host": "api.internal", "port": 8443, "database": '
+        '{"engine": "postgres", "port": 5432}, "replicas": '
+        '[{"engine": "postgres", "port": 5433}, '
+        '{"engine": "postgres", "port": 5434}]}')
 
 
 

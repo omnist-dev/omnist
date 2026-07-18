@@ -101,8 +101,8 @@ valid. Defined formally in
   contrast with lowercase **field**, the general concept, and with the
   `field()` builder function below).
 - **record** (lowercase) — the OSD keyword that introduces a record
-  definition (`record Member { ... }`), and the general concept: a closed
-  set of named fields. See [the schema doc](schema.md#shape).
+  definition (`record Database { ... }`), and the general concept: a
+  closed set of named fields. See [the schema doc](schema.md#shape).
 - **`Record`** — the Python class: a closed set of `Field`s, constructed
   by the lowercase `record(*fields)` builder function. Lowercase `record`
   is the keyword/concept; `Record` is the class — distinguished by case

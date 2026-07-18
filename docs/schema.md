@@ -13,12 +13,12 @@ never a union, enum, or literal value.
 from omnist import parse_schema, doc
 
 s = parse_schema('''
-    record Member { "name": string, "role": string }
-    record Team   { "name": string, "members" [1,]: Member }
-    root Team
+    record Database { "engine": string, "port": integer }
+    record Service  { "host": string, "port": integer, "database": Database }
+    root Service
 ''')
-s.validate(doc({"name": "Platform",
-                "members": [{"name": "Ann", "role": "dev"}]})).ok    # True
+s.validate(doc({"host": "api.internal", "port": 8443,
+                "database": {"engine": "postgres", "port": 5432}})).ok    # True
 ```
 
 ## Shape
