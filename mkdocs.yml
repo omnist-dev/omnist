@@ -38,11 +38,15 @@ markdown_extensions:
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
-          class: mermaid
+          class: mermaid-src
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight
   - pymdownx.inlinehilite
   - tables
+
+extra_javascript:
+  - assets/mermaid.min.js
+  - assets/mermaid-init.js
 
 nav:
   - Home: README.md
