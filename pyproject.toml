@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omnist"
-version = "0.7.1"
+version = "0.7.2"
 description = "One data model, many formats: read, validate, and write JSON, YAML, TOML, XML, and OML."
 readme = "README.md"
 requires-python = ">=3.11"

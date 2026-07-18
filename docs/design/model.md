@@ -87,7 +87,7 @@ Document = node                              -- (or a bare value at a leaf)
 
 **Properties**
 
-- **"Many" is a repeated label.** An array of `Database` replicas is the label `replica` occurring N times — not a field pointing to an array. JSON `{"replica":[A,B]}` and XML `<replica>A</replica><x/><replica>B</replica>` both become `[(replica,A), …, (replica,B)]`.
+- **"Many" is a repeated label.** An array of `Database`s is the label `databases` occurring N times — not a field pointing to an array. JSON `{"databases":[A,B]}` and XML `<databases>A</databases><x/><databases>B</databases>` both become `[(databases,A), …, (databases,B)]`.
 - **Object and array unify.** A node is just an ordered edge list; the object-vs-array distinction vanishes.
 - **Order is preserved in the Document** (it is the canonical, faithful record) but is **data, never a schema constraint** (§7). A reordered round-trip remains schema-valid.
 
@@ -127,15 +127,15 @@ Scalar  = (kind, nullable: bool)             -- kind ∈ { string, integer, numb
 
 ```
 record Database {
-    "engine": string,                -- Scalar{string}
+    "type": string,                  -- Scalar{string}
+    "server": string,
     "port": integer,
 }
 record Service {
-    "host":             string,
-    "port":             integer,
-    "database":         Database,    -- cardinality [1,1]; Ref(Database)
-    "replicas" [0,]:    Database,    -- cardinality [0,∞]; Ref(Database)
-    "backup" [0,1]:     Database,    -- optional
+    "host":            string,       -- cardinality [1,1] (default); Scalar{string}
+    "port":            integer,
+    "databases" [1,]:  Database,     -- cardinality [1,∞]; Ref(Database)
+    "tags" [0,]:       string,       -- cardinality [0,∞]; Scalar{string}
 }
 root Service
 ```
@@ -447,61 +447,66 @@ Schema:
 
 ```
 record Database {
-    "engine": string,
-    "port": integer,
+    "type":   string,
+    "server": string,
+    "port":   integer,
 }
 record Service {
-    "host":          string,
-    "port":          integer,
-    "database":      Database,
-    "replicas" [0,]: Database,
+    "host":            string,
+    "port":            integer,
+    "databases" [1,]:  Database,
+    "tags" [0,]:       string,
 }
 root Service
 ```
 
-Document (canonical edge list) for a service with two replicas:
+Document (canonical edge list) for a service with two databases and two tags:
 
 ```
 [ ("host", "api.internal"),
   ("port", 8443),
-  ("database", [ ("engine","postgres"), ("port",5432) ]),
-  ("replicas", [ ("engine","postgres"), ("port",5433) ]),
-  ("replicas", [ ("engine","postgres"), ("port",5434) ]) ]
+  ("databases", [ ("type","prod"), ("server","db1.internal.example.com"), ("port",5432) ]),
+  ("databases", [ ("type","test"), ("server","db2.internal.example.com"), ("port",5433) ]),
+  ("tags", "prod"),
+  ("tags", "us-east") ]
 ```
 
-- JSON projection: `{"host":"api.internal","port":8443,"database":{"engine":"postgres","port":5432},"replicas":[{"engine":"postgres","port":5433},{"engine":"postgres","port":5434}]}`
-- XML projection: `<host>…</host><port>…</port><database>…</database><replicas>…5433…</replicas><replicas>…5434…</replicas>` (and an interleaved XML input round-trips through the *same* Document).
-- Conformance: `replicas` occurs twice ∈ `[0,∞]` ✓; each `replicas` target conforms to `Database` ✓; `database` once ∈ `[1,1]` ✓; `host` once ∈ `[1,1]` ✓; `port` once ∈ `[1,1]` ✓; no unlisted labels ✓.
+- JSON projection: `{"host":"api.internal","port":8443,"databases":[{"type":"prod","server":"db1.internal.example.com","port":5432},{"type":"test","server":"db2.internal.example.com","port":5433}],"tags":["prod","us-east"]}`
+- XML projection: `<host>…</host><port>…</port><databases>…5432…</databases><databases>…5433…</databases><tags>prod</tags><tags>us-east</tags>` (and an interleaved XML input round-trips through the *same* Document).
+- Conformance: `databases` occurs twice ∈ `[1,∞]` ✓; each `databases` target conforms to `Database` ✓; `tags` occurs twice ∈ `[0,∞]` ✓; `host` once ∈ `[1,1]` ✓; `port` once ∈ `[1,1]` ✓; no unlisted labels ✓.
 
-The same Document as a tree of labeled edges. The two `replicas` edges share
-one label — that repetition *is* the array; there is no separate list node:
+The same Document as a tree of labeled edges. The two `databases` edges (and
+the two `tags` edges) each share one label — that repetition *is* the array;
+there is no separate list node:
 
 ```mermaid
 graph LR
     Root(("node")) -->|host| Host["api.internal"]
     Root -->|port| Port["8443"]
-    Root -->|database| D(("node"))
-    Root -->|replicas| R1(("node"))
-    Root -->|replicas| R2(("node"))
-    D -->|engine| DEngine["postgres"]
-    D -->|port| DPort["5432"]
-    R1 -->|engine| R1Engine["postgres"]
-    R1 -->|port| R1Port["5433"]
-    R2 -->|engine| R2Engine["postgres"]
-    R2 -->|port| R2Port["5434"]
+    Root -->|databases| D1(("node"))
+    Root -->|databases| D2(("node"))
+    Root -->|tags| T1["prod"]
+    Root -->|tags| T2["us-east"]
+    D1 -->|type| D1Type["prod"]
+    D1 -->|server| D1Server["db1.internal.example.com"]
+    D1 -->|port| D1Port["5432"]
+    D2 -->|type| D2Type["test"]
+    D2 -->|server| D2Server["db2.internal.example.com"]
+    D2 -->|port| D2Port["5433"]
 ```
 
 And the schema behind it, as a graph: every record is a state, and a
-field is a labeled, cardinality-counted edge to another state (`database`
-and `replicas` both target `Database`, since a schema graph reuses a
-target wherever it's referenced — it isn't a tree):
+field is a labeled, cardinality-counted edge to another state (`databases`
+and `tags` are both array cardinalities, but on different types — a Ref
+and a Scalar — showing the same mechanism covers both):
 
 ```mermaid
 graph LR
     Svc(("Service")) -->|"host [1,1]"| String(("string"))
     Svc -->|"port [1,1]"| Integer(("integer"))
-    Svc -->|"database [1,1]"| Db(("Database"))
-    Svc -->|"replicas [0,∞]"| Db
-    Db -->|"engine [1,1]"| String
+    Svc -->|"databases [1,∞)"| Db(("Database"))
+    Svc -->|"tags [0,∞)"| String
+    Db -->|"type [1,1]"| String
+    Db -->|"server [1,1]"| String
     Db -->|"port [1,1]"| Integer
 ```

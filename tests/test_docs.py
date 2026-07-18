@@ -29,12 +29,15 @@ from omnist import (
 
 
 def test_readme_at_a_glance():
-    s = parse_schema('record Database { "engine": string, "port": integer }\n'
+    s = parse_schema('record Database { "type": string, "server": string, "port": integer }\n'
                      'record Service { "host": string, "port": integer, '
-                     '"database": Database }\nroot Service')
+                     '"databases" [1,]: Database, "tags" [0,]: string }\nroot Service')
     assert s.validate(doc({"host": "api.internal", "port": 8443,
-                           "database": {"engine": "postgres", "port": 5432}})).ok
-    assert ds.__version__ == "0.7.1"
+                           "databases": [{"type": "prod",
+                                          "server": "db1.internal.example.com",
+                                          "port": 5432}],
+                           "tags": ["prod", "us-east"]})).ok
+    assert ds.__version__ == "0.7.2"
 
 
 def test_quickstart():
@@ -553,7 +556,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.7.1"
+    assert ds.__version__ == "0.7.2"
 
 
 def test_api_docs_schema_raises():
@@ -675,29 +678,33 @@ def test_model_docs_count1_no_schema_param():
 def test_model_docs_appendix_worked_example():
     s = parse_schema('''
 record Database {
-    "engine": string,
-    "port": integer,
+    "type":   string,
+    "server": string,
+    "port":   integer,
 }
 record Service {
-    "host":          string,
-    "port":          integer,
-    "database":      Database,
-    "replicas" [0,]: Database,
+    "host":            string,
+    "port":            integer,
+    "databases" [1,]:  Database,
+    "tags" [0,]:       string,
 }
 root Service
 ''')
     node = [("host", "api.internal"),
             ("port", 8443),
-            ("database", [("engine", "postgres"), ("port", 5432)]),
-            ("replicas", [("engine", "postgres"), ("port", 5433)]),
-            ("replicas", [("engine", "postgres"), ("port", 5434)])]
+            ("databases", [("type", "prod"),
+                           ("server", "db1.internal.example.com"), ("port", 5432)]),
+            ("databases", [("type", "test"),
+                           ("server", "db2.internal.example.com"), ("port", 5433)]),
+            ("tags", "prod"),
+            ("tags", "us-east")]
     d = Doc(node)
     assert s.validate(d).ok
     assert d.to_json() == (
-        '{"host": "api.internal", "port": 8443, "database": '
-        '{"engine": "postgres", "port": 5432}, "replicas": '
-        '[{"engine": "postgres", "port": 5433}, '
-        '{"engine": "postgres", "port": 5434}]}')
+        '{"host": "api.internal", "port": 8443, "databases": '
+        '[{"type": "prod", "server": "db1.internal.example.com", "port": 5432}, '
+        '{"type": "test", "server": "db2.internal.example.com", "port": 5433}], '
+        '"tags": ["prod", "us-east"]}')
 
 
 
