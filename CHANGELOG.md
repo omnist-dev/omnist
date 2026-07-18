@@ -6,6 +6,24 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.2] — introduction deck, and one example everywhere
+
+- Added `docs/presentation.html`: a self-hosted, maintainable introduction
+  deck (plain HTML/CSS, real Mermaid diagrams, vendored so it has no
+  external dependency), linked from the mkdocs nav and `why-omnist.md`.
+  Rebuilt from a compiled, unmaintainable export as a follow-up, once the
+  deck's own example had drifted from the docs'.
+- Replaced the docs' `Team`/`Member` example with `Service`/`Database`
+  across `README.md`, `schema.md`, `design/model.md` (both teaching
+  sections, both Mermaid diagrams), `glossary.md`, and
+  `examples/canonical_model.py`, matching the introduction deck so the two
+  don't show a different example to the reader.
+- Added Open Graph / Twitter Card meta tags and a generated social-preview
+  image for the introduction deck.
+- Corrected a factual claim on the deck's "Checked, not asserted" slide
+  (100% line coverage → 99%, the true current figure) found while
+  verifying the deck's claims against the repository.
+
 ## [v0.7.1] — beta hardening
 
 A batch of hardening work in response to an external QA audit. No
