@@ -398,8 +398,8 @@ pip install omnist[all]     <span class="com"># + pyyaml, tomli_w, defusedxml</s
   });
 
   // Render mermaid via mermaid.render() (layout-independent, so it works
-  // even though reveal keeps non-current slides hidden). Then hand off to
-  // reveal and recompute its scaling now that the SVGs have real sizes.
+  // even though reveal keeps non-current slides hidden). Then recompute
+  // reveal's scaling now that the SVGs have real sizes.
   async function renderMermaid() {
     var blocks = document.querySelectorAll('pre.mermaid');
     for (var i = 0; i < blocks.length; i++) {
@@ -411,20 +411,28 @@ pip install omnist[all]     <span class="com"># + pyyaml, tomli_w, defusedxml</s
     }
   }
 
-  renderMermaid().then(function () {
-    Reveal.initialize({
-      width: 1050,
-      height: 720,
-      margin: 0.05,
-      minScale: 0.1,
-      maxScale: 1.6,
-      hash: true,
-      controls: true,
-      progress: true,
-      center: true,
-      touch: true,
-      transition: 'slide'
-    }).then(function () { Reveal.layout(); });
+  // Reveal.initialize() reads location.hash to pick the initial slide, so
+  // it must run immediately -- delaying it behind the async mermaid render
+  // let reveal's own hash/history setup race against it, landing on the
+  // wrong slide when the URL had a #/N fragment on cold load. Mermaid
+  // renders after, then Reveal.layout() re-fits now that diagrams have
+  // real sizes.
+  Reveal.initialize({
+    width: 1050,
+    height: 720,
+    margin: 0.05,
+    minScale: 0.1,
+    maxScale: 1.6,
+    hash: true,
+    controls: true,
+    progress: true,
+    center: true,
+    touch: true,
+    transition: 'slide'
+  }).then(function () {
+    return renderMermaid();
+  }).then(function () {
+    Reveal.layout();
   });
 })();
 </script>
