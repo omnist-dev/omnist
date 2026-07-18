@@ -6,6 +6,16 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.3] — introduction deck now scales on mobile
+
+- Rebuilt `docs/presentation.html` on reveal.js (MIT, vendored) instead of
+  a hand-rolled sidebar layout. The custom sidebar consumed ~45% of a
+  phone-width screen, cramming every slide's content into what was left.
+  Reveal.js uniformly scales the whole slide to fit any viewport, so a
+  phone sees the same layout shrunk to fit, not a squeezed reflow.
+  Verified across mobile/tablet/desktop viewports.
+- Regenerated `docs/images/og-presentation.png` from the new title slide.
+
 ## [v0.7.2] — introduction deck, and one example everywhere
 
 - Added `docs/presentation.html`: a self-hosted, maintainable introduction
