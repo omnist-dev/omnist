@@ -1,9 +1,11 @@
 # CLI Spec
 
-> Status: **design only** — nothing under `omnist/cli.py` exists yet. This
-> document specifies the command surface before implementation, the same
-> way the [model spec](model.md) and the [grammars](schema-osd-grammar.md)
-> precede their implementations.
+> Status: **implemented** — `omnist/cli.py` has shipped since 2026-06-26.
+> This document specified the command surface before implementation, the
+> same way the [model spec](model.md) and the
+> [grammars](schema-osd-grammar.md) preceded theirs; it's kept as the
+> normative spec the shipped CLI is checked against. See [the CLI
+> reference](../cli.md) for the current, example-verified command docs.
 
 ## 1. Command tree
 
