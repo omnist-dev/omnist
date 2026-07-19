@@ -180,6 +180,26 @@ class TestInferExample:
         )
 
 
+class TestInferAllowAnyExample:
+    def test_messy1_messy2_allow_any(self, capsys):
+        code, out, err = run(
+            ["infer", "examples/cli/messy1.json", "examples/cli/messy2.json",
+             "--from", "json", "--allow-any"], capsys)
+        assert code == 0
+        assert out == (
+            'record Root {\n'
+            '    "data": any,\n'
+            '    "score": any,\n'
+            '}\n'
+            'root Root\n'
+        )
+        assert err == (
+            "opened 2 field(s) as `any`:\n"
+            "  Root.data — mixes objects and values\n"
+            "  Root.score — values of more than one scalar kind (integer, string)\n"
+        )
+
+
 class TestValidateExamples:
     def test_person_is_valid(self, capsys):
         code, out, err = run(

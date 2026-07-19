@@ -27,6 +27,14 @@ def schema():
     return parse_schema((EXAMPLE_DIR / "workflow.osd").read_text())
 
 
+def test_pyyaml_boolean_coercion_illustration():
+    # docs/examples/github-actions.md's inline yaml.safe_load illustration
+    # of *why* the DocumentError above happens -- stdlib PyYAML behavior,
+    # not omnist's own, but shown as a literal example in the doc.
+    import yaml
+    assert yaml.safe_load("on:\n  push: {}\n") == {True: {"push": {}}}
+
+
 def test_fixtures_exist():
     names = {f.name for f in FIXTURES}
     assert names == {

@@ -240,10 +240,13 @@ part of the implementation cost.
 
 ## 8. Worked examples: the trade-offs, concretely
 
-> The `any` examples below are illustrative — the keyword does not parse
-> today. If `any` is adopted, they become executable doc-tests per the
-> project's docs-as-tests convention. The `Map` examples are deliberately
-> **not** valid OSD, and never will be.
+> The `any` examples below are real, executable OSD/OML — `any` shipped
+> in v0.5.0 (see the status note above), and these examples are backed by
+> tests (see the [API reference](../api.md) and
+> [Schema-directed deserialization](../deserialization.md)). This
+> section is preserved as the historical trade-off writeup from before
+> the maintainer go-ahead, not because the keyword is still unparsed. The
+> `Map` examples are deliberately **not** valid OSD, and never will be.
 
 ### 8.1 What `any` buys: one schema for a webhook stream
 

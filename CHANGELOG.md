@@ -6,6 +6,28 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.7] — documentation examples audited and backfilled
+
+- Ran a full audit of every code example across `docs/*.md` (212 fenced
+  blocks in 29 files) to determine which are actually verified against
+  their exact displayed output, not just "a test with a plausible name
+  exists somewhere." Found 27 real gaps and 2 doc claims that had
+  drifted into being factually false.
+- Fixed two false claims: `docs/design/openness.md` said `any` "does not
+  parse today" (it has shipped since v0.5.0); `docs/design/cli-spec.md`
+  said `omnist/cli.py` "doesn't exist yet" (it has for weeks).
+- Fixed the stale version strings in `docs/api.md` (`0.1.3`) and
+  `docs/cli.md` (`0.2.9`) — both had drifted for 5+ releases because the
+  test guarding them checked the *live* `__version__`, never the doc's
+  own literal text. Added a regression test that reads both docs'
+  literal strings directly and compares them to the live version, so
+  this can't recur silently.
+- Backfilled all 27 gaps with tests asserting the *exact literal text*
+  each doc shows, not a derived property (`.ok`, a substring, sorted
+  keys) standing in for it — that substitution is what let the version
+  bug hide behind a passing, plausibly-named test in the first place.
+- Version bump to 0.7.7.
+
 ## [v0.7.6] — deck slide title clarity
 
 - Retitled the "The algebra, in code" deck slide to "Schema algebra, in

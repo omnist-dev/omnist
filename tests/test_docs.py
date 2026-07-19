@@ -37,7 +37,7 @@ def test_readme_at_a_glance():
                                           "server": "db1.internal.example.com",
                                           "port": 5432}],
                            "tags": ["prod", "us-east"]})).ok
-    assert ds.__version__ == "0.7.6"
+    assert ds.__version__ == "0.7.7"
 
 
 def test_quickstart():
@@ -54,6 +54,14 @@ def test_readme_60_second_tour_infer():
         'record Root {\n    "id": integer,\n    "tags": string,\n}\nroot Root\n')
 
 
+def test_guide_schema_intro():
+    s = parse_schema('''
+        record User { "name": string, "age" [0,1]: integer }
+        root User
+    ''')
+    assert s.validate(doc({"name": "Ann"})).ok is True
+
+
 def test_guide_documents():
     d = doc({"name": "Ann", "tag": ["x", "y"]})
     assert d.labels() == ["name", "tag"]
@@ -62,6 +70,17 @@ def test_guide_documents():
     assert [c.value for c in d.get("tag")] == ["x", "y"]
     assert d.to_data() == [("name", "Ann"), ("tag", "x"), ("tag", "y")]
     assert d.to_grouped() == {"name": "Ann", "tag": ["x", "y"]}
+
+
+def test_guide_documents_editing_walkthrough():
+    # guide.md's editing block, run in the exact sequence shown, continuing
+    # from the same `d` the Documents section builds.
+    d = doc({"name": "Ann", "tag": ["x", "y"]})
+    d.add("tag", "z")
+    d.set("name", "Bob")
+    d.remove("tag")
+    assert d.child("name").value == "Bob"
+    assert d.to_data() == [("name", "Bob")]
 
 
 def test_guide_oml_native_format():
@@ -92,6 +111,28 @@ root Event
                            "data": {"amount_cents": 1250, "currency": "EUR"}})).ok
 
 
+def test_openness_docs_webhook_any_worked_example():
+    s = parse_schema('''
+        record Event {
+            "id":      string,
+            "type":    string,
+            "created": datetime,
+            "data":    any,
+        }
+        root Event
+    ''')
+    assert s.validate(doc({"id": "evt_1", "type": "user.created",
+                           "created": "2026-07-01T09:30:00",
+                           "data": {"name": "Ann", "email": "ann@example.com"}})).ok
+    assert s.validate(doc({"id": "evt_2", "type": "payment.settled",
+                           "created": "2026-07-01T09:31:00",
+                           "data": {"amount_cents": 1250, "currency": "EUR"}})).ok
+
+    ps = parse_schema('record PaymentSettled { "amount_cents": integer, "currency": string }\n'
+                      'root PaymentSettled')
+    assert ps.validate(doc({"amount_cents": 1250, "currency": "EUR"})).ok
+
+
 def test_guide_operations_lint():
     from omnist.ops.lint import lint
     s = parse_schema('''
@@ -101,6 +142,13 @@ root Customer
 ''')
     findings = lint(s)
     assert any(f.code == "duplicate-record" for f in findings)
+
+
+def test_guide_reading_writing_other_formats():
+    assert Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}').to_toml() == (
+        'name = "Ann"\ntags = [\n    "x",\n    "y",\n]\n'
+    )
+    assert Doc.from_yaml("name: Ann\n").to_json() == '{"name": "Ann"}'
 
 
 def test_guide_reading_writing_compact_mode():
@@ -262,6 +310,7 @@ def test_schema_page_operations_and_infer():
     n = s.normalize()
     assert n.equivalent(s)
     assert list(n.env.keys()) == ["A"]  # B merged into A
+    assert n.to_osd() == 'record A {\n    "x": integer,\n}\nroot A\n'
 
     assert infer([doc({"host": "b", "port": 80}), doc({"host": "a"})]).to_osd() == (
         'record Root {\n    "host": string,\n    "port" [0,1]: integer,\n}\nroot Root\n')
@@ -304,11 +353,29 @@ def test_guide_builder_matches_osd():
     assert s.equivalent(osd)
 
 
+def test_guide_python_builder_full_example():
+    # guide.md's "The Python builder" section -- run exactly as shown,
+    # including the nullable() field the older builder test above doesn't
+    # cover.
+    address = record(field("street", t.string), field("city", t.string))
+    user = record(
+        field("name", t.string),
+        field("emails", t.string, min=1, max=None),
+        field("address", ref("Address")),
+        field("note", nullable(t.string)),
+    )
+    s = schema(ref("User"), User=user, Address=address)
+    assert s.env["User"].field("note").type.nullable is True
+
+
 def test_guide_validation_error():
     r = parse_schema('record R { "items" [1,]: integer }\nroot R').validate(
             doc({"items": []}))
     assert not r.ok
     assert r.errors[0].path == "$" and "at least 1" in r.errors[0].message
+    assert str(r) == (
+        "invalid:\n  at $: field 'items' occurs 0 time(s), expected at least 1"
+    )
 
 
 def test_guide_operations_are_methods():
@@ -319,6 +386,13 @@ def test_guide_operations_are_methods():
     assert not v1.equivalent(v2)
     n = v1.normalize()
     assert n.equivalent(v1)
+
+
+def test_guide_extract_drops_optional_field():
+    v2 = parse_schema('record R { "host": string, "port" [0,1]: integer }\nroot R')
+    assert v2.extract("host").to_osd() == (
+        'record R {\n    "host": string,\n}\nroot R\n'
+    )
 
 
 def test_guide_empty_schemas():
@@ -394,6 +468,11 @@ address: { street: "x"; city: "y" }
     msgs = {e.message for e in s.validate(bad).errors}
     assert any("expected number, got string" in m for m in msgs)
     assert any("at least 1" in m for m in msgs)
+    assert str(s.validate(bad)) == (
+        "invalid:\n"
+        "  at $.total: expected number, got string ('ten')\n"
+        "  at $: field 'items' occurs 0 time(s), expected at least 1"
+    )
 
 
 def test_example_all_formats_one_document():
@@ -429,6 +508,47 @@ def test_example_all_formats_one_document():
                  "<items><sku>G</sku><qty>1</qty><price>9.99</price></items></order>")
     assert j == y == tm == x
     assert all(s.validate(Doc(d)).ok for d in (j, y, tm, x))
+
+
+def test_example_builder_matches_osd():
+    from omnist import field, record, ref, schema, t
+    address = record(field("street", t.string), field("city", t.string))
+    lineitem = record(field("sku", t.string), field("qty", t.integer),
+                      field("price", t.number))
+    order = record(
+        field("id", t.string),
+        field("status", t.string),
+        field("total", t.number),
+        field("address", ref("Address")),
+        field("items", ref("LineItem"), min=1, max=None),
+        field("coupon", t.string, min=0, max=1),
+    )
+    s = schema(ref("Root"),
+              Root=record(field("order", ref("Order"))),
+              Order=order, Address=address, LineItem=lineitem)
+    osd = parse_schema('''
+        record Address  { "street": string, "city": string }
+        record LineItem { "sku": string, "qty": integer, "price": number }
+        record Order {
+            "id": string,
+            "status": string,
+            "total": number,
+            "address": Address,
+            "items" [1,]: LineItem,
+            "coupon" [0,1]: string,
+        }
+        record Root { "order": Order }
+        root Root
+    ''')
+    assert s.equivalent(osd)
+
+
+def test_example_compatible_with_worked_example():
+    v1 = parse_schema('record O { "host": string }\nrecord Root { "o": O }\nroot Root')
+    v2 = parse_schema('record O { "host": string, "port" [0,1]: integer }\n'
+                      'record Root { "o": O }\nroot Root')
+    assert v1.compatible_with(v2)
+    assert not v2.compatible_with(v1)
 
 
 def test_example_doc_all_formats_one_document_incl_oml():
@@ -546,6 +666,18 @@ def test_api_docs_adjustment_reports():
         d.to_toml(strict=True)
 
 
+def test_api_docs_validation_result_error_iteration():
+    # api.md's "Validation results" section: `for e in r.errors: print(e.path,
+    # e.code, e.message)`, run against a concrete schema producing exactly the
+    # error shape the section's code table documents.
+    s = parse_schema('record R { "id": integer }\nroot R')
+    r = s.validate(doc({"id": "x"}))
+    assert not r.ok
+    assert [(e.path, e.code, e.message) for e in r.errors] == [
+        ("$.id", "type-mismatch", "expected integer, got string ('x')")
+    ]
+
+
 def test_api_docs_format_registry():
     register_format(Format(
         name="lines",
@@ -556,7 +688,32 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.7.6"
+    assert ds.__version__ == "0.7.7"
+
+
+def test_docs_version_examples_match_live_version():
+    # Regression test for a real bug: docs/api.md and docs/cli.md both
+    # showed a hardcoded example version string that drifted for 5+
+    # releases undetected, because test_api_docs_version above only ever
+    # checked the *live* __version__, never the doc's own literal text.
+    # This reads the actual displayed strings and compares them directly.
+    import re
+
+    api_text = open("docs/api.md", encoding="utf-8").read()
+    m = re.search(r'omnist\.__version__\s*#\s*"([\d.]+)"', api_text)
+    assert m, "docs/api.md: couldn't find the omnist.__version__ example line"
+    assert m.group(1) == ds.__version__, (
+        f"docs/api.md shows version {m.group(1)!r} but the live version is "
+        f"{ds.__version__!r} -- update the doc's example."
+    )
+
+    cli_text = open("docs/cli.md", encoding="utf-8").read()
+    m = re.search(r"^omnist (\d+\.\d+\.\d+)$", cli_text, re.MULTILINE)
+    assert m, "docs/cli.md: couldn't find the `omnist --version` example output line"
+    assert m.group(1) == ds.__version__, (
+        f"docs/cli.md shows version {m.group(1)!r} but the live version is "
+        f"{ds.__version__!r} -- update the doc's example."
+    )
 
 
 def test_api_docs_schema_raises():
@@ -722,13 +879,37 @@ def test_formats_json_reading_with_schema():
         [("d", datetime.date(2024, 1, 1)), ("n", 3.0)]
 
 
+def test_formats_overview_docs_conversion_opener():
+    assert Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}').to_toml() == (
+        'name = "Ann"\ntags = [\n    "x",\n    "y",\n]\n'
+    )
+
+
+def test_formats_overview_docs_reading_writing_opener():
+    d = Doc(read_yaml("name: Ann\ntags: [x, y]\n"))
+    assert d.to_json() == '{"name": "Ann", "tags": ["x", "y"]}'
+
+
+def test_formats_json_docs_opener():
+    d = Doc.from_json('{"name": "Ann", "tags": ["x", "y"]}')
+    assert d.to_json() == '{"name": "Ann", "tags": ["x", "y"]}'
+
+
 def test_formats_json_writing():
+    from omnist import write_json
+    assert write_json([("tag", "x"), ("tag", "y")]) == '{"tag": ["x", "y"]}'
+    assert write_json([("tag", "x")]) == '{"tag": "x"}'
     assert Doc.of({"tag": ["x", "y"]}).to_json() == '{"tag": ["x", "y"]}'
 
 
 def test_formats_json_docs_special_float_substitution():
     from omnist import write_json
     assert write_json([("a", float("inf"))]) == '{"a": null}'
+
+
+def test_formats_yaml_docs_opener():
+    d = Doc(read_yaml("\nname: Ann\ntags: [x, y]\n"))
+    assert d.to_json() == '{"name": "Ann", "tags": ["x", "y"]}'
 
 
 def test_formats_yaml_reading_no_schema():
@@ -756,6 +937,16 @@ def test_formats_yaml_writing():
     assert write_yaml([("name", "Ada"), ("born", datetime.date(1815, 12, 10))]) == \
         "name: Ada\nborn: 1815-12-10\n"
     assert Doc.of({"name": "Ada"}).to_yaml() == "name: Ada\n"
+
+
+def test_formats_toml_docs_opener():
+    d = Doc(read_toml(
+        '\n[order]\nid = "A1"\n[[order.items]]\nsku = "W"\n'
+        '[[order.items]]\nsku = "G"\n'
+    ))
+    assert d.to_json() == (
+        '{"order": {"id": "A1", "items": [{"sku": "W"}, {"sku": "G"}]}}'
+    )
 
 
 def test_formats_toml_reading_no_schema():
@@ -810,12 +1001,24 @@ def test_formats_xml_docs_mixed_content_rejected():
         assert False, "expected ParseError"  # pragma: no cover
     except ParseError as e:
         assert "mixed content" in str(e)
+        assert str(e) == (
+            "$: mixed content (text alongside child elements) is outside "
+            "the data-XML profile"
+        )
 
     try:
         read_xml("<p><b>world</b> tail</p>")
         assert False, "expected ParseError"  # pragma: no cover
     except ParseError as e:
         assert "mixed content" in str(e)
+        assert str(e) == (
+            "$.b: mixed content (text alongside child elements) is outside "
+            "the data-XML profile"
+        )
+
+    # Whitespace-only text/tail is unaffected -- still parses (guide.md's
+    # third example in this section, never independently exercised before).
+    assert read_xml("<p>\n  <b>world</b>\n</p>") == [("p", [("b", "world")])]
 
     assert read_xml("<p>\n  <b>world</b>\n</p>") == [("p", [("b", "world")])]
 
