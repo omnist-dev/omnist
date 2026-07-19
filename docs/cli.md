@@ -36,6 +36,7 @@ yourself from the repo root.
 $ omnist --version
 omnist 0.7.8
 ```
+<!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
 `--help` is available on the top-level command and every subcommand
 (`omnist <command> --help`) — standard `argparse` behavior, nothing
