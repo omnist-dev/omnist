@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.7.7
+omnist 0.7.8
 ```
 
 `--help` is available on the top-level command and every subcommand

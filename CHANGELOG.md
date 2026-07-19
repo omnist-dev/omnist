@@ -6,6 +6,25 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.8] — CI gate for doc-example coverage
+
+- Added `tools/check_doc_examples.py`, run as a new `doc-examples` job in
+  CI on every PR: diffs `docs/*.md` against the base branch and fails if
+  any added/changed code block lacks a `<!-- verified-by:
+  path::test_name -->` or `<!-- doc-illustrative -->` marker. This is a
+  presence check only — it doesn't (yet) confirm a `verified-by` marker
+  is honest, i.e. that the named test really asserts the doc's exact
+  literal text. See issue #249 for that stronger check, filed for design
+  review rather than built now.
+- Documented the marker convention in `docs/testing.md`'s new
+  "Doc-example coverage" section, with the version-string bug (#248) as
+  the motivating example of why a passing, plausibly-named test isn't
+  proof of anything on its own.
+- `tools/check_doc_examples.py` ships with its own test suite
+  (`tests/test_check_doc_examples.py`, 100% coverage), run against real
+  throwaway git repos rather than mocked git output.
+- Version bump to 0.7.8.
+
 ## [v0.7.7] — documentation examples audited and backfilled
 
 - Ran a full audit of every code example across `docs/*.md` (212 fenced
