@@ -317,3 +317,33 @@ Coverage is not enforced in CI (no `coverage run`/coverage threshold step in
 the workflow) — the 100% target above is a contributor discipline backed by
 the periodic coverage sweeps described in [Coverage](#coverage), checked
 manually rather than gated in the pipeline.
+
+## Doc-example coverage
+
+A code block showing literal output must be verified against that exact
+literal — not `.ok`, not a substring, not a derived property standing in
+for it. This distinction matters: a test with a plausible name and a
+passing status is not proof its doc block is checked. `docs/api.md` and
+`docs/cli.md` both showed a stale example version string for 5+ releases
+undetected, because the test guarding them (`test_api_docs_version`)
+checked the *live* `omnist.__version__`, never the doc's own displayed
+text — see the audit and fix in #248.
+
+Every code block in `docs/*.md` that you add or change needs one of two
+markers immediately before or after it:
+
+- `<!-- verified-by: tests/test_docs.py::test_name -->` — names the test
+  that asserts the block's exact displayed output.
+- `<!-- doc-illustrative -->` — an explicit opt-out for a diagram, a
+  grammar fragment, a type-signature table, or anything else with no
+  runnable claim to check.
+
+`tools/check_doc_examples.py` enforces this in CI on every PR (the
+`doc-examples` job in `.github/workflows/test.yml`): it diffs `docs/*.md`
+against the PR's base branch and fails if any added or changed code block
+lacks a marker. It only checks that a marker is *present* — not that a
+`verified-by` marker is honest (i.e. that the named test really does
+assert the exact literal text). See
+[issue #249](https://github.com/omnist-dev/omnist/issues/249) for the
+stronger check that would close that gap; it's filed for design review,
+not yet built.
