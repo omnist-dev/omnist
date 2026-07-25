@@ -6,6 +6,21 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.9] — fixed non-deterministic prune() output ordering
+
+- Fixed [#253](https://github.com/omnist-dev/omnist/issues/253):
+  `Schema.prune()`'s output environment ordering was non-deterministic
+  across process runs, since `PYTHONHASHSEED` randomizes `str` hash
+  values (and so `set` iteration order) by default. `prune()` built its
+  result by iterating a `set` of reachable record names rather than the
+  input schema's own (insertion-order-stable) `env` dict, so the same
+  input could come back with a different record order each run.
+  Reported by the omnist-ts port's cross-implementation differential
+  testing — thanks for the clean repro and suggested fix direction.
+  `prune()` now iterates `env` filtered to survivors, so the output
+  order always matches the input's declaration order.
+- Version bump to 0.7.9.
+
 ## [v0.7.8] — CI gate for doc-example coverage
 
 - Added `tools/check_doc_examples.py`, run as a new `doc-examples` job in

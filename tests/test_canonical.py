@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.8"
+        assert ds.__version__ == "0.7.9"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -725,6 +725,34 @@ class TestEmptySchemas:
         assert once.env.keys() == twice.env.keys()
         for name in once.env:
             assert len(once.env[name].fields) == len(twice.env[name].fields)
+
+    def test_prune_env_order_matches_input_declaration_order(self):
+        # Issue #253: new_env used to be built by iterating a `set` of
+        # reachable names, so its key order depended on PYTHONHASHSEED and
+        # varied across process runs. The surviving records must come out
+        # in the *input* schema's declaration order instead -- a dict
+        # (env) preserves insertion order deterministically regardless of
+        # hash seed, unlike a set.
+        s = parse_schema(
+            'record A { "x": integer }\n'
+            'record B { "y": integer }\n'
+            'record C { "z": integer }\n'
+            'record R { "a": A, "b": B, "c": C }\n'
+            'root R'
+        )
+        assert list(s.env.keys()) == ["A", "B", "C", "R"]
+        assert list(s.prune().env.keys()) == ["A", "B", "C", "R"]
+
+        # Unreachable record dropped -- survivors still follow declaration
+        # order, not the order the reachability walk happened to visit them.
+        s2 = parse_schema(
+            'record A { "x": integer }\n'
+            'record Unused { "y": integer }\n'
+            'record B { "z": integer }\n'
+            'record R { "a": A, "b": B }\n'
+            'root R'
+        )
+        assert list(s2.prune().env.keys()) == ["A", "B", "R"]
 
     def test_prune_free_function_matches_method(self):
         s = parse_schema('record R { "dead" [0,0]: integer }\nroot R')
