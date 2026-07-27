@@ -6,6 +6,19 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.12] — closed read_xml's node-budget gap
+
+- Fixed [#260](https://github.com/omnist-dev/omnist/issues/260):
+  `read_xml` had no node-count ceiling at all, unlike the other three
+  readers after #256's fix. XML has no aliasing mechanism to create a
+  DAG the way YAML anchors do, and `defusedxml` already blocks DTDs
+  (closing the classic entity-expansion vector upstream) — so this
+  wasn't a known exploit, just a defense-in-depth gap where one reader
+  didn't share the same size ceiling as the rest. `_xml_to_node` now
+  threads the same `_MAX_NODES` budget counter through its recursion
+  that `build_node` uses, raising `DocumentError` once the ceiling is
+  exceeded.
+
 ## [v0.7.11] — closed a YAML alias-amplification hole
 
 - Fixed [#256](https://github.com/omnist-dev/omnist/issues/256):

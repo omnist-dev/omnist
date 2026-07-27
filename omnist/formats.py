@@ -20,7 +20,7 @@ import math as _math
 import re as _re
 from typing import TYPE_CHECKING, Any, Optional
 
-from .document import _MAX_DEPTH, _grouped, build_node
+from .document import _MAX_DEPTH, _MAX_NODES, _grouped, build_node
 from .errors import DocumentError, ParseError, WriteError
 from .report import WriteReport, finish_write
 
@@ -280,11 +280,22 @@ def read_xml(text: str, *, schema: Optional["Schema"] = None) -> Any:
         root = ET.fromstring(text)
     except Exception as exc:
         raise ParseError(f"invalid XML: {exc}") from exc
-    node = [(_local(root.tag), _xml_to_node(root, "$", 0))]
+    node = [(_local(root.tag), _xml_to_node(root, "$", 0, [0]))]
     return _materialize(node, schema)
 
 
-def _xml_to_node(elem: Any, path: str, depth: int) -> Any:
+def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int]) -> Any:
+    # budget is a shared running node count across the whole call tree, the
+    # same mechanism build_node uses (document.py) -- unlike build_node's
+    # readers, XML's ElementTree parse has no aliasing mechanism to create a
+    # DAG (defusedxml also blocks DTDs, closing the classic XML entity-
+    # expansion vector upstream), so there's no _MAX_DEPTH-bypassing
+    # amplification vector here. This guard exists for the same size
+    # ceiling every other reader now has, not because an exploit is known.
+    budget[0] += 1
+    if budget[0] > _MAX_NODES:
+        raise DocumentError(
+            f"{path}: too many nodes materialized (over {_MAX_NODES})")
     if depth > _MAX_DEPTH:
         raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
     children = list(elem)
@@ -298,7 +309,7 @@ def _xml_to_node(elem: Any, path: str, depth: int) -> Any:
                 raise ParseError(
                     f"{path}.{_local(c.tag)}: mixed content (text alongside "
                     "child elements) is outside the data-XML profile")
-        return [(_local(c.tag), _xml_to_node(c, f"{path}.{_local(c.tag)}", depth + 1))
+        return [(_local(c.tag), _xml_to_node(c, f"{path}.{_local(c.tag)}", depth + 1, budget))
                 for c in children]
     return _coerce(elem.text or "")
 
