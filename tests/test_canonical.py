@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.11"
+        assert ds.__version__ == "0.7.12"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1465,6 +1465,37 @@ class TestDocumentRobustness:
             s = f"<a>{s}</a>"
         with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
             read_xml(s)
+
+    def test_xml_exceeding_the_node_budget_raises_cleanly(self, monkeypatch):
+        # Issue #260: read_xml used to have no node-count ceiling at all
+        # (only the depth guard above), unlike the other three readers
+        # after #259's fix for the YAML alias-amplification hole. XML has
+        # no aliasing mechanism to create a DAG the way YAML anchors do
+        # (and defusedxml blocks DTDs, closing the classic entity-expansion
+        # vector upstream), so this isn't about a known exploit -- it's
+        # closing the one reader that didn't share the same size ceiling
+        # as the rest.
+        #
+        # sys.modules, not `import omnist.formats as x`: the omnist package
+        # re-exports a *function* also named `formats` (the format-registry
+        # listing, from .registry), which shadows the submodule as a plain
+        # attribute of the omnist package once omnist/__init__.py has run --
+        # sys.modules['omnist.formats'] reliably gets the real module.
+        import sys
+        formats_module = sys.modules["omnist.formats"]
+        monkeypatch.setattr(formats_module, "_MAX_NODES", 3)
+
+        with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_xml("<a><b><c>1</c><d>2</d></b><e>3</e></a>")
+
+    def test_xml_under_the_node_budget_still_parses(self, monkeypatch):
+        import sys
+        formats_module = sys.modules["omnist.formats"]
+        monkeypatch.setattr(formats_module, "_MAX_NODES", 3)
+
+        # Exactly 3 elements (a, b, c) -- at the boundary, must not raise.
+        assert read_xml("<a><b><c>1</c></b></a>") == [
+            ("a", [("b", [("c", 1)])])]
 
     def test_add_at_a_deep_cursor_raises_once_combined_depth_exceeds_limit(self):
         # Issue #255: add()/set() used to call build_node with the default
