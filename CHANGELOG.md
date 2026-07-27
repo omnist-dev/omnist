@@ -6,6 +6,29 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.11] — closed a YAML alias-amplification hole
+
+- Fixed [#256](https://github.com/omnist-dev/omnist/issues/256):
+  PyYAML resolves `*alias` references as shared object identity (a DAG),
+  not clones. `build_node`'s cycle guard only detected a literal cycle
+  (a value that is its own ancestor on the current path), not a shared
+  DAG node reached via two different, non-ancestor paths — so a chain of
+  doubly-referenced anchors ("billion laughs") got walked in full at
+  every occurrence, materializing `O(2**n)` nodes from an `O(n)`-sized
+  source text. `_MAX_DEPTH` didn't help either: the attack is shallow
+  and wide, not deep.
+  `build_node` now threads a shared running node-count budget through
+  its recursion (same pattern as the existing `seen` cycle-guard),
+  rejecting once `_MAX_NODES` (1,000,000) is exceeded — chosen with
+  ~7.5x headroom above the ~132,001 actual node-visits the project's own
+  "100k-edge document" performance benchmark
+  ([why-omnist.md](docs/why-omnist.md#performance)) requires, confirmed
+  by running that exact benchmark shape through the new guard uncapped
+  before picking the number.
+  Reported via cross-implementation checking against the Rust port
+  (omnist-rs#42).
+- Version bump to 0.7.11.
+
 ## [v0.7.10] — Doc.add()/set() now enforce combined cursor+subtree depth
 
 - Fixed [#255](https://github.com/omnist-dev/omnist/issues/255):

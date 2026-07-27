@@ -36,6 +36,17 @@ _MAX_INT_DIGITS = 4300    # matches CPython's default sys.get_int_max_str_digits
                           # shared with oml.py, which imports this constant so the
                           # reader and the model enforce exactly the same cap.
 _MAX_INT_MAGNITUDE = 10 ** _MAX_INT_DIGITS
+_MAX_NODES = 1_000_000    # docs/why-omnist.md's own "100k-edge document"
+                          # performance benchmark measures ~132,001 actual
+                          # build_node calls once every scalar leaf and
+                          # container is counted individually (not just its
+                          # "edges") -- confirmed by running it through this
+                          # guard uncapped. 1,000,000 leaves ~7.5x headroom
+                          # above that already-legitimate, already-measured
+                          # scale, while still catching an exponential
+                          # amplification attack almost immediately (a few
+                          # extra generations of doubling blows past any
+                          # fixed ceiling in milliseconds).
 
 Edge = Tuple[str, Any]   # (label, node)
 
@@ -68,14 +79,36 @@ def _check_int_digits(v: Any, path: str) -> None:
 # ---------------------------------------------------------------------------
 
 def build_node(value: Any, path: str = "$", depth: int = 0,
-               seen: Optional[frozenset[int]] = None) -> Any:
+               seen: Optional[frozenset[int]] = None,
+               budget: Optional[List[int]] = None) -> Any:
     """Turn a plain Python value into a canonical node.
 
     A ``dict`` becomes an ordered edge list; a key whose value is a list expands
     into one edge **per item** (the same label repeated).  A scalar becomes a
     leaf.  A *bare* list (a top-level array, or a list nested directly inside a
     list) has no labeled-edge form and raises ``DocumentError``.
+
+    ``budget`` is a shared running count of every value materialized across
+    the *whole* call tree (unlike ``seen``, which is scoped per ancestor
+    path). ``seen`` alone only catches a literal cycle -- a value that is its
+    own ancestor -- not a DAG node reached via two different, non-ancestor
+    paths (e.g. two YAML aliases pointing at the same anchor). Such a shared
+    node gets walked in full at *every* occurrence, so a chain of ``n``
+    doubly-referenced anchors materializes ``O(2**n)`` nodes from an
+    ``O(n)``-sized source text ("billion laughs"). ``budget`` bounds that
+    blowup directly, independent of ``_MAX_DEPTH`` (which only bounds
+    nesting depth, not breadth/repetition) and independent of any single
+    caller's input format.
     """
+    if budget is None:
+        budget = [0]
+    budget[0] += 1
+    if budget[0] > _MAX_NODES:
+        raise DocumentError(
+            f"{path}: too many nodes materialized (over {_MAX_NODES}) -- "
+            "likely a YAML alias/anchor amplification (a shared node "
+            "reached via more than one reference is walked in full at "
+            "each occurrence)")
     if depth > _MAX_DEPTH:
         raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
     if isinstance(value, dict):
@@ -88,7 +121,7 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
             if not isinstance(k, str):
                 raise DocumentError(f"{path}: object key {k!r} is not a string")
             kp = _join(path, k)
-            for child in _children(v, kp, depth + 1, seen):
+            for child in _children(v, kp, depth + 1, seen, budget):
                 edges.append((k, child))
         return edges
     if isinstance(value, (list, tuple)):
@@ -100,15 +133,16 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
     raise DocumentError(f"{path}: {type(value).__name__} is not a Document value")
 
 
-def _children(v: Any, path: str, depth: int, seen: frozenset[int]) -> Iterator[Any]:
+def _children(v: Any, path: str, depth: int, seen: frozenset[int],
+              budget: List[int]) -> Iterator[Any]:
     if isinstance(v, (list, tuple)):
         for i, item in enumerate(v):
             if isinstance(item, (list, tuple)):
                 raise DocumentError(
                     f"{path}[{i}]: an array of arrays has no labeled-edge form")
-            yield build_node(item, f"{path}[{i}]", depth + 1, seen)
+            yield build_node(item, f"{path}[{i}]", depth + 1, seen, budget)
     else:
-        yield build_node(v, path, depth, seen)
+        yield build_node(v, path, depth, seen, budget)
 
 
 def _join(path: str, key: str) -> str:

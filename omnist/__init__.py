@@ -82,7 +82,7 @@ from .schema import (
 
 _rb()
 
-__version__ = "0.7.10"
+__version__ = "0.7.11"
 
 __all__ = [
     # errors
