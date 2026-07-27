@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.9"
+        assert ds.__version__ == "0.7.10"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1465,6 +1465,67 @@ class TestDocumentRobustness:
             s = f"<a>{s}</a>"
         with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
             read_xml(s)
+
+    def test_add_at_a_deep_cursor_raises_once_combined_depth_exceeds_limit(self):
+        # Issue #255: add()/set() used to call build_node with the default
+        # depth=0, ignoring how deep the cursor doing the add already was
+        # -- so a mutation could silently push the tree past _MAX_DEPTH
+        # (200) with no error. A cursor at depth 190 plus a 15-level-deep
+        # subtree is 190 + 1 (attach) + 15 = 206, over the limit.
+        def nest(levels):
+            v = 0
+            for _ in range(levels):
+                v = {"a": v}
+            return v
+
+        d = doc(nest(200))
+        cursor = d
+        for _ in range(190):
+            cursor = cursor.child("a")
+
+        with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
+            cursor.add("b", nest(15))
+
+    def test_set_at_a_deep_cursor_raises_once_combined_depth_exceeds_limit(self):
+        def nest(levels):
+            v = 0
+            for _ in range(levels):
+                v = {"a": v}
+            return v
+
+        d = doc(nest(200))
+        cursor = d
+        for _ in range(190):
+            cursor = cursor.child("a")
+
+        with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
+            cursor.set("b", nest(15))
+
+    def test_add_at_a_shallow_cursor_still_works(self):
+        # A modest subtree attached near the root must not be rejected --
+        # confirms the fix doesn't over-tighten the guard.
+        d = doc({"x": 1})
+        d.add("y", {"nested": {"deeper": 1}})
+        assert d.get_one("y").get_one("nested").get_one("deeper").value == 1
+
+    def test_add_exactly_at_the_depth_boundary_still_works(self):
+        # A cursor at depth 199 attaching a single-level leaf value lands
+        # exactly at depth 200 -- the documented boundary, must not raise.
+        # nest(200), not nest(199): 199 child() traversals must still land
+        # on an internal node (able to add()), not the terminal leaf.
+        def nest(levels):
+            v = 0
+            for _ in range(levels):
+                v = {"a": v}
+            return v
+
+        d = doc(nest(200))
+        cursor = d
+        for _ in range(199):
+            cursor = cursor.child("a")
+        assert not cursor.is_leaf
+        cursor.add("b", 1)  # depth 199 + 1 = 200, must not raise
+        assert cursor.get_one("b").value == 1
 
     def test_self_referential_dict_raises_cleanly(self):
         d = {}

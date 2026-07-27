@@ -6,6 +6,25 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.10] — Doc.add()/set() now enforce combined cursor+subtree depth
+
+- Fixed [#255](https://github.com/omnist-dev/omnist/issues/255):
+  `Doc.add()`/`Doc.set()` called `build_node` with the default `depth=0`,
+  ignoring how deep the cursor performing the mutation already was in
+  the tree — so a mutation at a deep cursor could silently produce a
+  document exceeding `_MAX_DEPTH` (200) with no `DocumentError`. `Doc`
+  now carries its own `depth` (incremented on every cursor returned by
+  `edges()`/`get()`/`get_one()`/`child()`), threaded into `build_node`
+  from `add()`/`set()` as `self.depth + 1`.
+  Reported by the omnist-ts port (issue omnist-ts#37/#70) and confirmed
+  independently in Python via cross-implementation checking against the
+  Rust port.
+- `Doc.__init__` gains a new `depth: int = 0` parameter — additive and
+  call-compatible with every existing call site, not a breaking change
+  under the [stability policy](docs/stability.md); the frozen signature
+  table in `tests/test_public_api.py` is updated to match.
+- Version bump to 0.7.10.
+
 ## [v0.7.9] — fixed non-deterministic prune() output ordering
 
 - Fixed [#253](https://github.com/omnist-dev/omnist/issues/253):
