@@ -122,11 +122,12 @@ def _join(path: str, key: str) -> str:
 class Doc:
     """A guarded handle on a Document node (a leaf value or an edge list)."""
 
-    __slots__ = ("_node", "path")
+    __slots__ = ("_node", "path", "depth")
 
-    def __init__(self, node: Any, path: str = "$") -> None:
+    def __init__(self, node: Any, path: str = "$", depth: int = 0) -> None:
         self._node = node
         self.path = path
+        self.depth = depth
 
     # -- construction ---------------------------------------------------
     @classmethod
@@ -183,7 +184,7 @@ class Doc:
             i = counts.get(label, 0)
             counts[label] = i + 1
             cp = f"{self.path}.{label}" if i == 0 else f"{self.path}.{label}[{i}]"
-            out.append((label, Doc(child, cp)))
+            out.append((label, Doc(child, cp, self.depth + 1)))
         return out
 
     def labels(self) -> List[str]:
@@ -221,7 +222,8 @@ class Doc:
         """Append an edge ``(label, value)``.  A repeated label is how an array
         grows.  Returns ``self`` for chaining."""
         self._require_internal("add")
-        self._node.append((label, build_node(value, f"{self.path}.{label}")))
+        self._node.append(
+            (label, build_node(value, f"{self.path}.{label}", self.depth + 1)))
         return self
 
     def remove(self, label: str) -> "Doc":
@@ -234,7 +236,7 @@ class Doc:
         """Replace all edges under ``label`` with a single new edge (positioned
         at the first old occurrence); ``set`` = ``remove`` + ``add``."""
         self._require_internal("set")
-        new = build_node(value, f"{self.path}.{label}")
+        new = build_node(value, f"{self.path}.{label}", self.depth + 1)
         first = None
         kept: List[Edge] = []
         for lbl, child in self._node:

@@ -37,7 +37,7 @@ def test_readme_at_a_glance():
                                           "server": "db1.internal.example.com",
                                           "port": 5432}],
                            "tags": ["prod", "us-east"]})).ok
-    assert ds.__version__ == "0.7.9"
+    assert ds.__version__ == "0.7.10"
 
 
 def test_quickstart():
@@ -688,7 +688,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.7.9"
+    assert ds.__version__ == "0.7.10"
 
 
 def test_docs_version_examples_match_live_version():
