@@ -61,7 +61,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.10"
+        assert ds.__version__ == "0.7.11"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1532,6 +1532,63 @@ class TestDocumentRobustness:
         d["self"] = d
         with pytest.raises(DocumentError, match="cycle detected"):
             doc(d)
+
+    def test_yaml_alias_amplification_raises_cleanly(self, monkeypatch):
+        # Issue #256: PyYAML resolves *alias references as shared object
+        # identity (a DAG), not clones -- so a chain of doubly-referenced
+        # anchors ("billion laughs") materializes O(2**n) nodes from an
+        # O(n)-sized source text. build_node's cycle guard (`seen`) only
+        # catches a literal cycle -- an object that is its own ancestor on
+        # the current path -- not a shared DAG node reached via two
+        # different, non-ancestor paths, so it doesn't help here.
+        # _MAX_DEPTH doesn't help either: this attack is O(n) deep with
+        # O(2**n) *breadth*, not deep nesting.
+        #
+        # Patches _MAX_NODES down so a tiny 10-generation chain exercises
+        # the same guard fast, instead of needing to actually materialize
+        # toward the real 1,000,000-node production ceiling.
+        import omnist.document as document_module
+        monkeypatch.setattr(document_module, "_MAX_NODES", 50)
+
+        text = "a0: &a0 {x: 1, y: 2}\n"
+        for i in range(1, 10):
+            text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
+
+        with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_yaml(text)
+
+    def test_yaml_alias_amplification_bails_fast_not_after_full_expansion(self, monkeypatch):
+        # The guard must reject *during* the walk, not after fully
+        # expanding the exponential structure and then checking -- confirms
+        # the fix also closes the DoS/timing angle, not just eventually
+        # raising after the fact. 25 generations is deep enough that a
+        # full O(2**25) walk would not complete in any reasonable time;
+        # under a 2-second budget it must still be caught.
+        import time
+
+        import omnist.document as document_module
+        monkeypatch.setattr(document_module, "_MAX_NODES", 1000)
+
+        text = "a0: &a0 {x: 1, y: 2}\n"
+        for i in range(1, 25):
+            text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
+
+        start = time.time()
+        with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_yaml(text)
+        assert time.time() - start < 2.0
+
+    def test_large_legitimate_document_is_not_rejected_by_node_budget(self):
+        # Non-regression: the exact "100k-edge document" shape docs/
+        # why-omnist.md's own performance benchmark measures (33k records
+        # of 3 fields each) must still build successfully -- it needs
+        # ~132,001 actual build_node calls once every scalar leaf and
+        # container is counted individually, comfortably under the real
+        # 1,000,000 production ceiling. Confirms the fix didn't
+        # over-tighten the guard against real, already-measured usage.
+        big = {"items": [{"a": i, "b": i, "c": i} for i in range(33000)]}
+        d = doc(big)
+        assert len(d.to_data()) == 33000
 
     def test_unsupported_python_type_raises(self):
         with pytest.raises(DocumentError, match="is not a Document value"):
