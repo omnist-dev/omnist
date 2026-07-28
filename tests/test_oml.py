@@ -413,6 +413,20 @@ def test_capitalized_nan_is_bare_ident_not_keyword():
     assert read_oml('a: "NaN"') == [("a", "NaN")]
 
 
+@pytest.mark.parametrize("spelling", ["INF", "Inf", "-INF", "-Inf"])
+def test_capitalized_inf_is_not_the_keyword(spelling):
+    # Issue #262, symmetric with the nan test above: only the exact
+    # lowercase spellings inf/-inf are the reserved NUMBER tokens; any
+    # other casing is not the keyword, so it's rejected as a bare word in
+    # value position (or a stray leading '-' for the negative spellings,
+    # since a capitalized "INF"/"Inf" doesn't match the reserved -inf
+    # token either) -- never silently accepted as +/-infinity.
+    with pytest.raises(ParseError):
+        read_oml(f"a: {spelling}")
+    quoted = read_oml(f'a: "{spelling}"')
+    assert quoted == [("a", spelling)]
+
+
 def test_label_cannot_start_with_digit():
     with pytest.raises(ParseError):
         read_oml("123: 1")

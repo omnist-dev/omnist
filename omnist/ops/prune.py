@@ -86,8 +86,15 @@ def prune(s: Schema) -> Schema:
 
     reachable = _reachable(s, sat, root_ok)
 
+    # Iterate s.env (a dict, insertion-order-stable regardless of hash
+    # seed) filtered to `reachable` (a set, whose own iteration order is
+    # PYTHONHASHSEED-dependent for str keys) -- not the other way round.
+    # Otherwise new_env's key order, and so prune()'s output env order,
+    # varies nondeterministically across process runs (issue #253).
     new_env: Dict[str, Record] = {}
-    for name in reachable:
+    for name in s.env:
+        if name not in reachable:
+            continue
         rec = s.env[name]
         if not root_ok and name == s.root.name:
             new_env[name] = rec           # keep the unsatisfiable root intact

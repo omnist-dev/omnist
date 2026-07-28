@@ -62,6 +62,22 @@ def test_oml_ex10_quoted_nan_is_a_valid_label():
     assert read_oml('"nan": 1') == [("nan", 1)]
 
 
+@pytest.mark.parametrize("spelling", ["inf", "-inf"])
+def test_oml_inf_is_a_number_token_never_a_label(spelling):
+    # Symmetric with ex9 above (issue #262): inf/-inf are reserved NUMBER
+    # spellings the same way nan is, so bare (unquoted) they can never be
+    # read as a label either.
+    with pytest.raises(ParseError):
+        read_oml(f"{spelling}: 1")
+
+
+@pytest.mark.parametrize("spelling", ["inf", "-inf"])
+def test_oml_quoted_inf_is_a_valid_label(spelling):
+    # Symmetric with ex10 above (issue #262): quoting forces the STRING
+    # token, which is a valid label for inf/-inf same as it is for nan.
+    assert read_oml(f'"{spelling}": 1') == [(spelling, 1)]
+
+
 def test_oml_ex11_top_level_null_colon_fails_as_trailing_content_not_reserved_word():
     with pytest.raises(ParseError, match="trailing content"):
         read_oml("null: 1")

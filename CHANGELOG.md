@@ -6,6 +6,127 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.14] — symmetric inf/-inf boundary tests
+
+- Closed [#262](https://github.com/omnist-dev/omnist/issues/262): `nan`
+  already had two boundary tests `inf`/`-inf` didn't — that a capitalized
+  spelling isn't the reserved keyword, and that the reserved spelling
+  quoted is a valid label. Added the symmetric coverage
+  (`test_capitalized_inf_is_not_the_keyword`,
+  `test_oml_inf_is_a_number_token_never_a_label`,
+  `test_oml_quoted_inf_is_a_valid_label`). Behavior was already correct
+  (`nan`/`inf`/`-inf` share one tokenizer priority slot); this is
+  test-coverage-only, no production code changed. Companion issues filed
+  on the TypeScript and Rust ports (omnist-ts#74, omnist-rs#75) for the
+  same gap remain open there.
+
+## [v0.7.13] — spec-conformance audit fixes
+
+Six issues found during a full verification pass of the `omnist-spec`
+specification against this repository's source and test suite.
+
+- Fixed [#263](https://github.com/omnist-dev/omnist/issues/263) (spec S-3):
+  the Python builder API (`schema()`/`Schema()`) silently accepted a record
+  named after a scalar keyword (e.g. `string`) or `any` — a record type
+  position can never resolve to it, since a bare name resolves to the
+  builtin scalar first. `osd.py`'s parser already rejected this; `Schema.check_refs`
+  now rejects it too, so both surfaces agree.
+- Fixed [#264](https://github.com/omnist-dev/omnist/issues/264) (spec S-7):
+  `nullable(ref(...))` raised a bare `AttributeError` instead of `SchemaError`.
+  `nullable()` now checks for `Ref` explicitly, same as its existing `AnyType`
+  check, and points the caller at cardinality `[0,1]` instead.
+- Closed [#265](https://github.com/omnist-dev/omnist/issues/265): added a
+  test locking in that `infer()` sets a repeated label's cardinality
+  `min=0` whenever *any* sample has more than one occurrence — never the
+  smallest count observed across samples (the behavior was already
+  correct; only the multi-sample case was untested).
+- Closed [#266](https://github.com/omnist-dev/omnist/issues/266): added a
+  test locking in that `normalize()`'s tie-break for a merged block is the
+  alphabetical minimum of the block, not declaration order (behavior was
+  already correct; every existing test happened to have the two orders
+  coincide).
+- Closed [#267](https://github.com/omnist-dev/omnist/issues/267): tightened
+  `extract()`'s determinism test to assert the exact expected message
+  instead of "one of three legitimate reasons," and removed a stale
+  comment claiming iteration-order nondeterminism that doesn't actually
+  exist (`env` is a dict with guaranteed insertion order); added a second
+  variant confirming the rule is declaration order, not alphabetical.
+- Closed [#268](https://github.com/omnist-dev/omnist/issues/268): added a
+  test locking in the documented YAML sharp edge where a bare, unquoted
+  `12:00:00` resolves to the integer `43200` (YAML 1.1 sexagesimal
+  resolution — PyYAML's behavior, not an omnist choice, with no read-side
+  workaround).
+
+## [v0.7.12] — closed read_xml's node-budget gap
+
+- Fixed [#260](https://github.com/omnist-dev/omnist/issues/260):
+  `read_xml` had no node-count ceiling at all, unlike the other three
+  readers after #256's fix. XML has no aliasing mechanism to create a
+  DAG the way YAML anchors do, and `defusedxml` already blocks DTDs
+  (closing the classic entity-expansion vector upstream) — so this
+  wasn't a known exploit, just a defense-in-depth gap where one reader
+  didn't share the same size ceiling as the rest. `_xml_to_node` now
+  threads the same `_MAX_NODES` budget counter through its recursion
+  that `build_node` uses, raising `DocumentError` once the ceiling is
+  exceeded.
+
+## [v0.7.11] — closed a YAML alias-amplification hole
+
+- Fixed [#256](https://github.com/omnist-dev/omnist/issues/256):
+  PyYAML resolves `*alias` references as shared object identity (a DAG),
+  not clones. `build_node`'s cycle guard only detected a literal cycle
+  (a value that is its own ancestor on the current path), not a shared
+  DAG node reached via two different, non-ancestor paths — so a chain of
+  doubly-referenced anchors ("billion laughs") got walked in full at
+  every occurrence, materializing `O(2**n)` nodes from an `O(n)`-sized
+  source text. `_MAX_DEPTH` didn't help either: the attack is shallow
+  and wide, not deep.
+  `build_node` now threads a shared running node-count budget through
+  its recursion (same pattern as the existing `seen` cycle-guard),
+  rejecting once `_MAX_NODES` (1,000,000) is exceeded — chosen with
+  ~7.5x headroom above the ~132,001 actual node-visits the project's own
+  "100k-edge document" performance benchmark
+  ([why-omnist.md](docs/why-omnist.md#performance)) requires, confirmed
+  by running that exact benchmark shape through the new guard uncapped
+  before picking the number.
+  Reported via cross-implementation checking against the Rust port
+  (omnist-rs#42).
+- Version bump to 0.7.11.
+
+## [v0.7.10] — Doc.add()/set() now enforce combined cursor+subtree depth
+
+- Fixed [#255](https://github.com/omnist-dev/omnist/issues/255):
+  `Doc.add()`/`Doc.set()` called `build_node` with the default `depth=0`,
+  ignoring how deep the cursor performing the mutation already was in
+  the tree — so a mutation at a deep cursor could silently produce a
+  document exceeding `_MAX_DEPTH` (200) with no `DocumentError`. `Doc`
+  now carries its own `depth` (incremented on every cursor returned by
+  `edges()`/`get()`/`get_one()`/`child()`), threaded into `build_node`
+  from `add()`/`set()` as `self.depth + 1`.
+  Reported by the omnist-ts port (issue omnist-ts#37/#70) and confirmed
+  independently in Python via cross-implementation checking against the
+  Rust port.
+- `Doc.__init__` gains a new `depth: int = 0` parameter — additive and
+  call-compatible with every existing call site, not a breaking change
+  under the [stability policy](docs/stability.md); the frozen signature
+  table in `tests/test_public_api.py` is updated to match.
+- Version bump to 0.7.10.
+
+## [v0.7.9] — fixed non-deterministic prune() output ordering
+
+- Fixed [#253](https://github.com/omnist-dev/omnist/issues/253):
+  `Schema.prune()`'s output environment ordering was non-deterministic
+  across process runs, since `PYTHONHASHSEED` randomizes `str` hash
+  values (and so `set` iteration order) by default. `prune()` built its
+  result by iterating a `set` of reachable record names rather than the
+  input schema's own (insertion-order-stable) `env` dict, so the same
+  input could come back with a different record order each run.
+  Reported by the omnist-ts port's cross-implementation differential
+  testing — thanks for the clean repro and suggested fix direction.
+  `prune()` now iterates `env` filtered to survivors, so the output
+  order always matches the input's declaration order.
+- Version bump to 0.7.9.
+
 ## [v0.7.8] — CI gate for doc-example coverage
 
 - Added `tools/check_doc_examples.py`, run as a new `doc-examples` job in
