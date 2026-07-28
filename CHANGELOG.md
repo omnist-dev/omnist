@@ -6,6 +6,20 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.14] — symmetric inf/-inf boundary tests
+
+- Closed [#262](https://github.com/omnist-dev/omnist/issues/262): `nan`
+  already had two boundary tests `inf`/`-inf` didn't — that a capitalized
+  spelling isn't the reserved keyword, and that the reserved spelling
+  quoted is a valid label. Added the symmetric coverage
+  (`test_capitalized_inf_is_not_the_keyword`,
+  `test_oml_inf_is_a_number_token_never_a_label`,
+  `test_oml_quoted_inf_is_a_valid_label`). Behavior was already correct
+  (`nan`/`inf`/`-inf` share one tokenizer priority slot); this is
+  test-coverage-only, no production code changed. Companion issues filed
+  on the TypeScript and Rust ports (omnist-ts#74, omnist-rs#75) for the
+  same gap remain open there.
+
 ## [v0.7.13] — spec-conformance audit fixes
 
 Six issues found during a full verification pass of the `omnist-spec`
