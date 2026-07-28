@@ -213,7 +213,7 @@ FROZEN_METHOD_SIGNATURES = {
         "__init__": "(self, message: str, report: 'WriteReport | None' = None) -> None",
     },
     "Doc": {
-        "__init__": "(self, node: 'Any', path: 'str' = '$') -> 'None'",
+        "__init__": "(self, node: 'Any', path: 'str' = '$', depth: 'int' = 0) -> 'None'",
         "add": "(self, label: 'str', value: 'Any') -> \"'Doc'\"",
         "check_format": "(self, name: 'str') -> \"'WriteReport'\"",
         "check_json": "(self) -> \"'WriteReport'\"",

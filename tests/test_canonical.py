@@ -28,6 +28,7 @@ from omnist import (
     get_format,
     infer,
     materialize,
+    nullable,
     parse_schema,
     read_json,
     read_toml,
@@ -61,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.8"
+        assert ds.__version__ == "0.7.14"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -198,6 +199,18 @@ class TestInfer:
         s = infer([doc({"id": 1, "tags": ["a", "b"], "addr": {"city": "X"}})])
         assert s.validate(doc({"id": 9, "tags": ["c"], "addr": {"city": "Y"}})).ok
         assert not s.validate(doc({"id": 9, "tags": [1], "addr": {"city": "Y"}})).ok
+
+    def test_repeated_label_min_is_zero_not_the_observed_minimum(self):
+        # Issue #265 (spec §6.10): a label seen more than once in ANY sample
+        # becomes [0,], min=0 -- never inferred from the smallest count
+        # seen across samples. Two samples with differing nonzero counts
+        # (3 then 1) must not produce min=1.
+        from omnist import infer
+        s = infer([doc({"tags": ["a", "b", "c"]}), doc({"tags": ["x"]})])
+        rec = s.env[s.root.name]
+        f = rec.field("tags")
+        assert f.min == 0
+        assert f.max is None
 
     def test_accepts_its_own_samples(self):
         from omnist import infer
@@ -539,14 +552,28 @@ class TestExtract:
             'root A')
         with pytest.raises(SchemaError) as exc:
             s.extract()
-        # some (label, record) pair along the mandatory chain A->B->C is
-        # named; step-1 deletions and step-3 propagation can both be the
-        # first offender found depending on env iteration order, so this
-        # only asserts the message is one of the three legitimate reasons
-        # rather than pinning an order-dependent exact choice.
-        msg = str(exc.value)
-        assert any(f"'{label}'" in msg and f"'{rec}'" in msg
-                   for label, rec in [("b", "A"), ("c", "B"), ("z", "C")])
+        # Issue #267 (spec §6.9): first_bad MUST be the first offender
+        # encountered during step 1's single pass over S.env in declaration
+        # order -- not whichever step-3 propagation discovers later. env is
+        # a dict (guaranteed insertion order since 3.7), and extract's
+        # step-1 loop iterates it in that same order every run, so this is
+        # fully deterministic: "b"/"A" every time, not "one of three".
+        assert str(exc.value) == (
+            "no valid subschema: removing label 'b' deletes a mandatory "
+            "field of record 'A'")
+
+    def test_first_offender_is_declaration_order_not_alphabetical(self):
+        # A second variant where the offending field sits deeper in
+        # declaration order, to confirm the rule really is "first
+        # encountered in S.env order" and not e.g. "first alphabetically"
+        # (Z would sort after A/B/C but is declared, and offends, first).
+        s = parse_schema(
+            'record Z { "w": W }\nrecord W { "v": integer }\nroot Z')
+        with pytest.raises(SchemaError) as exc:
+            s.extract()
+        assert str(exc.value) == (
+            "no valid subschema: removing label 'w' deletes a mandatory "
+            "field of record 'Z'")
 
     def test_deleted_ref_field_no_longer_in_result(self):
         s = parse_schema(
@@ -616,6 +643,20 @@ class TestNormalizePartitionRefinement:
         n = s.normalize()
         assert sorted(n.env) == ["A", "Root"]
         assert n.equivalent(s)
+
+    def test_tie_break_is_alphabetical_minimum_not_declaration_order(self):
+        # Issue #266 (spec §6.7 / divergence ledger §9.2): names MUST be
+        # sorted before grouping and the representative MUST be the
+        # alphabetical minimum of its block -- NOT the first-declared name.
+        # "Zeta" is declared before "Alpha" so the two orders diverge.
+        s = parse_schema(
+            'record Zeta { "x": integer }\nrecord Alpha { "x": integer }\n'
+            'record Root { "a": Zeta, "b": Alpha }\nroot Root')
+        n = s.normalize()
+        assert sorted(n.env) == ["Alpha", "Root"]
+        rec = n.env["Root"]
+        assert rec.field("a").type.name == "Alpha"
+        assert rec.field("b").type.name == "Alpha"
 
     def test_empty_schema_returns_pruned_schema_unchanged(self):
         # prune() deliberately keeps an unsatisfiable root's fields intact;
@@ -725,6 +766,34 @@ class TestEmptySchemas:
         assert once.env.keys() == twice.env.keys()
         for name in once.env:
             assert len(once.env[name].fields) == len(twice.env[name].fields)
+
+    def test_prune_env_order_matches_input_declaration_order(self):
+        # Issue #253: new_env used to be built by iterating a `set` of
+        # reachable names, so its key order depended on PYTHONHASHSEED and
+        # varied across process runs. The surviving records must come out
+        # in the *input* schema's declaration order instead -- a dict
+        # (env) preserves insertion order deterministically regardless of
+        # hash seed, unlike a set.
+        s = parse_schema(
+            'record A { "x": integer }\n'
+            'record B { "y": integer }\n'
+            'record C { "z": integer }\n'
+            'record R { "a": A, "b": B, "c": C }\n'
+            'root R'
+        )
+        assert list(s.env.keys()) == ["A", "B", "C", "R"]
+        assert list(s.prune().env.keys()) == ["A", "B", "C", "R"]
+
+        # Unreachable record dropped -- survivors still follow declaration
+        # order, not the order the reachability walk happened to visit them.
+        s2 = parse_schema(
+            'record A { "x": integer }\n'
+            'record Unused { "y": integer }\n'
+            'record B { "z": integer }\n'
+            'record R { "a": A, "b": B }\n'
+            'root R'
+        )
+        assert list(s2.prune().env.keys()) == ["A", "B", "R"]
 
     def test_prune_free_function_matches_method(self):
         s = parse_schema('record R { "dead" [0,0]: integer }\nroot R')
@@ -1260,6 +1329,18 @@ class TestReports:
         assert [a.code for a in rep] == ["temporal.stringified"]
         assert "09:30:00" in write_yaml(node)
 
+    def test_yaml_bare_time_is_a_sexagesimal_int_trap(self):
+        # Issue #268 (docs/formats/yaml.md, "sharp edge"): a bare, unquoted
+        # 12:00:00 resolves to the INTEGER 43200 (12*3600 + 0*60 + 0) --
+        # YAML 1.1's core-schema sexagesimal number resolution, not an
+        # omnist choice, and by the time the value reaches omnist it's
+        # already an int. This is a real, documented, user-facing surprise
+        # (a config value that looks like a time silently becoming an
+        # unrelated integer) with no read-side workaround.
+        node = read_yaml("start: 12:00:00")
+        assert node == [("start", 43200)]
+        assert isinstance(dict(node)["start"], int)
+
     def test_yaml_nel_value_round_trips_and_is_reported(self):
         # U+0085 (NEL) is normalized to a space by YAML's default scalar
         # styles; omnist forces double-quoted style for it so it round-trips.
@@ -1438,11 +1519,160 @@ class TestDocumentRobustness:
         with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
             read_xml(s)
 
+    def test_xml_exceeding_the_node_budget_raises_cleanly(self, monkeypatch):
+        # Issue #260: read_xml used to have no node-count ceiling at all
+        # (only the depth guard above), unlike the other three readers
+        # after #259's fix for the YAML alias-amplification hole. XML has
+        # no aliasing mechanism to create a DAG the way YAML anchors do
+        # (and defusedxml blocks DTDs, closing the classic entity-expansion
+        # vector upstream), so this isn't about a known exploit -- it's
+        # closing the one reader that didn't share the same size ceiling
+        # as the rest.
+        #
+        # sys.modules, not `import omnist.formats as x`: the omnist package
+        # re-exports a *function* also named `formats` (the format-registry
+        # listing, from .registry), which shadows the submodule as a plain
+        # attribute of the omnist package once omnist/__init__.py has run --
+        # sys.modules['omnist.formats'] reliably gets the real module.
+        import sys
+        formats_module = sys.modules["omnist.formats"]
+        monkeypatch.setattr(formats_module, "_MAX_NODES", 3)
+
+        with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_xml("<a><b><c>1</c><d>2</d></b><e>3</e></a>")
+
+    def test_xml_under_the_node_budget_still_parses(self, monkeypatch):
+        import sys
+        formats_module = sys.modules["omnist.formats"]
+        monkeypatch.setattr(formats_module, "_MAX_NODES", 3)
+
+        # Exactly 3 elements (a, b, c) -- at the boundary, must not raise.
+        assert read_xml("<a><b><c>1</c></b></a>") == [
+            ("a", [("b", [("c", 1)])])]
+
+    def test_add_at_a_deep_cursor_raises_once_combined_depth_exceeds_limit(self):
+        # Issue #255: add()/set() used to call build_node with the default
+        # depth=0, ignoring how deep the cursor doing the add already was
+        # -- so a mutation could silently push the tree past _MAX_DEPTH
+        # (200) with no error. A cursor at depth 190 plus a 15-level-deep
+        # subtree is 190 + 1 (attach) + 15 = 206, over the limit.
+        def nest(levels):
+            v = 0
+            for _ in range(levels):
+                v = {"a": v}
+            return v
+
+        d = doc(nest(200))
+        cursor = d
+        for _ in range(190):
+            cursor = cursor.child("a")
+
+        with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
+            cursor.add("b", nest(15))
+
+    def test_set_at_a_deep_cursor_raises_once_combined_depth_exceeds_limit(self):
+        def nest(levels):
+            v = 0
+            for _ in range(levels):
+                v = {"a": v}
+            return v
+
+        d = doc(nest(200))
+        cursor = d
+        for _ in range(190):
+            cursor = cursor.child("a")
+
+        with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
+            cursor.set("b", nest(15))
+
+    def test_add_at_a_shallow_cursor_still_works(self):
+        # A modest subtree attached near the root must not be rejected --
+        # confirms the fix doesn't over-tighten the guard.
+        d = doc({"x": 1})
+        d.add("y", {"nested": {"deeper": 1}})
+        assert d.get_one("y").get_one("nested").get_one("deeper").value == 1
+
+    def test_add_exactly_at_the_depth_boundary_still_works(self):
+        # A cursor at depth 199 attaching a single-level leaf value lands
+        # exactly at depth 200 -- the documented boundary, must not raise.
+        # nest(200), not nest(199): 199 child() traversals must still land
+        # on an internal node (able to add()), not the terminal leaf.
+        def nest(levels):
+            v = 0
+            for _ in range(levels):
+                v = {"a": v}
+            return v
+
+        d = doc(nest(200))
+        cursor = d
+        for _ in range(199):
+            cursor = cursor.child("a")
+        assert not cursor.is_leaf
+        cursor.add("b", 1)  # depth 199 + 1 = 200, must not raise
+        assert cursor.get_one("b").value == 1
+
     def test_self_referential_dict_raises_cleanly(self):
         d = {}
         d["self"] = d
         with pytest.raises(DocumentError, match="cycle detected"):
             doc(d)
+
+    def test_yaml_alias_amplification_raises_cleanly(self, monkeypatch):
+        # Issue #256: PyYAML resolves *alias references as shared object
+        # identity (a DAG), not clones -- so a chain of doubly-referenced
+        # anchors ("billion laughs") materializes O(2**n) nodes from an
+        # O(n)-sized source text. build_node's cycle guard (`seen`) only
+        # catches a literal cycle -- an object that is its own ancestor on
+        # the current path -- not a shared DAG node reached via two
+        # different, non-ancestor paths, so it doesn't help here.
+        # _MAX_DEPTH doesn't help either: this attack is O(n) deep with
+        # O(2**n) *breadth*, not deep nesting.
+        #
+        # Patches _MAX_NODES down so a tiny 10-generation chain exercises
+        # the same guard fast, instead of needing to actually materialize
+        # toward the real 1,000,000-node production ceiling.
+        import omnist.document as document_module
+        monkeypatch.setattr(document_module, "_MAX_NODES", 50)
+
+        text = "a0: &a0 {x: 1, y: 2}\n"
+        for i in range(1, 10):
+            text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
+
+        with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_yaml(text)
+
+    def test_yaml_alias_amplification_bails_fast_not_after_full_expansion(self, monkeypatch):
+        # The guard must reject *during* the walk, not after fully
+        # expanding the exponential structure and then checking -- confirms
+        # the fix also closes the DoS/timing angle, not just eventually
+        # raising after the fact. 25 generations is deep enough that a
+        # full O(2**25) walk would not complete in any reasonable time;
+        # under a 2-second budget it must still be caught.
+        import time
+
+        import omnist.document as document_module
+        monkeypatch.setattr(document_module, "_MAX_NODES", 1000)
+
+        text = "a0: &a0 {x: 1, y: 2}\n"
+        for i in range(1, 25):
+            text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
+
+        start = time.time()
+        with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_yaml(text)
+        assert time.time() - start < 2.0
+
+    def test_large_legitimate_document_is_not_rejected_by_node_budget(self):
+        # Non-regression: the exact "100k-edge document" shape docs/
+        # why-omnist.md's own performance benchmark measures (33k records
+        # of 3 fields each) must still build successfully -- it needs
+        # ~132,001 actual build_node calls once every scalar leaf and
+        # container is counted individually, comfortably under the real
+        # 1,000,000 production ceiling. Confirms the fix didn't
+        # over-tighten the guard against real, already-measured usage.
+        big = {"items": [{"a": i, "b": i, "c": i} for i in range(33000)]}
+        d = doc(big)
+        assert len(d.to_data()) == 33000
 
     def test_unsupported_python_type_raises(self):
         with pytest.raises(DocumentError, match="is not a Document value"):
@@ -1593,6 +1823,24 @@ class TestSchemaConstructionErrors:
         # crash with AttributeError instead of raising SchemaError
         with pytest.raises(SchemaError, match="must be a Record"):
             schema(ref("R"), R=t.string)
+
+    def test_record_name_shadowing_a_scalar_keyword_is_rejected(self):
+        # Issue #263 (spec S-3): type position resolves a bare name to a
+        # builtin scalar first, so a record literally named "string" could
+        # never be referenced -- osd.py's parser already rejects this; the
+        # Python builder API used to accept it silently.
+        with pytest.raises(SchemaError, match="shadows a scalar keyword"):
+            schema(ref("string"), string=record(field("a", t.string)))
+
+    def test_record_name_shadowing_any_is_rejected(self):
+        with pytest.raises(SchemaError, match="shadows a scalar keyword"):
+            schema(ref("any"), any=record(field("a", t.string)))
+
+    def test_nullable_ref_raises_schema_error(self):
+        # Issue #264 (spec S-7): nullable() used to assume its argument was
+        # always a Scalar and crashed with a bare AttributeError on a Ref.
+        with pytest.raises(SchemaError, match="cannot be applied to a Ref"):
+            nullable(ref("R"))
 
 
 # ----------------------------------------------------------------- dunders

@@ -129,6 +129,10 @@ def nullable(scalar: Scalar) -> Scalar:
     """A copy of ``scalar`` that also accepts ``null`` (the ``?`` form)."""
     if isinstance(scalar, AnyType):
         raise SchemaError("any already includes null; 'any?' is redundant")
+    if isinstance(scalar, Ref):
+        raise SchemaError(
+            "nullable() cannot be applied to a Ref; use cardinality [0,1] "
+            "for an optional record")
     return scalar if scalar.nullable else Scalar(scalar.name, True)
 
 
@@ -273,6 +277,11 @@ class Schema:
             if not isinstance(rec, Record):
                 raise SchemaError(
                     f"environment entry {name!r} must be a Record, got {rec!r}")
+            if name in SCALAR_NAMES or name == "any":
+                raise SchemaError(
+                    f"record name {name!r} shadows a scalar keyword; type "
+                    "position resolves a bare name to a builtin first, so "
+                    "this record could never be referenced")
 
         def walk(t: Type) -> None:
             if isinstance(t, Ref) and t.name not in self.env:
