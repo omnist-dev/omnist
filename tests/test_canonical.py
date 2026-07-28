@@ -28,6 +28,7 @@ from omnist import (
     get_format,
     infer,
     materialize,
+    nullable,
     parse_schema,
     read_json,
     read_toml,
@@ -61,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.12"
+        assert ds.__version__ == "0.7.13"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -198,6 +199,18 @@ class TestInfer:
         s = infer([doc({"id": 1, "tags": ["a", "b"], "addr": {"city": "X"}})])
         assert s.validate(doc({"id": 9, "tags": ["c"], "addr": {"city": "Y"}})).ok
         assert not s.validate(doc({"id": 9, "tags": [1], "addr": {"city": "Y"}})).ok
+
+    def test_repeated_label_min_is_zero_not_the_observed_minimum(self):
+        # Issue #265 (spec §6.10): a label seen more than once in ANY sample
+        # becomes [0,], min=0 -- never inferred from the smallest count
+        # seen across samples. Two samples with differing nonzero counts
+        # (3 then 1) must not produce min=1.
+        from omnist import infer
+        s = infer([doc({"tags": ["a", "b", "c"]}), doc({"tags": ["x"]})])
+        rec = s.env[s.root.name]
+        f = rec.field("tags")
+        assert f.min == 0
+        assert f.max is None
 
     def test_accepts_its_own_samples(self):
         from omnist import infer
@@ -539,14 +552,28 @@ class TestExtract:
             'root A')
         with pytest.raises(SchemaError) as exc:
             s.extract()
-        # some (label, record) pair along the mandatory chain A->B->C is
-        # named; step-1 deletions and step-3 propagation can both be the
-        # first offender found depending on env iteration order, so this
-        # only asserts the message is one of the three legitimate reasons
-        # rather than pinning an order-dependent exact choice.
-        msg = str(exc.value)
-        assert any(f"'{label}'" in msg and f"'{rec}'" in msg
-                   for label, rec in [("b", "A"), ("c", "B"), ("z", "C")])
+        # Issue #267 (spec §6.9): first_bad MUST be the first offender
+        # encountered during step 1's single pass over S.env in declaration
+        # order -- not whichever step-3 propagation discovers later. env is
+        # a dict (guaranteed insertion order since 3.7), and extract's
+        # step-1 loop iterates it in that same order every run, so this is
+        # fully deterministic: "b"/"A" every time, not "one of three".
+        assert str(exc.value) == (
+            "no valid subschema: removing label 'b' deletes a mandatory "
+            "field of record 'A'")
+
+    def test_first_offender_is_declaration_order_not_alphabetical(self):
+        # A second variant where the offending field sits deeper in
+        # declaration order, to confirm the rule really is "first
+        # encountered in S.env order" and not e.g. "first alphabetically"
+        # (Z would sort after A/B/C but is declared, and offends, first).
+        s = parse_schema(
+            'record Z { "w": W }\nrecord W { "v": integer }\nroot Z')
+        with pytest.raises(SchemaError) as exc:
+            s.extract()
+        assert str(exc.value) == (
+            "no valid subschema: removing label 'w' deletes a mandatory "
+            "field of record 'Z'")
 
     def test_deleted_ref_field_no_longer_in_result(self):
         s = parse_schema(
@@ -616,6 +643,20 @@ class TestNormalizePartitionRefinement:
         n = s.normalize()
         assert sorted(n.env) == ["A", "Root"]
         assert n.equivalent(s)
+
+    def test_tie_break_is_alphabetical_minimum_not_declaration_order(self):
+        # Issue #266 (spec §6.7 / divergence ledger §9.2): names MUST be
+        # sorted before grouping and the representative MUST be the
+        # alphabetical minimum of its block -- NOT the first-declared name.
+        # "Zeta" is declared before "Alpha" so the two orders diverge.
+        s = parse_schema(
+            'record Zeta { "x": integer }\nrecord Alpha { "x": integer }\n'
+            'record Root { "a": Zeta, "b": Alpha }\nroot Root')
+        n = s.normalize()
+        assert sorted(n.env) == ["Alpha", "Root"]
+        rec = n.env["Root"]
+        assert rec.field("a").type.name == "Alpha"
+        assert rec.field("b").type.name == "Alpha"
 
     def test_empty_schema_returns_pruned_schema_unchanged(self):
         # prune() deliberately keeps an unsatisfiable root's fields intact;
@@ -1288,6 +1329,18 @@ class TestReports:
         assert [a.code for a in rep] == ["temporal.stringified"]
         assert "09:30:00" in write_yaml(node)
 
+    def test_yaml_bare_time_is_a_sexagesimal_int_trap(self):
+        # Issue #268 (docs/formats/yaml.md, "sharp edge"): a bare, unquoted
+        # 12:00:00 resolves to the INTEGER 43200 (12*3600 + 0*60 + 0) --
+        # YAML 1.1's core-schema sexagesimal number resolution, not an
+        # omnist choice, and by the time the value reaches omnist it's
+        # already an int. This is a real, documented, user-facing surprise
+        # (a config value that looks like a time silently becoming an
+        # unrelated integer) with no read-side workaround.
+        node = read_yaml("start: 12:00:00")
+        assert node == [("start", 43200)]
+        assert isinstance(dict(node)["start"], int)
+
     def test_yaml_nel_value_round_trips_and_is_reported(self):
         # U+0085 (NEL) is normalized to a space by YAML's default scalar
         # styles; omnist forces double-quoted style for it so it round-trips.
@@ -1770,6 +1823,24 @@ class TestSchemaConstructionErrors:
         # crash with AttributeError instead of raising SchemaError
         with pytest.raises(SchemaError, match="must be a Record"):
             schema(ref("R"), R=t.string)
+
+    def test_record_name_shadowing_a_scalar_keyword_is_rejected(self):
+        # Issue #263 (spec S-3): type position resolves a bare name to a
+        # builtin scalar first, so a record literally named "string" could
+        # never be referenced -- osd.py's parser already rejects this; the
+        # Python builder API used to accept it silently.
+        with pytest.raises(SchemaError, match="shadows a scalar keyword"):
+            schema(ref("string"), string=record(field("a", t.string)))
+
+    def test_record_name_shadowing_any_is_rejected(self):
+        with pytest.raises(SchemaError, match="shadows a scalar keyword"):
+            schema(ref("any"), any=record(field("a", t.string)))
+
+    def test_nullable_ref_raises_schema_error(self):
+        # Issue #264 (spec S-7): nullable() used to assume its argument was
+        # always a Scalar and crashed with a bare AttributeError on a Ref.
+        with pytest.raises(SchemaError, match="cannot be applied to a Ref"):
+            nullable(ref("R"))
 
 
 # ----------------------------------------------------------------- dunders
