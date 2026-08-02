@@ -156,7 +156,9 @@ class TestConvert:
         assert code == 0
         assert out == '{"a": 1}\n'
 
-    def test_oml_to_oml_is_rejected(self, tmp_path, capsys):
+    def test_oml_to_oml_with_no_schema_is_rejected(self, tmp_path, capsys):
+        # Issue #277: this is the pure no-op case -- `format` is the
+        # dedicated command for it -- and stays refused.
         p = tmp_path / "in.oml"
         p.write_text('a: 1\n')
         code, out, err = run(
@@ -164,6 +166,19 @@ class TestConvert:
         assert code == 2
         assert out == ""
         assert "use `omnist format` instead" in err
+
+    def test_oml_to_oml_with_schema_materializes(self, tmp_path, capsys):
+        # Issue #277: with a schema this is a real operation --
+        # schema-directed materialization -- not a no-op, so it's allowed.
+        p = tmp_path / "in.oml"
+        p.write_text('d: "2024-01-01"\n')  # a quoted string, not a date literal
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text('record R { "d": date }\nroot R\n')
+        code, out, err = run(
+            ["convert", str(p), "--from", "oml", "--to", "oml", "--schema", str(schema_f)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out == "d: 2024-01-01\n"   # upgraded to a real date literal
 
     def test_schema_directed_upgrade(self, tmp_path, capsys):
         p = tmp_path / "in.json"

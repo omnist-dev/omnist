@@ -144,7 +144,10 @@ def _write_to_format(
 
 
 def _cmd_convert(args: argparse.Namespace) -> int:
-    if args.from_ == "oml" and args.to == "oml":
+    if args.from_ == "oml" and args.to == "oml" and not args.schema:
+        # With no schema this is a pure no-op (`format` is the dedicated
+        # command for that). With a schema it's a real operation --
+        # schema-directed materialization -- so only refuse the no-op case.
         return _fail(
             args,
             "--from oml --to oml is not supported here; use `omnist format` instead",
