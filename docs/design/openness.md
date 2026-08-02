@@ -419,11 +419,15 @@ otherwise. What keeps it acceptable:
 
 ## 10. Guardrails (adopted as requirements, not suggestions)
 
-If and when `any` is implemented, these ship with it:
+These shipped with `any` in v0.5.0:
 
-1. **Never inferred.** `infer` proposes only closed schemas — the analog
-   of `noImplicitAny`: the tool never introduces the hole; a human must
-   write it.
+1. **Never inferred by default.** `infer` proposes only closed schemas by
+   default — the analog of `noImplicitAny`: the tool never introduces the
+   hole on its own; a human must write it. The one documented exception
+   is the explicit `infer --allow-any` opt-in, which falls back to `any`
+   only at a genuine conflict point and loudly reports every field it
+   opens (`docs/schema.md`, `any-type-spec.md` §1/§3) — the deliberate act
+   moves to the invocation, it is never a silent default.
 2. **Grammar discipline.** Lowercase `any` keyword alongside the seven
    scalar keywords; `any?` rejected as redundant; `root` grammar
    unchanged.
@@ -446,12 +450,11 @@ If and when `any` is implemented, these ship with it:
   documented position with a stated dividing line (§4), not a recurring
   debate. Future proposals that open the **label alphabet** — maps, open
   records, wildcard keys — are answered by §3 of this document.
-- **`any`: recommended for adoption; not yet scheduled.** The study (§7–§8)
-  finds every operation extends with small local rules and the algebra
-  remains sound and decidable end to end. Implementation is a separate
-  go/no-go: it requires an issue with the full plan (grammar + parser,
-  `_sub` clauses, signature/minimize kind, oracle witness strategy, docs
-  including the model.md §1 revision, full test/fuzz coverage to the
-  project's usual bar), a minor version bump (new capability), and the
-  guardrails of §10. Until that lands, the shipped model remains exactly
-  as model.md describes it.
+- **`any`: shipped in v0.5.0** (maintainer go, 2026-07-07). The study
+  (§7–§8) found every operation extends with small local rules and the
+  algebra remains sound and decidable end to end; implementation followed
+  through the full plan (grammar + parser, `_sub` clauses,
+  signature/minimize kind, oracle witness strategy, docs including the
+  model.md §1 revision, full test/fuzz coverage to the project's usual
+  bar) and the guardrails of §10. model.md §1 now describes the shipped
+  model, `any` included.
