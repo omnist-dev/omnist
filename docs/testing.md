@@ -318,6 +318,14 @@ the workflow) — the 100% target above is a contributor discipline backed by
 the periodic coverage sweeps described in [Coverage](#coverage), checked
 manually rather than gated in the pipeline.
 
+**`conformance` job** (issue #283): runs `omnist`'s own OML/OSD conformance
+test runner (`tools/conformance/`) against
+[`omnist-spec`](https://github.com/omnist-dev/omnist-spec)'s fixtures,
+checked out via a pinned git submodule (`vendor/omnist-spec` —
+`actions/checkout`'s `submodules: true`). Catches a regression against the
+spec on every push/PR; see `tools/conformance/README.md` for the submodule
+layout, the pin-bump procedure, and how to run it locally.
+
 ## Doc-example coverage
 
 A code block showing literal output must be verified against that exact

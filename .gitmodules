@@ -1,0 +1,3 @@
+[submodule "vendor/omnist-spec"]
+	path = vendor/omnist-spec
+	url = git@github.com:omnist-dev/omnist-spec.git

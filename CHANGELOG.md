@@ -6,6 +6,44 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.18] — own OML/OSD conformance runner, wired into CI
+
+- Closed [#283](https://github.com/omnist-dev/omnist/issues/283): moved
+  `omnist-spec`'s conformance-test orchestrator (`referee.py`,
+  `cli_runner.py`, `runner.py`, `self_test.py`) into this repo as
+  `tools/conformance/` — that code was Python-`omnist`-specific despite
+  living in the implementation-agnostic `omnist-spec` repo, importing
+  `omnist` directly and shelling out to its CLI. No change to the
+  comparison logic itself (`Doc.__eq__` for documents, `Schema.__eq__`/
+  `Schema.isomorphic_to()` for exact/isomorphic schema comparison) — a
+  relocation plus CI wiring, exactly as scoped.
+  - Fixtures come from `omnist-spec`'s `conformance/fixtures/` via a git
+    submodule (`vendor/omnist-spec`) pinned to a tag, not tracking
+    `omnist-spec@master` — deliberate, so fixture updates are explicit,
+    reviewable bumps. `omnist-spec` had no tag covering its current
+    conformance-harness state (its only tag, `v0.0.1-alpha`, predates all
+    of it), so tagged `omnist-spec@v0.1.0-alpha` at the current state to
+    pin against.
+  - New `conformance` job in `.github/workflows/test.yml`, checking out
+    the submodule and running both `self_test` (the referee's own
+    correctness, Sec6) and `runner` (all 11 wired operations against the
+    real fixtures) on every push/PR — closing the actual gap the issue
+    was about: nothing in this repo's CI previously caught a regression
+    against the spec at all.
+  - `tools/conformance/`'s own logic is unit-tested
+    (`tests/test_conformance_tools.py`, 100% coverage) against synthetic
+    fixtures and monkeypatched CLI calls, independent of the submodule
+    being checked out — the `conformance` CI job against the real
+    fixtures is the actual conformance gate, complementary not redundant.
+  - Added `[tool.pytest.ini_options] testpaths = ["tests"]` and
+    `[tool.ruff] extend-exclude = ["vendor"]` — without these, pytest's
+    default discovery collects the submodule's own `self_test.py`
+    (matches pytest's `*_test.py` pattern) and tries to import a module
+    not on this repo's `sys.path`, and `ruff check .` lints the vendored
+    sibling repo's code as if it were ours.
+  - `omnist-spec#27` tracks removing the now-redundant orchestrator from
+    `omnist-spec` on their side.
+
 ## [v0.7.17] — `Schema.isomorphic_to()`; `infer --allow-any --json`
 
 - Closed [#279](https://github.com/omnist-dev/omnist/issues/279): added

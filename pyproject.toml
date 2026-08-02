@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omnist"
-version = "0.7.17"
+version = "0.7.18"
 description = "One data model, many formats: read, validate, and write JSON, YAML, TOML, XML, and OML."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,14 @@ Repository = "https://github.com/omnist-dev/omnist"
 Issues = "https://github.com/omnist-dev/omnist/issues"
 Changelog = "https://github.com/omnist-dev/omnist/blob/master/CHANGELOG.md"
 
+[tool.pytest.ini_options]
+# Restrict discovery to tests/ -- without this, pytest's default
+# recursive discovery walks into vendor/omnist-spec (issue #283's
+# submodule) and matches its self_test.py against pytest's own
+# *_test.py collection pattern, trying to import a module that isn't on
+# this repo's sys.path at all.
+testpaths = ["tests"]
+
 [tool.setuptools]
 packages = ["omnist", "omnist.ops"]
 
@@ -59,6 +67,9 @@ omnist = ["py.typed"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+# vendor/omnist-spec (issue #283's submodule) is a sibling repo's code,
+# vendored for its fixtures -- not ours to lint or reformat.
+extend-exclude = ["vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
