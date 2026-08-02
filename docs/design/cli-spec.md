@@ -171,7 +171,10 @@ output (issues #218, #220). `--allow-any` opts in
 to opening the two `infer` conflict points
 (object/scalar mix, multi-kind scalar) as `any` fields instead of erroring;
 the schema still goes to stdout, and a per-field report of what was opened
-and why goes to stderr (nothing printed when zero fields open).
+and why goes to stderr (nothing printed when zero fields open). Like every
+other diagnostic-producing command, `--json` switches that report to
+structured JSON (`{"opened": [{"location", "reason"}, ...]}`, matching
+`AnyFallback`) instead of the text form.
 
 ```sh
 omnist infer samples/*.json --from json -o inferred.osd

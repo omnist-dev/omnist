@@ -305,6 +305,16 @@ opened 2 field(s) as `any`:
 Nothing is printed to stderr when no field is opened. Without `--allow-any`,
 a conflicting sample errors exactly as before.
 
+Like every other diagnostic-producing command, `--json` switches this
+report to structured JSON on stderr instead of the text form above —
+schema output on stdout is unaffected either way:
+
+```sh
+$ omnist infer messy1.json messy2.json --from json --allow-any --json > draft.osd
+{"opened": [{"location": "Root.data", "reason": "mixes objects and values"}, {"location": "Root.score", "reason": "values of more than one scalar kind (integer, string)"}]}
+```
+<!-- doc-illustrative -->
+
 ```sh
 $ omnist infer examples/cli/sample1.json examples/cli/sample2.json --from json
 record Root {

@@ -260,9 +260,14 @@ def _cmd_infer(args: argparse.Namespace) -> int:
     if args.allow_any:
         s, fallbacks = infer_with_report(docs, allow_any=True)
         if fallbacks:
-            print(f"opened {len(fallbacks)} field(s) as `any`:", file=sys.stderr)
-            for fb in fallbacks:
-                print(f"  {fb.location} — {fb.reason}", file=sys.stderr)
+            if getattr(args, "json", False):
+                payload = {"opened": [{"location": fb.location, "reason": fb.reason}
+                                      for fb in fallbacks]}
+                print(_json.dumps(payload), file=sys.stderr)
+            else:
+                print(f"opened {len(fallbacks)} field(s) as `any`:", file=sys.stderr)
+                for fb in fallbacks:
+                    print(f"  {fb.location} — {fb.reason}", file=sys.stderr)
     else:
         s = infer(docs)
     _write_output(args.output, to_osd(s, indent=None if args.compact else 4))
