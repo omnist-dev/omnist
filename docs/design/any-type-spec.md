@@ -23,8 +23,11 @@ of §3, proven sound in §4, tested per §5, and delivered per the plan in §8.
 **Non-goals, explicitly:** no `Map` (refused, final); no unions, enums, or
 multi-shape nullability (settled during original design); no change of any
 kind to the Document model (§2.1 makes this an invariant, not an
-observation); no change to `root` grammar; no change to OML; no inference
-of `any` ever (§3, row I-19).
+observation); no change to `root` grammar; no change to OML; no *default*
+inference of `any` (§3, row I-19) — the one documented exception is the
+explicit `--allow-any` opt-in (§3/§4.1), which falls back to `any` only at
+a genuine conflict point and reports each one; it never chooses `any` over
+a more specific candidate.
 
 ## 2. Model, grammar, and semantics
 
