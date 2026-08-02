@@ -188,6 +188,11 @@ class Field:
         hi = "" if self.max is None else self.max
         return f"Field({self.label!r}[{self.min},{hi}]: {self.type!r})"
 
+    def __eq__(self, other: Any) -> bool:
+        return (isinstance(other, Field) and self.label == other.label
+                and self.type == other.type and self.min == other.min
+                and self.max == other.max)
+
 
 class Record:
     """A closed set of named fields (constrained by its child labels)."""
@@ -209,6 +214,14 @@ class Record:
 
     def __repr__(self) -> str:
         return "record{" + ", ".join(repr(f) for f in self.fields) + "}"
+
+    def __eq__(self, other: Any) -> bool:
+        # Fields form an unordered set at the model layer (declaration
+        # order isn't semantically significant) -- comparing the
+        # label-keyed dicts is order-independent for free (dict equality
+        # ignores insertion order), and duplicate labels are already
+        # rejected by __init__, so this dict is exactly the field set.
+        return isinstance(other, Record) and self._by_label == other._by_label
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +413,14 @@ class Schema:
 
     def __repr__(self) -> str:
         return f"Schema(root={self.root!r}, env={list(self.env)})"
+
+    def __eq__(self, other: Any) -> bool:
+        # env is a plain dict; dict equality is already order-independent
+        # (compares keys and values, ignores insertion order), and
+        # declaration order is preserved only for OSD-text readability,
+        # not semantically significant -- see Record.__eq__ above.
+        return (isinstance(other, Schema) and self.root == other.root
+                and self.env == other.env)
 
 
 # ---------------------------------------------------------------------------

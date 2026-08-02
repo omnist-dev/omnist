@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.14"
+        assert ds.__version__ == "0.7.15"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1864,6 +1864,54 @@ class TestSchemaModelDunders:
         assert Ref("R") != Ref("S")
         assert Ref("R") != "R"
         assert hash(Ref("R")) == hash(Ref("R"))
+
+    def test_field_eq(self):
+        # Issue #273 / omnist-spec conformance-harness.md §5
+        assert Field("a", t.string, 1, 1) == Field("a", t.string, 1, 1)
+        assert Field("a", t.string, 1, 1) != Field("b", t.string, 1, 1)
+        assert Field("a", t.string, 1, 1) != Field("a", t.integer, 1, 1)
+        assert Field("a", t.string, 0, 1) != Field("a", t.string, 1, 1)
+        assert Field("a", t.string, 1, 1) != Field("a", t.string, 1, 2)
+        assert Field("a", nullable(t.string), 1, 1) != Field("a", t.string, 1, 1)
+        assert Field("a", t.string, 1, 1) != "not a field"
+
+    def test_record_eq_is_order_independent(self):
+        # Fields form an unordered set at the model layer -- declaration
+        # order must not affect equality.
+        a = Record([Field("a", t.string), Field("b", t.integer)])
+        b = Record([Field("b", t.integer), Field("a", t.string)])
+        assert a == b
+
+    def test_record_eq_differs_by_one_field(self):
+        a = Record([Field("a", t.string), Field("b", t.integer)])
+        differs_cardinality = Record(
+            [Field("a", t.string), Field("b", t.integer, min=0)])
+        differs_type = Record(
+            [Field("a", t.string), Field("b", t.string)])
+        assert a != differs_cardinality
+        assert a != differs_type
+        assert a != "not a record"
+
+    def test_schema_eq_is_order_independent_across_declaration_order(self):
+        # A schema built two different ways -- different field order
+        # within a record, different record order in env -- but
+        # structurally identical must compare equal.
+        s1 = parse_schema(
+            'record A { "x": integer, "y": string }\n'
+            'record B { "a": A }\nroot B')
+        s2 = parse_schema(
+            'record B { "a": A }\n'
+            'record A { "y": string, "x": integer }\nroot B')
+        assert s1 == s2
+
+    def test_schema_eq_differs_by_one_field(self):
+        base = parse_schema('record R { "a": integer }\nroot R')
+        differs_nullable = parse_schema('record R { "a": integer? }\nroot R')
+        differs_root = parse_schema(
+            'record R { "a": integer }\nrecord S { "a": integer }\nroot S')
+        assert base != differs_nullable
+        assert base != differs_root
+        assert base != "not a schema"
 
     def test_types_namespace_repr(self):
         assert "seven scalars" in repr(t)

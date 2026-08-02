@@ -6,6 +6,34 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.15] — structural equality for Field/Record/Schema; doc drift fixes
+
+- Closed [#273](https://github.com/omnist-dev/omnist/issues/273): added
+  `__eq__` to `Field`, `Record`, and `Schema` in `omnist/schema.py` —
+  previously they fell back to Python's default identity comparison, so
+  two structurally identical schemas compared unequal unless they were
+  the literal same object. `Field.__eq__` compares `label`/`type`/
+  `min`/`max`; `Record.__eq__` compares fields as an order-independent
+  set (declaration order isn't semantically significant); `Schema.__eq__`
+  compares `root` and `env`, likewise order-independent. Confirmed
+  `Ref`/`Scalar`/`AnyType.__eq__` were already correct before relying on
+  `Field.__eq__`'s delegation to `type ==`. This is a dependency for the
+  new conformance harness being built against `omnist-spec`'s
+  `conformance-harness.md` §5, which needs to compare an implementation's
+  actual OSD output against expected output by structural equality, not
+  text diffing.
+- Fixed [#271](https://github.com/omnist-dev/omnist/issues/271):
+  `openness.md`/`any-type-spec.md` had drifted since `any` shipped in
+  v0.5.0 and `--allow-any` was added — a stale Decision Record, an
+  absolute "never inferred" guardrail contradicting the documented
+  opt-in, and a matching overstatement in the non-goals section. All
+  three now consistently describe the default vs. the explicit,
+  loudly-reported exception.
+- Fixed [#272](https://github.com/omnist-dev/omnist/issues/272):
+  `formats/overview.md`'s "Special features, mapped to OML" table had
+  paragraph-length cells fighting a table's own scanning purpose —
+  replaced with one prose subsection per format.
+
 ## [v0.7.14] — symmetric inf/-inf boundary tests
 
 - Closed [#262](https://github.com/omnist-dev/omnist/issues/262): `nan`

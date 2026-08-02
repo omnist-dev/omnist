@@ -8,7 +8,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.7.14"
+omnist.__version__        # "0.7.15"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -171,6 +171,14 @@ names an entry not present in `env`.
 | `.to_osd(*, indent=4) -> str` | serialize back to OSD; `indent=None` for a single-line, compact form |
 | `.root`, `.env` | the root `Ref` and the name→record map |
 | `.resolve(t) -> Record` | follow a `Ref` chain to a `Record` |
+
+**Equality.** `Schema`, `Record`, and `Field` all support `==` as
+structural equality — two schemas built with different field/record
+*declaration* order still compare equal if `root`, `env`, and every
+field's `label`/`type`/`min`/`max` match; declaration order is preserved
+only for OSD-text readability, never semantically significant. This is
+distinct from `.equivalent()`, which checks whether two (possibly
+differently-shaped) schemas accept the same documents.
 
 **Vacuity note.** `compatible_with`/`equivalent` are defined over the set of
 documents a schema accepts. An unsatisfiable schema (`is_empty()` is
