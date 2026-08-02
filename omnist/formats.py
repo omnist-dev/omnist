@@ -25,7 +25,16 @@ from .errors import DocumentError, ParseError, WriteError
 from .report import WriteReport, finish_write
 
 if TYPE_CHECKING:
-    from .schema import Schema
+    from .schema import Scalar, Schema
+
+# Canonical numeric-literal spelling for XML's schema-directed pretype step
+# (#288) -- same shape as JSON's own number grammar (no leading zeros, no
+# leading '+', no bare '.5'), so a numeric-looking element text only
+# upgrades when it's unambiguously that number, not merely parseable as
+# one (Python's own int()/float() also accept a leading '+', which this
+# deliberately excludes).
+_XML_INT_RE = _re.compile(r"-?(0|[1-9]\d*)")
+_XML_NUM_RE = _re.compile(r"-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?")
 
 
 def _materialize(node: Any, schema: Optional["Schema"]) -> Any:
@@ -281,7 +290,43 @@ def read_xml(text: str, *, schema: Optional["Schema"] = None) -> Any:
     except Exception as exc:
         raise ParseError(f"invalid XML: {exc}") from exc
     node = [(_local(root.tag), _xml_to_node(root, "$", 0, [0]))]
+    if schema is not None:
+        # #288: recover boolean/integer/number from XML's untyped text
+        # before the shared materialize() sees it. This is XML-specific,
+        # not a materialize() capability -- materialize() itself must keep
+        # rejecting a string that merely looks numeric (a string is a
+        # deliberate choice in JSON/YAML/TOML/OML, never an untyped
+        # placeholder the way it always is in XML).
+        node = _xml_pretype(node, schema, schema.root)
     return _materialize(node, schema)
+
+
+def _xml_pretype(node: Any, schema: "Schema", t: Any) -> Any:
+    from .schema import AnyType, Scalar
+    d = schema.resolve(t)
+    if isinstance(d, AnyType):
+        return node
+    if isinstance(d, Scalar):
+        return _xml_pretype_scalar(node, d)
+    if not isinstance(node, list):
+        return node
+    out = []
+    for label, child in node:
+        f = d.field(label)
+        out.append((label, _xml_pretype(child, schema, f.type) if f else child))
+    return out
+
+
+def _xml_pretype_scalar(value: Any, s: "Scalar") -> Any:
+    # value is always the str _xml_to_node produced -- _xml_pretype is only
+    # ever called on a freshly-built XML node, never a value from elsewhere.
+    if s.name == "boolean" and value in ("true", "false"):
+        return value == "true"
+    if s.name == "integer" and _XML_INT_RE.fullmatch(value):
+        return int(value)
+    if s.name == "number" and _XML_NUM_RE.fullmatch(value):
+        return float(value)
+    return value
 
 
 def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int]) -> Any:
@@ -311,7 +356,7 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int]) -> Any:
                     "child elements) is outside the data-XML profile")
         return [(_local(c.tag), _xml_to_node(c, f"{path}.{_local(c.tag)}", depth + 1, budget))
                 for c in children]
-    return _coerce(elem.text or "")
+    return elem.text or ""
 
 
 def write_xml(node: Any, *, strict: bool = False,
@@ -362,10 +407,15 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
     elif isinstance(v, (_dt.date, _dt.time)):
         rep.add(path, "temporal.stringified",
                 "temporal value written as text (reads back as a string)", "warning")
-    elif isinstance(v, str) and not isinstance(_coerce(v), str):
-        rep.add(path, "string.ambiguous",
-                f"string {v!r} looks like another type and reads back as that type",
-                "warning")
+    elif isinstance(v, (bool, int, float)):
+        # #288: read_xml no longer infers scalar kind from text shape, so a
+        # non-string scalar written to XML (XML has no native typed
+        # literals -- everything is text) now reads back as a string, not
+        # its original type. Previously silent (the old shape-based
+        # coercion happened to undo this on read); now reported like every
+        # other type-losing write.
+        rep.add(path, "value.stringified",
+                "non-string scalar written as text (reads back as a string)", "warning")
     if isinstance(v, str):
         if _XML_ILLEGAL_CHAR.search(v):
             rep.add(path, "string.illegal_xml_char",
@@ -416,25 +466,6 @@ def _xml_sanitize(text: str) -> str:
     as-is -- it's legal XML and only normalizes to LF on parse, which is
     reported separately as ``string.cr_normalized``."""
     return _XML_ILLEGAL_CHAR.sub(chr(0xFFFD), text)
-
-
-def _coerce(text: str) -> Any:
-    if text == "":
-        return ""
-    low = text.lower()
-    if low == "true":
-        return True
-    if low == "false":
-        return False
-    try:
-        return int(text)
-    except ValueError:
-        pass
-    try:
-        return float(text)
-    except ValueError:
-        pass
-    return text
 
 
 def _local(tag: str) -> str:

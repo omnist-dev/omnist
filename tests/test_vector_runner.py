@@ -548,12 +548,6 @@ def test_run_infer_allow_any_flag_used():
 
 # ------------------------------------------------------------- dispatch
 
-def test_run_vector_known_divergence_skips():
-    status, msg = vr.run_vector({"name": next(iter(vr._KNOWN_DIVERGENCES)),
-                                 "operation": "parse"})
-    assert status == "skip" and "divergence" in msg
-
-
 def test_run_vector_unknown_operation():
     status, msg = vr.run_vector({"operation": "bogus", "name": "x"})
     assert status == "skip" and "no driver" in msg

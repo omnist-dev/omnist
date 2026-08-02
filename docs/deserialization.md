@@ -144,6 +144,35 @@ value-exact as `4`). If more than one problem exists, the `ParseError`
 message lists every one of them, each on its own line with its path — the
 same multi-error formatting `Schema.validate` uses.
 
+## XML's numeric and boolean strings are a `read_xml`-only exception
+
+XML has no `boolean`/`integer`/`number` literals either — every leaf is text,
+same as `date` (see [XML](formats/xml.md)). Unlike the `date` upgrade above,
+this one is **not** part of `materialize()` itself: `materialize()` still
+rejects a numeric-looking *string* for a `boolean`/`integer`/`number` field
+in every format, on purpose — a string in JSON/YAML/TOML/OML is always a
+deliberate choice, never an untyped placeholder the way it always is in
+XML. `read_xml(text, schema=s)` does its own extra pass first, upgrading a
+canonically-spelled numeric or boolean string — exactly what `write_xml`
+itself would have produced — before handing the node to the shared
+`materialize()`:
+
+```python
+from omnist import parse_schema, read_xml
+
+s = parse_schema('record Inner { "ok": boolean, "n": integer, "total": number }\n'
+                  'record R { "r": Inner }\nroot R')
+read_xml('<r><ok>true</ok><n>3</n><total>29.97</total></r>', schema=s)
+# [('r', [('ok', True), ('n', 3), ('total', 29.97)])]
+```
+<!-- verified-by: tests/test_docs.py::test_deserialization_docs_numeric_and_boolean_strings -->
+
+The spelling has to be canonical, not merely parseable: `"True"` (capitalized),
+a leading zero (`"007"`), or a leading `+` (`"+3"`) are all things Python's
+own `bool()`/`int()`/`float()` would accept but `write_xml` would never
+produce, so none of them upgrade — the string reaches `materialize()`
+unchanged and is rejected as usual.
+
 Every problem is also available structurally on `.errors`, not just in the
 message string — useful for a caller (an API server, say) that wants to turn
 each one into its own field in a JSON error response rather than parsing text:

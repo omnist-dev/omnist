@@ -60,21 +60,25 @@ JSON can't interleave.)
 
 ### Without a schema
 
-Element text is untyped, but `read_xml`'s coercion heuristic does try
-`int`/`float`/`bool` before falling back to `str` — it does **not** attempt
-any date/time coercion, since a date string is indistinguishable from any
-other string by spelling alone without a declared scalar to check it against:
+Element text is untyped — every leaf reads as a plain `str`, exactly the
+text between the tags, with no shape-based guessing at `int`/`float`/`bool`/
+date. This distinguishes XML from YAML and TOML: those formats have their
+own native typed literals (a YAML `true` token, a TOML `29.97` number
+literal), so parsing them as their declared type isn't inference, it's just
+reading the grammar. XML has no such literals — `<n>30</n>`'s `30` is
+plain text with no notation marking it as a number — so `read_xml` doesn't
+guess a type from what the text merely *looks like* (issue #288):
 
 ```python
 from omnist import read_xml
 
 read_xml('<r><n>30</n><f>3.5</f><ok>true</ok><d>2024-01-01</d></r>')
-# [('r', [('n', 30), ('f', 3.5), ('ok', True), ('d', '2024-01-01')])]
+# [('r', [('n', '30'), ('f', '3.5'), ('ok', 'true'), ('d', '2024-01-01')])]
 ```
+<!-- verified-by: tests/test_docs.py::test_formats_xml_reading_no_schema -->
 
-`<n>30</n>` reads as the integer `30` and `<ok>true</ok>` as `True`, but
-`<d>2024-01-01</d>` stays the plain `str` `'2024-01-01'` — XML has no date
-type and `read_xml` doesn't guess one from the shape of the text.
+Every leaf above stays the plain `str` it was written as — `read_xml`
+never inspects the shape of the text.
 
 ### With a schema
 
@@ -120,11 +124,6 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 > A key that isn't a legal XML element name is sanitized on write (e.g.
 > `"a b"` → `<a_b>`, reported as `key.sanitized`), and a date/time value is
 > written as text (`temporal.stringified`).
->
-> **A string that looks like another type reads back as that type.** If you
-> write the string `"30"` as a leaf, it round-trips as the *integer* `30`,
-> not the string `"30"` — `write_xml` reports this ahead of time as
-> `string.ambiguous` so you know it won't come back the way it went in.
 >
 > **An empty internal node (zero edges, `[]`) is indistinguishable from an
 > empty-string leaf (`""`)** once written: both serialize to `<tag />`, and

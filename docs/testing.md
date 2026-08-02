@@ -145,7 +145,7 @@ round-tripped through every codec:
   adjustments* — the test asserts every adjustment code returned by
   `check_json`/`check_yaml`/`check_toml`/`check_xml` is one already
   documented (e.g. `temporal.stringified`, `null.omitted`,
-  `string.ambiguous`, `key.sanitized`, `float.special`) and only skips the
+  `key.sanitized`, `float.special`) and only skips the
   exact-equality assertion when an adjustment was actually reported. An
   *undocumented* mismatch — an adjustment code the test doesn't recognize,
   or data that changes without any reported adjustment at all — fails the

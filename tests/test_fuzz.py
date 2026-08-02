@@ -241,7 +241,7 @@ _ALLOWED_CODES = {
     "json": {"temporal.stringified", "float.special"},
     "yaml": {"temporal.stringified"},
     "toml": {"null.omitted"},
-    "xml": {"null.omitted", "temporal.stringified", "string.ambiguous",
+    "xml": {"null.omitted", "temporal.stringified", "value.stringified",
             "key.sanitized", "shape.empty_ambiguous"},
 }
 

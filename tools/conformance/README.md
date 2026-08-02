@@ -86,9 +86,7 @@ never reach it), and skips `document-model/limits.json`'s 6 vectors
 (a runtime-configurable safety limit this omnist doesn't expose) and any
 `oml-grammar`/`osd-grammar` vector asserting specific diagnostics on a
 syntax-level parse failure (`ParseError.errors` is empty for those by
-design). See the module's own docstring for the full reasoning, including
-one further vector skipped as a reported, genuine spec/implementation
-divergence rather than silently worked around.
+design). See the module's own docstring for the full reasoning.
 
 Wired into CI (`.github/workflows/test.yml`'s `conformance` job) on every
 push and PR -- this is the actual point of the move from `omnist-spec`:

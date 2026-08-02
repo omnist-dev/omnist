@@ -128,7 +128,7 @@ class TestConvert:
             ["convert", str(p), "--from", "xml", "--to", "oml", "--arrays"],
             capsys=capsys, monkeypatch=None)
         assert code == 0
-        assert out == "root: {\n  b: [1, 2, 3]\n}\n"
+        assert out == 'root: {\n  b: ["1", "2", "3"]\n}\n'
 
     def test_writes_to_output_file(self, tmp_path, capsys):
         src = tmp_path / "in.json"

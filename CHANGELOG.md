@@ -6,6 +6,45 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.0] — `read_xml` no longer infers scalar kind from text shape (BREAKING)
+
+- Closed [#288](https://github.com/omnist-dev/omnist/issues/288):
+  `read_xml` used to guess `int`/`float`/`bool` from the shape of an
+  element's text before any schema was involved (`<m>1</m>` read back as
+  the integer `1`, not the string `"1"`). This contradicted
+  `omnist-spec`'s own documented design — XML has no native typed
+  literals (unlike YAML's `true` token or TOML's `29.97` number literal),
+  so unlike YAML/TOML it's meant to stay untyped at stage 1, exactly like
+  JSON/OML. Resolved in the spec's favor after checking both sides (the
+  coercion was real, deliberate, and tested — this genuinely reverses a
+  design decision, not a bugfix for drift). **Breaking**: every XML
+  element's text now always reads as a plain `str`, regardless of shape.
+  Recover the typed value with `schema=`, same as any other textual
+  format.
+- To make schema-directed reading actually recover those types (as
+  `docs/formats/xml.md`'s own "materialization" story always promised),
+  `read_xml(text, schema=)` gained its own extra pass that upgrades a
+  canonically-spelled numeric/boolean string before handing the node to
+  the shared `materialize()` — value-exact spelling only
+  (`"true"`/`"false"`, no leading zero or `+`), not merely-parseable.
+  This is deliberately **not** a change to `materialize()` itself:
+  `materialize()` still rejects a numeric-looking string for every other
+  format, since a string in JSON/YAML/TOML/OML is always a deliberate
+  choice, never an untyped placeholder the way it always is in XML
+  (caught by the `conformance` CI job — an omnist-spec vector explicitly
+  pins this rejection).
+- `write_xml`'s `string.ambiguous` adjustment code is gone (there's no
+  more ambiguity to report — a string round-trips as a string now). A new
+  `value.stringified` code covers what `string.ambiguous` didn't: a real
+  `bool`/`int`/`float` value written to XML now reads back as a string
+  and is reported, closing a previously-silent gap.
+- This change lands without a deprecation cycle, despite `read_xml`'s
+  behavior being part of the documented public API surface — with no
+  known users of this project yet, staging a two-release deprecation for
+  a genuine spec-conformance fix would cost more than it protects.
+
+
+
 ## [v0.7.19] — wire omnist-spec's 139-vector test-suite/ into the conformance runner
 
 - Closed [#286](https://github.com/omnist-dev/omnist/issues/286): added
