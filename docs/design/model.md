@@ -437,7 +437,7 @@ Omnist's design is directly inspired by Lee & Cheung, *"XML Schema Computations:
 | `compatible_with()` | SubschemaSA (Algorithm 4) | One-way subschema check — one schema's documents are a subset of the other's (backward-compatibility) |
 | `extract()` | ExtractSubschema (Algorithm 5) | Extract minimal subschema for a given label set |
 
-An alternative test oracle for equivalence is available in `ops/isomorphic.py`, which implements the Alg.-3-style minimize-and-isomorphism check (used only for test validation, not in production).
+An alternative test oracle for equivalence is available in `ops/isomorphic.py`, which implements the Alg.-3-style minimize-and-isomorphism check. Also exposed publicly as `Schema.isomorphic_to()` (issue #279) — a deliberately narrower, additional operation, not a replacement for `equivalent()` as the model's canonical definition of schema equality; useful when a caller needs to detect structural differences (e.g. an accidental record merge) that `equivalent()`'s document-language-only definition can't see.
 
 ---
 

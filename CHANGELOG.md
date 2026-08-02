@@ -6,6 +6,35 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.17] — `Schema.isomorphic_to()`; `infer --allow-any --json`
+
+- Closed [#279](https://github.com/omnist-dev/omnist/issues/279): added
+  `Schema.isomorphic_to(other)` -- stricter than `equivalent()` (same
+  document language is necessary but not sufficient; this additionally
+  requires the same record graph structure, up to a renaming of records).
+  Deliberately an *additional*, narrower operation, not a redefinition of
+  `equivalent()` as the model's canonical definition of schema equality
+  -- `_isomorphic` in `omnist/ops/isomorphic.py` stays private, now with
+  two consumers (its existing property-test oracle role, and this new
+  public method). Confirmed empirically that the algorithm's correctness
+  doesn't depend on its inputs being pre-normalized, which the module's
+  original docstring's "assumed already normalized" note could have been
+  read to require -- `isomorphic_to` delegates directly, no internal
+  `normalize()` call needed. Motivated by `omnist-spec`'s conformance
+  harness (`docs/conformance-harness.md` §4/§6.2), which needs this for
+  comparing `infer`'s output: `infer` never merges structurally-identical
+  generated records (that's `normalize`'s job, not `infer`'s), and a
+  buggy implementation that accidentally merges two identical records
+  still accepts the same documents -- `equivalent()` reports that as
+  correct, a false negative `isomorphic_to` catches (different record-set
+  cardinality, no bijection possible regardless of naming).
+- Fixed [#280](https://github.com/omnist-dev/omnist/issues/280):
+  `infer --allow-any`'s opening report always printed plain text to
+  stderr, ignoring `--json`, unlike every other diagnostic-producing CLI
+  command. Now emits `{"opened": [{"location", "reason"}, ...]}` on
+  stderr when `--json` is passed, matching `AnyFallback`'s shape. Schema
+  output on stdout is unaffected either way.
+
 ## [v0.7.16] — allow `convert --from oml --to oml --schema`
 
 - Fixed [#277](https://github.com/omnist-dev/omnist/issues/277): `omnist

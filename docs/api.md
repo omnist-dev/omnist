@@ -8,7 +8,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.7.16"
+omnist.__version__        # "0.7.17"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -164,6 +164,7 @@ names an entry not present in `env`.
 | `.accepts(doc) -> bool` | `validate(doc).ok` |
 | `.compatible_with(other) -> bool` | every document this accepts, `other` also accepts (backward-compat); **vacuously `True`** if this schema is empty (see below) |
 | `.equivalent(other) -> bool` | both accept exactly the same documents; two distinct empty schemas are always equivalent |
+| `.isomorphic_to(other) -> bool` | stricter than `equivalent()` — same record graph structure up to a renaming of records, not just the same accepted documents; not a replacement for `equivalent()` as the definition of schema equality, for callers that need to catch structural differences `equivalent()` can't see |
 | `.normalize() -> Schema` | canonical minimal equivalent schema — fewest env records, unique up to record naming (partition refinement, i.e. `prune()` then merge equivalent records) |
 | `.is_empty() -> bool` | `True` iff the root record is unsatisfiable — no finite document conforms (e.g. a mandatory ref cycle) |
 | `.prune() -> Schema` | an equivalent schema with unreachable records, never-emittable (`max == 0`) fields, and optional-but-unsatisfiable fields removed |

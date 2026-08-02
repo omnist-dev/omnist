@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.16"
+        assert ds.__version__ == "0.7.17"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -707,6 +707,38 @@ class TestEmptySchemas:
         empty1 = self._mandatory_cycle()
         empty2 = parse_schema('record P { "q": P }\nroot P')
         assert equivalent(empty1, empty2)
+
+    def test_isomorphic_to_tolerates_record_renaming(self):
+        # Issue #279: same structure, different record names -- must be
+        # isomorphic, unlike exact Schema.__eq__.
+        a = parse_schema('record Root { "x": Foo }\nrecord Foo { "n": integer }\nroot Root')
+        b = parse_schema('record Root { "x": Bar }\nrecord Bar { "n": integer }\nroot Root')
+        assert a.isomorphic_to(b)
+        assert a != b   # __eq__ (issue #273) is exact -- Foo != Bar by name
+
+    def test_isomorphic_to_rejects_structural_difference(self):
+        a = parse_schema('record Root { "x": Foo }\nrecord Foo { "n": integer }\nroot Root')
+        c = parse_schema(
+            'record Root { "x": Baz }\n'
+            'record Baz { "n": integer, "extra": string }\nroot Root')
+        assert not a.isomorphic_to(c)
+
+    def test_isomorphic_to_catches_a_merge_bug_equivalent_misses(self):
+        # Issue #279's exact motivating counterexample: infer must never
+        # merge structurally-identical generated records (that's
+        # normalize's job, not infer's). A buggy implementation that
+        # accidentally merges two identical records still accepts the same
+        # documents -- equivalent() reports "correct," a false negative.
+        # isomorphic_to correctly rejects it: different record-set
+        # cardinality, no bijection possible regardless of naming.
+        correct = parse_schema(
+            'record Root { "a": A, "b": B }\n'
+            'record A { "x": string }\nrecord B { "x": string }\nroot Root')
+        buggy_merge = parse_schema(
+            'record Root { "a": AB, "b": AB }\n'
+            'record AB { "x": string }\nroot Root')
+        assert correct.equivalent(buggy_merge)          # the false negative
+        assert not correct.isomorphic_to(buggy_merge)   # correctly caught
 
     def test_is_empty_true_for_mandatory_cycle(self):
         assert self._mandatory_cycle().is_empty()
