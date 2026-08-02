@@ -6,6 +6,35 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.19] — wire omnist-spec's 139-vector test-suite/ into the conformance runner
+
+- Closed [#286](https://github.com/omnist-dev/omnist/issues/286): added
+  `tools/conformance/vector_runner.py`, a second runner alongside
+  `runner.py` that walks `omnist-spec`'s `test-suite/` JSON-vector suite
+  (139 vectors, envelope `name`/`spec`/`operation`/`purpose`/`input`/
+  `expect`) — deliberately not unified with the directory-fixture format,
+  sharing only `referee.py`/`cli_runner.py`. Wired into the `conformance`
+  CI job. Currently 103 pass, 36 skip, 0 fail.
+- Diagnostics are compared in **code-agnostic mode** (`ok` plus the set of
+  `path`s, never `code`) per §8.5.2 rule 4: omnist's own diagnostic codes
+  (`type-mismatch`, `temporal.stringified`, …) predate `omnist-spec`'s
+  §8.3 code taxonomy and were never renamed to match it.
+- `infer`/`infer_with_report` are driven directly through the library
+  rather than the CLI, so `infer/errors/zero-samples-is-an-error` — which
+  the CLI's `nargs='+'` argument can never reach — actually runs (and
+  passes) instead of being skipped.
+- `document-model/limits.json`'s 6 vectors skip (a runtime-configurable
+  safety limit this omnist doesn't expose), as do `oml-grammar`/
+  `osd-grammar` vectors asserting specific diagnostics on a syntax-level
+  parse failure (`ParseError.errors` is empty for those by design).
+- Found and reported one genuine spec/implementation divergence rather
+  than working around it:
+  `formats-xml/basic/interleaved-elements-preserve-order` expects XML
+  element text to always decode to the Document `string` kind, but
+  `docs/formats/xml.md` documents `read_xml`'s shape-based coercion
+  heuristic (`"1"` reads back as the integer `1`). Skipped with a clear
+  comment, not silently passed.
+
 ## [v0.7.18] — own OML/OSD conformance runner, wired into CI
 
 - Closed [#283](https://github.com/omnist-dev/omnist/issues/283): moved

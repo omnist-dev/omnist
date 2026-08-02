@@ -24,7 +24,15 @@ tools/conformance/
   cli_runner.py    invokes the real omnist CLI per Sec2's verified contract
   self_test.py     runs vendor/omnist-spec's _referee-self-test/ fixtures
   runner.py        runs vendor/omnist-spec's real per-operation fixtures
+                   (conformance/fixtures/, directory-per-case format)
+  vector_runner.py runs vendor/omnist-spec's test-suite/ JSON-vector suite
+                   (139 vectors, envelope format -- see its own docstring)
 ```
+
+`runner.py` and `vector_runner.py` are two separate runners over two
+separate fixture shapes from the same `omnist-spec` pin (issue #286)
+-- deliberately not unified, since the two vector formats don't share a
+natural code path. Both share `referee.py`/`cli_runner.py`.
 
 ## Fixture sourcing: a pinned git submodule
 
@@ -63,9 +71,24 @@ script on `PATH`). Set `OMNIST_CLI` to test a different build.
 
 ```bash
 python3 -m tools.conformance.self_test      # referee self-check
-python3 -m tools.conformance.runner         # all wired operations
+python3 -m tools.conformance.runner         # all wired operations (fixtures)
 python3 -m tools.conformance.runner validate normalize   # a subset
+python3 -m tools.conformance.vector_runner  # the 139-vector test-suite/
 ```
+
+`vector_runner.py` compares diagnostics in **code-agnostic mode**
+(``ok`` plus the set of ``path``s, never ``code``) -- omnist's own
+diagnostic codes predate `omnist-spec`'s Sec8.3 code taxonomy and were
+never renamed to match it. It also drives `infer`/`infer_with_report`
+through the library directly rather than through the CLI (the CLI's
+`infer` positional argument is `nargs='+'`, so a zero-samples vector can
+never reach it), and skips `document-model/limits.json`'s 6 vectors
+(a runtime-configurable safety limit this omnist doesn't expose) and any
+`oml-grammar`/`osd-grammar` vector asserting specific diagnostics on a
+syntax-level parse failure (`ParseError.errors` is empty for those by
+design). See the module's own docstring for the full reasoning, including
+one further vector skipped as a reported, genuine spec/implementation
+divergence rather than silently worked around.
 
 Wired into CI (`.github/workflows/test.yml`'s `conformance` job) on every
 push and PR -- this is the actual point of the move from `omnist-spec`:

@@ -60,3 +60,8 @@ jobs:
       - run: pip install -e .[dev]
       - run: python3 -m tools.conformance.self_test
       - run: python3 -m tools.conformance.runner
+      # issue #286: omnist-spec's test-suite/ JSON-vector suite (139
+      # vectors), a second runner alongside the directory fixtures above --
+      # see tools/conformance/vector_runner.py's docstring for the
+      # diagnostics-matching-mode and skip decisions.
+      - run: python3 -m tools.conformance.vector_runner
