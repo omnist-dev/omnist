@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.7.15
+omnist 0.7.16
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -169,10 +169,16 @@ omnist convert <input> --from FMT --to FMT [--schema FILE] [--strict] [--report]
 Reformats data across formats, optionally upgrading/validating it against
 a schema on the way in (per the [deserialization guarantee](deserialization.md)).
 
-`--from oml --to oml` is rejected (exit `2`, pointing at `omnist format`
-instead) — that's the one same-format case with a real alternative.
+`--from oml --to oml` with no `--schema` is rejected (exit `2`, pointing
+at `omnist format` instead) — with no schema that pair is a pure no-op,
+and `format` is the dedicated command for it. With `--schema` it's a real
+operation (schema-directed materialization: read OML, upgrade against the
+schema, write OML back), so it's allowed — this is the only CLI path to
+that specific operation, since neither `format` nor `check` takes a
+`--schema` argument.
+
 Every *other* same-format pair (`json`→`json`, `yaml`→`yaml`, etc.) is
-allowed through `convert`, since there's no replacement command for
+always allowed through `convert`, since there's no replacement command for
 those (other formats already have their own formatters elsewhere; this
 CLI doesn't duplicate them).
 

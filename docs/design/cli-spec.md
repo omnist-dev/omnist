@@ -110,13 +110,17 @@ omnist format messy.oml --arrays
 - `--arrays`: OML output collapses same-label runs into `[...]` array
   syntax (`write_oml(node, arrays=True)`) when `--to oml`; no effect for
   other `--to` values.
-- `--from oml --to oml` is rejected (exit `2`, use `format`). Every other
-  same-format pair (`json`→`json`, etc.) is allowed.
+- `--from oml --to oml` with no `--schema` is rejected (exit `2`, use
+  `format`) — a pure no-op otherwise. With `--schema` it's allowed: real
+  schema-directed materialization, and the only CLI path to it (`format`/
+  `check` have no `--schema`). Every other same-format pair (`json`→`json`,
+  etc.) is always allowed.
 - One document in, one document out; no batch mode.
 
 ```sh
 omnist convert order.json --from json --to oml
 omnist convert order.xml --from xml --to oml --schema order.osd -o order.oml
+omnist convert data.oml --from oml --to oml --schema data.osd -o data.oml
 omnist convert data.json --from json --to toml --report -o data.toml
 omnist convert data.json --from json --to toml --strict -o data.toml
 ```

@@ -6,6 +6,20 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.7.16] — allow `convert --from oml --to oml --schema`
+
+- Fixed [#277](https://github.com/omnist-dev/omnist/issues/277): `omnist
+  convert --from oml --to oml --schema SCHEMA` was refused
+  unconditionally — the same-format guard ran before `args.schema` was
+  even read. The refusal is correct with no schema (a pure no-op;
+  `omnist format` is the dedicated command for that), but a schema turns
+  it into a real operation (schema-directed materialization: read OML,
+  upgrade against the schema, write OML back) that had no other CLI path
+  at all (`format`/`check` have no `--schema`). Now only refuses the
+  no-schema case; `convert` already had the machinery
+  (`_READERS[args.from_](..., schema=schema)`) to do the rest. Unblocks
+  the conformance harness work on `omnist-spec` (`omnist-spec#26`).
+
 ## [v0.7.15] — structural equality for Field/Record/Schema; doc drift fixes
 
 - Closed [#273](https://github.com/omnist-dev/omnist/issues/273): added
