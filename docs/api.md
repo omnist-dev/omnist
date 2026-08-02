@@ -8,7 +8,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.7.19"
+omnist.__version__        # "0.8.0"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -326,8 +326,7 @@ A named tuple `Adjustment(path, code, message, severity)` — `severity` is
 (JSON/YAML/XML), `float.special` (JSON, `"error"` — a `NaN`/`Infinity`/`-Infinity`
 leaf isn't valid JSON; lenient `write_json` substitutes `null` there so the
 output stays well-formed, `strict=True` raises instead), `key.sanitized` (XML),
-`string.ambiguous` (XML — a string value that looks like another type, e.g. a
-digit string or `"true"`, and would read back as that type), `shape.empty_ambiguous`
+`shape.empty_ambiguous`
 (XML — an empty internal node, i.e. zero edges, is written as `<tag />` and
 reads back as the empty-string leaf `""`, not `[]`), `string.illegal_xml_char`
 (XML, `"error"` — a string contains a character XML 1.0 cannot represent, e.g.

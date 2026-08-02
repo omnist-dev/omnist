@@ -152,7 +152,10 @@ class TestCheckXml:
             check_xml(deep_node(DEEP))
 
     def test_just_under_limit_succeeds(self):
-        rep = check_xml(deep_node(JUST_UNDER))
+        # a string leaf, not the default int -- #288 made check_xml flag a
+        # non-string scalar leaf as an adjustment (value.stringified), which
+        # this test isn't about.
+        rep = check_xml(deep_node(JUST_UNDER, leaf="x"))
         assert rep.adjustments == []
 
 

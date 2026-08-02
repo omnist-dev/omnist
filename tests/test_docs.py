@@ -37,7 +37,7 @@ def test_readme_at_a_glance():
                                           "server": "db1.internal.example.com",
                                           "port": 5432}],
                            "tags": ["prod", "us-east"]})).ok
-    assert ds.__version__ == "0.7.19"
+    assert ds.__version__ == "0.8.0"
 
 
 def test_quickstart():
@@ -502,12 +502,19 @@ def test_example_all_formats_one_document():
                    '[order.address]\nstreet="1 Main"\ncity="London"\n'
                    '[[order.items]]\nsku="W"\nqty=3\nprice=9.99\n'
                    '[[order.items]]\nsku="G"\nqty=1\nprice=9.99\n')
-    x = read_xml("<order><id>A1</id><status>shipped</status><total>29.97</total>"
-                 "<address><street>1 Main</street><city>London</city></address>"
-                 "<items><sku>W</sku><qty>3</qty><price>9.99</price></items>"
-                 "<items><sku>G</sku><qty>1</qty><price>9.99</price></items></order>")
+    # #288: XML has no typed literals at all -- unlike JSON/YAML/TOML,
+    # every leaf is plain text without a schema, so `total`/`qty`/`price`
+    # stay strings. schema= is what recovers the numbers, per
+    # docs/formats/xml.md's "materialization" story.
+    xml_text = ("<order><id>A1</id><status>shipped</status><total>29.97</total>"
+                "<address><street>1 Main</street><city>London</city></address>"
+                "<items><sku>W</sku><qty>3</qty><price>9.99</price></items>"
+                "<items><sku>G</sku><qty>1</qty><price>9.99</price></items></order>")
+    x_no_schema = read_xml(xml_text)
+    x = read_xml(xml_text, schema=s)
     assert j == y == tm == x
     assert all(s.validate(Doc(d)).ok for d in (j, y, tm, x))
+    assert not s.validate(Doc(x_no_schema)).ok  # untyped XML text fails validation
 
 
 def test_example_builder_matches_osd():
@@ -617,7 +624,7 @@ def test_formats_docs_snippets():
     assert write_json([("tag", "x"), ("tag", "y")]) == '{"tag": ["x", "y"]}'
     assert write_json([("tag", "x")]) == '{"tag": "x"}'
     assert read_xml("<t><m>a</m><x>1</x><m>b</m></t>") == \
-        [("t", [("m", "a"), ("x", 1), ("m", "b")])]      # interleaving preserved
+        [("t", [("m", "a"), ("x", "1"), ("m", "b")])]      # interleaving preserved
 
 
 def test_formats_json_docs_raw_array_edge_list():
@@ -688,7 +695,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.7.19"
+    assert ds.__version__ == "0.8.0"
 
 
 def test_docs_version_examples_match_live_version():
@@ -742,11 +749,15 @@ def test_api_docs_schema_raises():
         pass
 
 
-def test_api_docs_string_ambiguous_adjustment():
+def test_api_docs_number_shaped_string_round_trips_clean():
+    # #288: string.ambiguous no longer exists -- read_xml doesn't infer
+    # scalar kind from text shape, so a number-shaped string round-trips
+    # as itself with no adjustment.
     d = doc({"x": "42"})
     rep = WriteReport()
-    d.to_xml(report=rep)
-    assert [(a.code, a.severity) for a in rep] == [("string.ambiguous", "warning")]
+    text = d.to_xml(report=rep)
+    assert list(rep) == []
+    assert Doc.from_xml(text).get_one("x").value == "42"
 
 
 def test_schema_docs_linting_example():
@@ -809,6 +820,13 @@ def test_deserialization_docs_parse_error_structured_errors():
         read_json('{"a": 1, "b": "extra"}', schema=s2)
     err = exc.value.errors[0]
     assert (err.path, err.code, err.message) == ("$.b", "unexpected-field", "unexpected field")
+
+
+def test_deserialization_docs_numeric_and_boolean_strings():
+    s = parse_schema('record Inner { "ok": boolean, "n": integer, "total": number }\n'
+                      'record R { "r": Inner }\nroot R')
+    assert read_xml('<r><ok>true</ok><n>3</n><total>29.97</total></r>', schema=s) == \
+        [("r", [("ok", True), ("n", 3), ("total", 29.97)])]
 
 
 def test_deserialization_docs_materialize():
@@ -976,7 +994,7 @@ def test_formats_toml_writing():
 
 def test_formats_xml_reading_no_schema():
     node = read_xml("<r><n>30</n><f>3.5</f><ok>true</ok><d>2024-01-01</d></r>")
-    assert node == [("r", [("n", 30), ("f", 3.5), ("ok", True), ("d", "2024-01-01")])]
+    assert node == [("r", [("n", "30"), ("f", "3.5"), ("ok", "true"), ("d", "2024-01-01")])]
 
 
 def test_formats_xml_reading_with_schema():

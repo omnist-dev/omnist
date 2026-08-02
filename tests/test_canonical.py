@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.7.19"
+        assert ds.__version__ == "0.8.0"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -920,7 +920,7 @@ class TestCodecs:
     def test_xml_interleaving_preserved_in_document(self):
         # the edge list keeps order, including a label between two repeats
         d = read_xml("<t><m>a</m><x>1</x><m>b</m></t>")
-        assert d == [("t", [("m", "a"), ("x", 1), ("m", "b")])]
+        assert d == [("t", [("m", "a"), ("x", "1"), ("m", "b")])]
 
     def test_xml_write_needs_single_root(self):
         with pytest.raises(WriteError):
@@ -945,9 +945,14 @@ class TestCodecs:
         assert "<nothing />" in out or "<nothing/>" in out or "<nothing></nothing>" in out
         assert "<d>2024-01-01</d>" in out
 
-    def test_xml_text_coerces_empty_and_boolish_strings(self):
-        d = read_xml("<r><a></a><b>true</b><c>false</c></r>")
-        assert d == [("r", [("a", ""), ("b", True), ("c", False)])]
+    def test_xml_text_never_infers_scalar_kind_from_shape(self):
+        # #288: XML has no native typed literals (unlike YAML's `true` token
+        # or TOML's `29.97` literal), so unlike YAML/TOML it stays untyped
+        # at stage 1, exactly like JSON/OML -- every leaf is the plain
+        # string it looked like in the source, regardless of shape.
+        d = read_xml("<r><a></a><b>true</b><c>false</c><n>1</n><f>3.5</f></r>")
+        assert d == [("r", [("a", ""), ("b", "true"), ("c", "false"),
+                            ("n", "1"), ("f", "3.5")])]
 
     def test_xml_mixed_content_text_before_children_raises(self):
         # #157/S2: elem.text alongside child elements used to be silently
@@ -1166,6 +1171,19 @@ class TestDeserialize:
             materialize([("i", True)], s)
         with pytest.raises(ParseError):
             materialize([("n", True)], s)
+
+    def test_materialize_never_upgrades_a_numeric_shaped_string(self):
+        # #288: unlike XML (see TestXmlSchemaDirectedNumericAndBooleanRecovery
+        # below), materialize() itself must never coerce a string to a
+        # number/boolean -- a string in JSON/YAML/TOML/OML is a deliberate
+        # choice, not an untyped placeholder the way XML's text always is.
+        s = parse_schema('record R { "i": integer, "n": number, "b": boolean }\nroot R')
+        with pytest.raises(ParseError):
+            materialize([("i", "3")], s)
+        with pytest.raises(ParseError):
+            materialize([("n", "29.97")], s)
+        with pytest.raises(ParseError):
+            materialize([("b", "true")], s)
 
     def test_a_real_datetime_object_never_satisfies_date(self):
         s = parse_schema('record R { "d": date }\nroot R')
@@ -1580,7 +1598,7 @@ class TestDocumentRobustness:
 
         # Exactly 3 elements (a, b, c) -- at the boundary, must not raise.
         assert read_xml("<a><b><c>1</c></b></a>") == [
-            ("a", [("b", [("c", 1)])])]
+            ("a", [("b", [("c", "1")])])]
 
     def test_add_at_a_deep_cursor_raises_once_combined_depth_exceeds_limit(self):
         # Issue #255: add()/set() used to call build_node with the default
@@ -2255,13 +2273,72 @@ class TestOperationsEdgeCases:
 
 
 # --------------------------------------------------------- XML adjustment codes
+class TestXmlSchemaDirectedNumericAndBooleanRecovery:
+    """#288: XML has no boolean/integer/number literals, so schema-directed
+    read_xml needs an XML-specific pretype step to recover them from text --
+    materialize() itself must never do this generically (see
+    test_materialize_never_upgrades_a_numeric_shaped_string above)."""
+
+    def test_upgrades_value_exact(self):
+        s = parse_schema('record Inner { "b": boolean, "i": integer, "n": number }\n'
+                          'record R { "r": Inner }\nroot R')
+        node = read_xml(
+            "<r><b>true</b><i>3</i><n>29.97</n></r>", schema=s)
+        assert node == [("r", [("b", True), ("i", 3), ("n", 29.97)])]
+        node = read_xml(
+            "<r><b>false</b><i>-7</i><n>0</n></r>", schema=s)
+        assert node == [("r", [("b", False), ("i", -7), ("n", 0.0)])]
+
+    def test_rejects_non_canonical_spelling(self):
+        # value-exact means the spelling, not just parseability -- "True"
+        # (capitalized), a leading zero, or a leading '+' are all things
+        # Python would happily parse but aren't the canonical spelling
+        # write_xml itself would ever produce, so they don't upgrade --
+        # materialize() then rejects the still-string value as usual.
+        s = parse_schema('record Inner { "b": boolean }\nrecord R { "r": Inner }\nroot R')
+        with pytest.raises(ParseError):
+            read_xml("<r><b>True</b></r>", schema=s)
+        s = parse_schema('record Inner { "i": integer }\nrecord R { "r": Inner }\nroot R')
+        with pytest.raises(ParseError):
+            read_xml("<r><i>007</i></r>", schema=s)
+        with pytest.raises(ParseError):
+            read_xml("<r><i>+3</i></r>", schema=s)
+        with pytest.raises(ParseError):
+            read_xml("<r><i>1.5</i></r>", schema=s)
+        s = parse_schema('record Inner { "n": number }\nrecord R { "r": Inner }\nroot R')
+        with pytest.raises(ParseError):
+            read_xml("<r><n>abc</n></r>", schema=s)
+
+    def test_any_typed_field_passes_through_untouched(self):
+        s = parse_schema('record Inner { "x": any }\nrecord R { "r": Inner }\nroot R')
+        node = read_xml("<r><x>3</x></r>", schema=s)
+        assert node == [("r", [("x", "3")])]
+
+    def test_shape_mismatch_left_for_materialize_to_flag(self):
+        # schema expects a record where the field is; XML gives a scalar
+        # leaf instead -- the pretype pass must not crash iterating it,
+        # just pass it through for materialize()'s own shape check to reject.
+        s = parse_schema('record Inner { "x": string }\n'
+                          'record R { "r": Inner }\nroot R')
+        with pytest.raises(ParseError, match="expected an object"):
+            read_xml("<r>3</r>", schema=s)
+
+    def test_unexpected_field_left_untouched_for_materialize_to_flag(self):
+        s = parse_schema('record Inner { "known": string }\n'
+                          'record R { "r": Inner }\nroot R')
+        with pytest.raises(ParseError, match="unexpected field"):
+            read_xml("<r><known>x</known><extra>3</extra></r>", schema=s)
+
+
 class TestXmlAdjustmentCodes:
-    def test_string_ambiguous_code(self):
-        # a string that looks like a number/bool reads back as that type from
-        # XML text, since XML has no native type tagging -- check_xml flags it
+    def test_number_shaped_string_no_longer_flagged_ambiguous(self):
+        # #288: read_xml no longer infers scalar kind from text shape, so a
+        # string that looks like a number/bool round-trips as that same
+        # string -- there's no more ambiguity to flag, and the write is clean.
         node = doc({"a": "123"}).to_data()
         rep = check_xml(node)
-        assert [a.code for a in rep] == ["string.ambiguous"]
+        assert list(rep) == []
+        assert read_xml(write_xml(node)) == node
 
     def test_empty_internal_node_vs_empty_string_leaf(self):
         # An internal node with zero edges ([]) and a leaf holding the empty
@@ -2329,24 +2406,24 @@ class TestXmlAdjustmentCodes:
         # label silently lost its trailing newline on round-trip -- see
         # issue #95. It should be sanitized and flagged like any other
         # illegal-XML-name label.
-        node = [("A\n", False)]
+        node = [("A\n", "x")]
         rep = check_xml(node)
         assert [a.code for a in rep] == ["key.sanitized"]
         assert rep.warnings and not rep.errors
 
         text = write_xml(node)
         assert "\n" not in text.split(">", 1)[0]   # no raw newline in the tag
-        assert read_xml(text) == [("A_", False)]   # round-trips via sanitized name
+        assert read_xml(text) == [("A_", "x")]   # round-trips via sanitized name
 
     def test_embedded_newline_label_is_sanitized_and_reported(self):
         # Same bug class as above, but with the newline in the middle of the
         # label rather than at the very end.
-        node = [("A\nB", False)]
+        node = [("A\nB", "x")]
         rep = check_xml(node)
         assert [a.code for a in rep] == ["key.sanitized"]
 
         text = write_xml(node)
-        assert read_xml(text) == [("A_B", False)]
+        assert read_xml(text) == [("A_B", "x")]
 
 
 # ----------------------------------------------------------- TOML write errors

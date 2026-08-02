@@ -41,14 +41,13 @@ code-agnostic mode. Message text is never compared either way (rule 1).
   successful parse, or a bare failure with no diagnostics to check) still
   run normally; only the ones asserting specific diagnostics on a syntax
   failure SKIP.
-* One vector is a genuine, reported divergence, not a driver gap:
-  ``formats-xml/basic/interleaved-elements-preserve-order`` expects XML
-  element text to always decode to the Document ``string`` kind, but
-  ``docs/formats/xml.md`` documents that ``read_xml``'s coercion heuristic
-  types element text by shape (``"1"`` reads back as the integer ``1``).
-  Reported rather than worked around -- see ``_KNOWN_DIVERGENCES`` below
-  and the issue #286 PR/close comment. SKIP, not FAIL, so this one known,
-  already-reported case doesn't mask a real regression elsewhere.
+* ``formats-xml/basic/interleaved-elements-preserve-order`` (issue #286)
+  used to SKIP as a reported divergence: ``read_xml`` inferred scalar kind
+  from element-text shape (``"1"`` read back as the integer ``1``),
+  contradicting the vector's expectation that XML text always decodes to
+  the Document ``string`` kind. Resolved by issue #288 in the vector's
+  favor -- ``read_xml`` no longer infers a scalar kind from text shape, so
+  this vector now runs for real and passes, and the skip is gone.
 
 Usage: python3 -m tools.conformance.vector_runner
 """
@@ -74,15 +73,6 @@ VECTOR_SUITE_DIR = (
 )
 
 _LIMIT_KEYS = {"declared_max_depth", "declared_max_nodes", "declared_max_int_digits"}
-
-# A genuine, reported divergence found while building this runner (not a
-# driver bug): docs/formats/xml.md documents that read_xml's coercion
-# heuristic types element text by shape (so "1" reads back as the integer
-# 1), but this vector's `expect` wants XML text to always be the Document
-# `string` kind. Filed upstream as omnist-spec#... rather than silently
-# passed or worked around -- see the issue #286 PR/close comment. SKIP,
-# not FAIL, so a real regression elsewhere still shows red.
-_KNOWN_DIVERGENCES = {"formats-xml/basic/interleaved-elements-preserve-order"}
 
 Result = Tuple[str, str]
 
@@ -385,8 +375,6 @@ def iter_vectors() -> Any:
 
 
 def run_vector(v: Dict[str, Any]) -> Result:
-    if v["name"] in _KNOWN_DIVERGENCES:
-        return "skip", "known, reported divergence -- see _KNOWN_DIVERGENCES"
     fn = RUNNERS.get(v["operation"])
     if fn is None:
         return "skip", f"no driver wired up yet for operation {v['operation']!r}"
