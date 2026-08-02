@@ -376,6 +376,19 @@ class Schema:
         from .ops import equivalent
         return equivalent(self, other)
 
+    def isomorphic_to(self, other: "Schema") -> bool:
+        """Stricter than ``equivalent()`` -- same document language is
+        necessary but not sufficient; this additionally requires the same
+        record graph structure, up to a renaming of records. Not a
+        replacement for ``equivalent()`` as the definition of schema
+        equality; used where a caller specifically needs to detect
+        structural differences that don't change accepted documents (e.g.
+        ``omnist-spec``'s conformance harness checking ``infer``'s output,
+        since ``infer`` is documented to never merge duplicate records the
+        way ``normalize`` does)."""
+        from .ops.isomorphic import _isomorphic
+        return _isomorphic(self, other)
+
     def normalize(self) -> "Schema":
         """The canonical minimal schema equivalent to this one: fewest env
         records, unique up to naming (via partition refinement)."""

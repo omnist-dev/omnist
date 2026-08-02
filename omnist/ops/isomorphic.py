@@ -7,10 +7,17 @@ to bidirectional ``compatible_with`` (``ops/subschema.py``), so the two can
 be cross-checked against each other in tests (see ``docs/testing.md``,
 "the dual-algorithm oracle").
 
-``_isomorphic`` is intentionally private and not re-exported from
-``omnist``: the public API commits to ``equivalent``
-(the cheaper, single algorithm) staying the definition of schema equality.
-This module exists purely as an independent oracle for property tests.
+``_isomorphic`` stays private to this module -- ``Schema.equivalent()``
+remains the public API's canonical definition of schema equality,
+unchanged (issue #279). This module now has two legitimate consumers of
+the same underlying check: the independent property-test oracle described
+above, and the public ``Schema.isomorphic_to()`` (``omnist/schema.py``), a
+deliberately narrower, additional operation for callers who need to
+detect structural differences that ``equivalent()``'s document-language-
+only definition cannot see -- e.g. two schemas that accept the same
+documents only because a bug merged what should have been two distinct
+records (the exact false-negative ``equivalent()`` misses, and
+``_isomorphic`` catches, that motivated exposing this publicly).
 
 Algorithm: parallel traversal from both roots, building a bijection
 ``name_a -> name_b`` (and its inverse) between env record names as the
