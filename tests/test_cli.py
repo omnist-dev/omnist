@@ -650,6 +650,26 @@ class TestInfer:
         assert ("Root.v — values of more than one scalar kind (integer, string)"
                 in err)
 
+    def test_allow_any_json_reports_structured_opened_list(self, tmp_path, capsys):
+        # Issue #280: --json must switch the opening report to structured
+        # JSON on stderr, matching the AnyFallback(location, reason) shape,
+        # instead of always printing plain text regardless of --json.
+        f1 = tmp_path / "a.json"
+        f1.write_text('{"v": 1, "data": {"x": 1}}')
+        f2 = tmp_path / "b.json"
+        f2.write_text('{"v": "x", "data": 5}')
+        code, out, err = run(
+            ["infer", str(f1), str(f2), "--from", "json", "--allow-any", "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert out.startswith("record Root {")   # schema output unchanged
+        payload = json.loads(err)
+        assert payload == {"opened": [
+            {"location": "Root.v",
+             "reason": "values of more than one scalar kind (integer, string)"},
+            {"location": "Root.data", "reason": "mixes objects and values"},
+        ]}
+
     def test_allow_any_with_clean_samples_prints_no_report(self, tmp_path, capsys):
         f1 = tmp_path / "a.json"
         f1.write_text('{"x": 1}')
