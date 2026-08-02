@@ -124,6 +124,7 @@ omnist convert data.oml --from oml --to oml --schema data.osd -o data.oml
 omnist convert data.json --from json --to toml --report -o data.toml
 omnist convert data.json --from json --to toml --strict -o data.toml
 ```
+<!-- doc-illustrative -->
 
 ### `omnist validate <input> --from FMT --schema FILE [--result-format text|json|oml] [--json]`
 
