@@ -6,6 +6,12 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.1] — docs site logo
+
+- Closed [#290](https://github.com/omnist-dev/omnist/issues/290): added
+  `docs/assets/logo.svg` (reused verbatim from `omnist-spec`'s docs site)
+  and wired it into `mkdocs.yml` as both `theme.logo` and `theme.favicon`.
+
 ## [v0.8.0] — `read_xml` no longer infers scalar kind from text shape (BREAKING)
 
 - Closed [#288](https://github.com/omnist-dev/omnist/issues/288):
