@@ -81,10 +81,20 @@ Result = Tuple[str, str]
 # Canonical document encoding (Sec8.5.4) -> a raw omnist Document node
 # ---------------------------------------------------------------------------
 
+_NUMBER_SENTINELS = {"NaN": float("nan"), "Infinity": float("inf"), "-Infinity": float("-inf")}
+
+
 def _decode_scalar(kind: Optional[str], value: Any) -> Any:
     if kind is None:
         return None
-    if kind in ("string", "boolean", "number"):
+    if kind == "number":
+        # test-suite/README.md's canonical encoding: JSON has no NaN/Infinity
+        # token, so these three special values are spelled as a string
+        # sentinel, not a bare JSON number -- issue #293.
+        if isinstance(value, str) and value in _NUMBER_SENTINELS:
+            return _NUMBER_SENTINELS[value]
+        return value
+    if kind in ("string", "boolean"):
         return value
     if kind == "integer":
         return int(value) if isinstance(value, str) else value
@@ -211,10 +221,19 @@ def run_write(v: Dict[str, Any], tmp: Path) -> Result:
     expect = v["expect"]
     doc_f = _write_tmp(tmp, "d.oml", write_oml(decode_document(inp["document"])))
     fmt = inp["format"]
-    args = ["convert", str(doc_f), "--from", "oml", "--to", fmt,
-            "--report", "--result-format", "json"]
-    if inp.get("strict"):
-        args.append("--strict")
+    if fmt == "oml":
+        # mirrors run_parse's own oml special-case: the CLI explicitly
+        # refuses `convert --from oml --to oml` ("use omnist format
+        # instead") -- issue #293. None of formats-oml/oml.json's vectors
+        # use --report/--strict, so this branch doesn't need them either.
+        args = ["format", str(doc_f), "--json"]
+        if inp.get("strict"):
+            args.append("--strict")
+    else:
+        args = ["convert", str(doc_f), "--from", "oml", "--to", fmt,
+                "--report", "--result-format", "json"]
+        if inp.get("strict"):
+            args.append("--strict")
     stdout, stderr, code = cli_runner._run(args)
     if not expect["ok"]:
         if code == 0:

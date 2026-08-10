@@ -30,6 +30,16 @@ def test_decode_scalar_all_kinds():
         "2024-01-01T12:00:00"
 
 
+def test_decode_scalar_number_sentinels():
+    # #293: the canonical encoding spells NaN/Infinity/-Infinity as a
+    # string sentinel (JSON has no such token), never a bare JSON number.
+    import math
+    assert math.isnan(vr._decode_scalar("number", "NaN"))
+    assert vr._decode_scalar("number", "Infinity") == float("inf")
+    assert vr._decode_scalar("number", "-Infinity") == float("-inf")
+    assert vr._decode_scalar("number", "not-a-sentinel") == "not-a-sentinel"
+
+
 def test_decode_scalar_unknown_kind_raises():
     import pytest
     with pytest.raises(ValueError, match="unknown scalar kind"):
@@ -296,6 +306,41 @@ def test_run_write_ok_text_and_diagnostics_match(tmp_path, monkeypatch):
                     "diagnostics": [{"path": "$.d", "code": "format.temporal-stringified"}]}}
     status, msg = vr.run_write(v, tmp_path)
     assert status == "pass"
+
+
+def test_run_write_oml_target_uses_format_not_convert(tmp_path, monkeypatch):
+    # #293: `convert --from oml --to oml` is refused by the CLI; write must
+    # special-case fmt=="oml" the same way run_parse already does.
+    seen = {}
+
+    def fake_run(args):
+        seen["args"] = args
+        return 'd: "2024-01-01"\n', "", 0
+
+    monkeypatch.setattr(vr.cli_runner, "_run", fake_run)
+    v = {"input": {"format": "oml", "document": {
+             "edges": [["d", {"scalar": {"kind": "string", "value": "2024-01-01"}}]]}},
+         "expect": {"ok": True, "text": 'd: "2024-01-01"\n'}}
+    status, msg = vr.run_write(v, tmp_path)
+    assert status == "pass"
+    assert seen["args"][0] == "format"
+    assert "convert" not in seen["args"]
+
+
+def test_run_write_oml_target_strict_flag_passed(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_run(args):
+        seen["args"] = args
+        return "", "", 2
+
+    monkeypatch.setattr(vr.cli_runner, "_run", fake_run)
+    v = {"input": {"format": "oml", "document": {"edges": []}, "strict": True},
+         "expect": {"ok": False}}
+    status, msg = vr.run_write(v, tmp_path)
+    assert status == "pass"
+    assert seen["args"][0] == "format"
+    assert "--strict" in seen["args"]
 
 
 def test_run_write_strict_flag_passed(tmp_path, monkeypatch):
