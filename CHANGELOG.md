@@ -6,6 +6,24 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.2] — fix two conformance vector_runner bugs
+
+- Closed [#293](https://github.com/omnist-dev/omnist/issues/293):
+  `tools/conformance/vector_runner.py` had two runner-only bugs (not
+  library behavior divergences), found bumping `vendor/omnist-spec` past
+  `v0.1.0-alpha` for the first time in a while:
+  - `_decode_scalar` didn't know the canonical encoding's NaN/Infinity
+    string-sentinel convention (`{"kind": "number", "value": "NaN"}`),
+    so it passed the literal string `"NaN"` through instead of decoding
+    to `float("nan")`.
+  - `run_write` never special-cased `format == "oml"` the way `run_parse`
+    already did — the CLI explicitly refuses `convert --from oml --to
+    oml` ("use `omnist format` instead"), so all 6 of
+    `formats-oml/oml.json`'s vectors failed at the CLI-invocation level.
+  Bumped `vendor/omnist-spec` to a newly-cut `v0.2.1-alpha` (no existing
+  tag covered the needed commits — `v0.2.0-alpha` was 7 commits behind).
+  Full vector suite: 115 passed, 0 failed, 36 skipped (of 151 vectors).
+
 ## [v0.8.1] — docs site logo
 
 - Closed [#290](https://github.com/omnist-dev/omnist/issues/290): added
