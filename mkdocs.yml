@@ -1,6 +1,6 @@
 site_name: Omnist
 site_description: One canonical data model for JSON, YAML, TOML, XML, and OML.
-site_url: https://omnist.dev/
+site_url: https://py.omnist.dev/
 repo_url: https://github.com/omnist-dev/omnist
 repo_name: omnist-dev/omnist
 edit_uri: edit/master/docs/
