@@ -6,6 +6,16 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.3] — docs site moved to py.omnist.dev
+
+- Closed [#296](https://github.com/omnist-dev/omnist/issues/296): moved
+  this repo's docs site from the bare `omnist.dev` apex domain to
+  `py.omnist.dev`, matching the other `omnist-dev` ports' subdomain
+  convention (`rs.omnist.dev`, `spec.omnist.dev`, `ts.omnist.dev`).
+  `docs/CNAME`, `mkdocs.yml`'s `site_url`, and `README.md`'s docs link
+  all updated. `omnist.dev` itself is unaffected by this change beyond no
+  longer serving these docs.
+
 ## [v0.8.2] — fix two conformance vector_runner bugs
 
 - Closed [#293](https://github.com/omnist-dev/omnist/issues/293):
