@@ -347,6 +347,13 @@ def test_xml_safe_node_classifies_empty_nonempty_and_control_chars():
 
 
 @_SUPPRESS
+@example(label="A", node="x")  # deterministically covers the zero-adjustments
+                                # branch below -- #288 made a non-string scalar
+                                # leaf always report value.stringified, so a
+                                # random node hitting an all-string tree (the
+                                # only shape with zero adjustments at all) got
+                                # too rare for hypothesis to reliably find on
+                                # its own, per issue #295's CI coverage gate.
 @given(label=_labels, node=nodes)
 def test_xml_round_trip_modulo_documented_adjustments(label, node):
     if not _xml_safe_node(node):
@@ -540,7 +547,18 @@ def schemas(draw):
     return Schema(Ref(root_name), env)
 
 
+_EMPTY_SCHEMA_EXAMPLE = Schema(Ref("A"), {
+    "A": Record([Field("f0", Ref("B"), 1, 1)]),
+    "B": Record([Field("f0", Ref("A"), 1, 1)]),
+    "C": Record([]),
+})
+
+
 @_SUPPRESS
+@example(s=_EMPTY_SCHEMA_EXAMPLE, t=_EMPTY_SCHEMA_EXAMPLE)  # deterministically
+# covers the is_empty() branch below -- a random schema over this small a
+# field/cardinality space rarely lands on a mandatory ref cycle, per issue
+# #295's CI coverage gate.
 @given(s=schemas(), t=schemas())
 def test_is_empty_implies_compatible_with_anything(s, t):
     """The vacuity property (paper Theorem 1 analog): an unsatisfiable

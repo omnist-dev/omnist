@@ -21,6 +21,21 @@ jobs:
       - run: ruff check .
       - run: pytest -q
 
+  coverage:
+    # issue #295: no coverage measurement or gate existed in CI at all --
+    # unlike omnist-rs/omnist-go, a regression here would go unnoticed.
+    # Runs once (not per matrix version, unlike the `test` job above) since
+    # coverage doesn't vary meaningfully across interpreter versions here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e .[dev]
+      - run: coverage run -m pytest -q
+      - run: coverage report -m --fail-under=100
+
   typecheck:
     runs-on: ubuntu-latest
     steps:

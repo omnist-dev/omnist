@@ -6,6 +6,24 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.4] — coverage gate added to CI
+
+- Closed [#295](https://github.com/omnist-dev/omnist/issues/295):
+  CI ran `pytest -q` with no coverage measurement at all — unlike
+  `omnist-rs`/`omnist-go`, a coverage regression would go unnoticed.
+  Added a `coverage` job (single run on Python 3.12) running
+  `coverage run -m pytest -q` then `coverage report -m --fail-under=100`,
+  matching the other ports' discipline.
+- Adding a hard gate surfaced two Hypothesis-driven fuzz tests
+  (`test_xml_round_trip_modulo_documented_adjustments`,
+  `test_is_empty_implies_compatible_with_anything`) whose coverage of a
+  rare-but-real branch depended on random generation, not a guaranteed
+  hit — intermittently missing the branch and failing the new gate.
+  Fixed with an explicit `@example(...)` seed for each, per the project's
+  established "force rare-but-real branches with a deterministic
+  example" convention, rather than loosening the gate or the properties
+  themselves.
+
 ## [v0.8.3] — docs site moved to py.omnist.dev
 
 - Closed [#296](https://github.com/omnist-dev/omnist/issues/296): moved

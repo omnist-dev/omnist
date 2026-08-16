@@ -313,10 +313,11 @@ request targeting `master`. Two jobs:
 4. Type-checks: `mypy --strict omnist` — all 75 previous errors fixed; passes
    as a gate to catch type regressions (added in #159).
 
-Coverage is not enforced in CI (no `coverage run`/coverage threshold step in
-the workflow) — the 100% target above is a contributor discipline backed by
-the periodic coverage sweeps described in [Coverage](#coverage), checked
-manually rather than gated in the pipeline.
+**`coverage` job** (issue #295): a single run on Python 3.12 that runs
+`coverage run -m pytest -q` then `coverage report -m --fail-under=100` — the
+100% target above is now a real CI gate, not just a contributor discipline
+checked manually via the periodic sweeps described in
+[Coverage](#coverage).
 
 **`conformance` job** (issue #283): runs `omnist`'s own OML/OSD conformance
 test runner (`tools/conformance/`) against
