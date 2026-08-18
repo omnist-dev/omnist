@@ -36,17 +36,21 @@ class WriteReport:
     entries (warnings are fine), so ``if check_toml(doc): …`` reads as 'safe'."""
 
     def __init__(self) -> None:
+        """Initialize an empty WriteReport."""
         self.adjustments: List[Adjustment] = []
 
     def add(self, path: str, code: str, message: str, severity: str) -> None:
+        """Record an adjustment into this report."""
         self.adjustments.append(Adjustment(path, code, message, severity))
 
     @property
     def warnings(self) -> List[Adjustment]:
+        """All adjustments with ``'warning'`` severity."""
         return [a for a in self.adjustments if a.severity == "warning"]
 
     @property
     def errors(self) -> List[Adjustment]:
+        """All adjustments with ``'error'`` severity."""
         return [a for a in self.adjustments if a.severity == "error"]
 
     def __bool__(self) -> bool:

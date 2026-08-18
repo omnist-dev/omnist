@@ -28,6 +28,7 @@ class ParseError(OmnistError):
     """
 
     def __init__(self, message: str, errors: "Optional[List[Error]]" = None) -> None:
+        """Initialize ParseError with a human-readable message and structured issues."""
         super().__init__(message)
         self.errors: "List[Error]" = errors or []
 
@@ -60,6 +61,7 @@ class WriteError(OmnistError):
     """
 
     def __init__(self, message: str, report: "WriteReport | None" = None) -> None:
+        """Initialize WriteError with an adjustment report."""
         super().__init__(message)
         self.report = report
 

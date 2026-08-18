@@ -159,6 +159,7 @@ class Doc:
     __slots__ = ("_node", "path", "depth")
 
     def __init__(self, node: Any, path: str = "$", depth: int = 0) -> None:
+        """Initialize a Doc cursor pointing to ``node`` at ``path``."""
         self._node = node
         self.path = path
         self.depth = depth
@@ -166,50 +167,66 @@ class Doc:
     # -- construction ---------------------------------------------------
     @classmethod
     def of(cls, value: Any) -> "Doc":
+        """Construct a Doc from a plain Python value (JSON-shaped mapping, sequence, or scalar)."""
         return cls(build_node(value))
 
     @classmethod
     def from_format(cls, name: str, text: str) -> "Doc":
+        """Parse source text using the registered format named ``name`` into a Doc."""
         from .registry import get_format
         return cls(get_format(name).read(text))
 
     @classmethod
     def from_json(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+        """Parse JSON text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .formats import read_json
         return cls(read_json(text, schema=schema))
 
     @classmethod
     def from_yaml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+        """Parse YAML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .formats import read_yaml
         return cls(read_yaml(text, schema=schema))
 
     @classmethod
     def from_toml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+        """Parse TOML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .formats import read_toml
         return cls(read_toml(text, schema=schema))
 
     @classmethod
     def from_xml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+        """Parse XML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .formats import read_xml
         return cls(read_xml(text, schema=schema))
 
     @classmethod
     def from_oml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+        """Parse OML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .oml import read_oml
         return cls(read_oml(text, schema=schema))
 
     # -- shape ----------------------------------------------------------
     @property
     def is_leaf(self) -> bool:
+        """True if this cursor points to a scalar leaf value (spec §2.1)."""
         return not isinstance(self._node, list)
 
     @property
     def value(self) -> Any:
+        """The scalar value at this leaf node (spec §2.2).
+
+        Raises :class:`~omnist.errors.DocumentError` if this is an internal node.
+        """
         if isinstance(self._node, list):
             raise DocumentError(f"{self.path}: not a leaf; use edges()")
         return self._node
 
     def edges(self) -> List[Tuple[str, "Doc"]]:
+        """Return the ordered list of ``(label, Doc)`` child edges (spec §2.1).
+
+        Raises :class:`~omnist.errors.DocumentError` if this is a leaf node.
+        """
         if not isinstance(self._node, list):
             raise DocumentError(f"{self.path}: a leaf has no edges")
         out: List[Tuple[str, "Doc"]] = []
@@ -222,6 +239,7 @@ class Doc:
         return out
 
     def labels(self) -> List[str]:
+        """Return the deduplicated list of child edge labels in first-occurrence order."""
         seen: set[str] = set()
         out: List[str] = []
         for label, _ in self._iter():
@@ -231,9 +249,14 @@ class Doc:
         return out
 
     def get(self, label: str) -> List["Doc"]:
+        """Return all child Doc cursors matching ``label``."""
         return [c for lbl, c in self.edges() if lbl == label]
 
     def get_one(self, label: str) -> "Doc":
+        """Return the single child Doc cursor matching ``label``.
+
+        Raises :class:`~omnist.errors.DocumentError` if there are not exactly 1 matching edge.
+        """
         cs = self.get(label)
         if len(cs) != 1:
             raise DocumentError(
@@ -241,6 +264,7 @@ class Doc:
         return cs[0]
 
     def count(self, label: str) -> int:
+        """Return the number of child edges matching ``label``."""
         return sum(1 for lbl, _ in self._iter() if lbl == label)
 
     def _iter(self) -> Iterator[Tuple[str, Any]]:
@@ -292,6 +316,7 @@ class Doc:
 
     # -- export ---------------------------------------------------------
     def to_data(self) -> Any:
+        """Return a deep copy of the raw underlying node representation (spec §2.1)."""
         return _copy(self._node)
 
     def to_grouped(self) -> Any:
@@ -303,46 +328,57 @@ class Doc:
         return _grouped(self._node)
 
     def to_json(self, **o: Any) -> str:
+        """Serialize this Document to JSON text (spec §4)."""
         from .formats import write_json
         return write_json(self._node, **o)
 
     def to_yaml(self, **o: Any) -> str:
+        """Serialize this Document to YAML text (spec §4)."""
         from .formats import write_yaml
         return write_yaml(self._node, **o)
 
     def to_toml(self, **o: Any) -> str:
+        """Serialize this Document to TOML text (spec §4)."""
         from .formats import write_toml
         return write_toml(self._node, **o)
 
     def to_xml(self, **o: Any) -> str:
+        """Serialize this Document to XML text (spec §4)."""
         from .formats import write_xml
         return write_xml(self._node, **o)
 
     def to_oml(self, **o: Any) -> str:
+        """Serialize this Document to OML text (spec §4)."""
         from .oml import write_oml
         return write_oml(self._node, **o)
 
     def to_format(self, name: str, **o: Any) -> str:
+        """Serialize this Document to the registered format named ``name``."""
         from .registry import get_format
         return get_format(name).write(self._node, **o)
 
     def check_json(self) -> "WriteReport":
+        """Simulate writing to JSON and return the adjustment report (spec §4)."""
         from .formats import check_json
         return check_json(self._node)
 
     def check_yaml(self) -> "WriteReport":
+        """Simulate writing to YAML and return the adjustment report (spec §4)."""
         from .formats import check_yaml
         return check_yaml(self._node)
 
     def check_toml(self) -> "WriteReport":
+        """Simulate writing to TOML and return the adjustment report (spec §4)."""
         from .formats import check_toml
         return check_toml(self._node)
 
     def check_xml(self) -> "WriteReport":
+        """Simulate writing to XML and return the adjustment report (spec §4)."""
         from .formats import check_xml
         return check_xml(self._node)
 
     def check_oml(self) -> "WriteReport":
+        """Simulate writing to OML and return the adjustment report (spec §4)."""
         from .oml import check_oml
         return check_oml(self._node)
 
@@ -359,6 +395,7 @@ class Doc:
         return fmt.check(self._node)  # type: ignore[no-any-return]
 
     def validate(self, schema: "Schema") -> "ValidationResult":
+        """Validate this Document against ``schema`` (spec §5)."""
         return schema.validate(self)
 
     # -- dunders --------------------------------------------------------

@@ -1,4 +1,6 @@
-# API reference
+# API overview
+
+> Looking for the complete, automatically generated Python API reference? See the [Python API reference](reference.md).
 
 Everything importable from `import omnist`. Types: a **Document** is held by a
 `Doc`; a **Schema** is a `root` reference plus named `Record` definitions, where

@@ -46,6 +46,17 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - tables
 
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: sphinx
+            show_root_heading: true
+            show_source: true
+
 extra_javascript:
   - assets/mermaid.min.js
   - assets/mermaid-init.js
@@ -67,7 +78,8 @@ nav:
       - "package.json": examples/package-json.md
       - "GitHub Actions workflow": examples/github-actions.md
       - "sitemap.xml": examples/sitemap.md
-  - API reference: api.md
+  - API overview: api.md
+  - Python API reference: reference.md
   - CLI: cli.md
   - Schema-directed deserialization: deserialization.md
   - Formats:
