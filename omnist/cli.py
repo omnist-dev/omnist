@@ -567,6 +567,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Entry point for the ``omnist`` command-line interface."""
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:
