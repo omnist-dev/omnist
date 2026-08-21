@@ -200,12 +200,29 @@ def _json_validate_errors(message: str, errors: list[Error]) -> str:
     return _json.dumps(payload)
 
 
+def _schema_error_as_errors(exc: SchemaError) -> "list[Error]":
+    """SchemaError always represents exactly one problem (OSD parsing stops
+    at the first error), so a single-item list, not a collected-errors
+    list like ParseError's -- empty if the raiser didn't set a code (issue
+    #301: still true for any SchemaError site outside osd.py's own
+    lexical/well-formedness raises, which is most of schema.py's)."""
+    if exc.code is None:
+        return []
+    return [Error(exc.path or "", str(exc), exc.code)]
+
+
 def _json_error(exc: Exception) -> str:
     """The uniform --json failure payload for any data/parse/IO error:
     {"ok": false, "message": str(exc), "errors": [...]} -- errors come from
-    ParseError.errors when applicable, else []. Single source of the error
-    shape (delegates to _json_validate_errors)."""
-    errors = exc.errors if isinstance(exc, ParseError) else []
+    ParseError.errors or a structured SchemaError's code/path when
+    applicable, else []. Single source of the error shape (delegates to
+    _json_validate_errors)."""
+    if isinstance(exc, ParseError):
+        errors = exc.errors
+    elif isinstance(exc, SchemaError):
+        errors = _schema_error_as_errors(exc)
+    else:
+        errors = []
     return _json_validate_errors(str(exc), errors)
 
 
@@ -232,7 +249,12 @@ def _cmd_validate(args: argparse.Namespace) -> int:
             d = Doc(node)
             s = parse_schema(_read_input(args.schema))
         except (ParseError, SchemaError, DocumentError, OSError) as exc:
-            errors = exc.errors if isinstance(exc, ParseError) else []
+            if isinstance(exc, ParseError):
+                errors = exc.errors
+            elif isinstance(exc, SchemaError):
+                errors = _schema_error_as_errors(exc)
+            else:
+                errors = []
             print(_json_validate_errors(str(exc), errors))
             return 2
         result = s.validate(d)

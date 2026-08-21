@@ -552,6 +552,39 @@ class TestValidate:
         assert payload["errors"] == []
         assert "invalid JSON" in payload["message"]
 
+    def test_json_flag_missing_schema_file_has_empty_errors(self, tmp_path, capsys):
+        # an OSError (missing file) isn't a ParseError or SchemaError -- the
+        # errors list stays empty, same as before #301 split this into a
+        # real if/elif/else (it was one ternary line before).
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json",
+             "--schema", str(tmp_path / "does-not-exist.osd"), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        payload = json.loads(out)
+        assert payload["ok"] is False
+        assert payload["errors"] == []
+
+    def test_json_flag_bad_schema_reports_structured_code(self, tmp_path, capsys):
+        # #301: a malformed --schema is a SchemaError, not a ParseError --
+        # confirm its new code/path make it through to --json's errors, not
+        # just an empty list the way an unstructured SchemaError used to.
+        doc_f = tmp_path / "d.json"
+        doc_f.write_text('{"a": 1}')
+        schema_f = tmp_path / "s.osd"
+        schema_f.write_text('record R { x: integer }\nroot R\n')  # unquoted label
+        code, out, err = run(
+            ["validate", str(doc_f), "--from", "json", "--schema", str(schema_f), "--json"],
+            capsys=capsys, monkeypatch=None)
+        assert code == 2
+        assert err == ""
+        payload = json.loads(out)
+        assert payload["ok"] is False
+        assert len(payload["errors"]) == 1
+        assert payload["errors"][0]["code"] == "schema.unquoted-label"
+
     def test_default_output_unchanged_when_json_flag_absent(self, tmp_path, capsys):
         # Regression guard: --json is purely additive -- every existing
         # (non-flag) output path must stay byte-identical.

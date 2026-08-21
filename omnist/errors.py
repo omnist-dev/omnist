@@ -12,7 +12,27 @@ class OmnistError(Exception):
 
 
 class SchemaError(OmnistError):
-    """The schema text or structure is invalid."""
+    """The schema text or structure is invalid.
+
+    ``code``/``path`` are optional structured attributes -- ``None`` unless
+    the raiser passed them, so every existing ``raise SchemaError("msg")``
+    call keeps working unchanged. Where set, ``code`` is one of
+    ``omnist-spec``'s ``parse.*``/``schema.*`` taxonomy codes (see
+    ``docs/08-conformance-and-errors.md`` Sec8.3.1/8.3.3 in the
+    ``omnist-spec`` submodule) and ``path`` is the OSD text offset or
+    record/field name the problem was found at. Unlike :class:`ParseError`,
+    a single ``SchemaError`` always represents exactly one problem -- OSD
+    parsing stops at the first error, so there is no ``.errors`` list to
+    collect (issue #301).
+    """
+
+    def __init__(self, message: str, *, code: "Optional[str]" = None,
+                 path: "Optional[str]" = None) -> None:
+        """Initialize SchemaError with a human-readable message and, optionally,
+        a structured machine-readable code and the path/position it applies to."""
+        super().__init__(message)
+        self.code = code
+        self.path = path
 
 
 class ParseError(OmnistError):
