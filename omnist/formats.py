@@ -68,8 +68,39 @@ def _leaves(node: Any, path: str = "$", depth: int = 0) -> Any:
         yield path, node
 
 
+def _check_json_text_depth(text: str) -> None:
+    """Reject deeply-nested JSON *before* handing it to ``json.loads`` (#307):
+    the standard library parser has no depth limit of its own, so a
+    malicious payload can raise an uncaught ``RecursionError`` from inside
+    it -- ``build_node()``'s own ``_MAX_DEPTH`` guard runs too late to help,
+    since by then ``json.loads`` has already fully parsed (or crashed
+    trying). A cheap bracket-depth scan of the raw text, skipping string
+    contents, catches this before any real parsing work happens."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for ch in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            depth += 1
+            if depth > _MAX_DEPTH:
+                raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        elif ch in "}]":
+            depth -= 1
+
+
 # --------------------------------------------------------------- JSON
 def read_json(text: str, *, schema: Optional["Schema"] = None) -> Any:
+    _check_json_text_depth(text)
     try:
         node = build_node(_json.loads(text))
     except _json.JSONDecodeError as exc:
@@ -138,6 +169,13 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None) -> Any:
         # Same int-string-conversion guard as read_json (see its comment):
         # PyYAML converts an integer scalar to `int` while loading.
         raise ParseError(f"invalid YAML: {exc}") from exc
+    except RecursionError as exc:
+        # #307: unlike JSON's bracket grammar, YAML nesting (indentation,
+        # flow collections, anchors) isn't cheap to bound from raw text
+        # without reimplementing the grammar -- this is a safety net that
+        # converts an uncaught crash into the same clean error a depth
+        # violation always raises, rather than precise prevention.
+        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})") from exc
     return _materialize(node, schema)
 
 
@@ -228,6 +266,11 @@ def read_toml(text: str, *, schema: Optional["Schema"] = None) -> Any:
         # Same int-string-conversion guard as read_json (see its comment):
         # tomllib converts an integer literal to `int` while loading.
         raise ParseError(f"invalid TOML: {exc}") from exc
+    except RecursionError as exc:
+        # #307: same safety net as read_yaml -- TOML nesting (inline
+        # tables/arrays, dotted keys) isn't cheap to bound from raw text
+        # without reimplementing the grammar.
+        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})") from exc
     return _materialize(node, schema)
 
 

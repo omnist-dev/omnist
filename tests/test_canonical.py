@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.7"
+        assert ds.__version__ == "0.8.8"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -859,6 +859,28 @@ class TestMalformedInput:
     def test_invalid_xml_raises_parse_error(self):
         with pytest.raises(ParseError, match="invalid XML"):
             read_xml("<unclosed>")
+
+    def test_deeply_nested_json_raises_parse_error_not_recursion_error(self):
+        # #307: json.loads() has no depth limit of its own -- without the
+        # pre-scan, this used to raise an uncaught RecursionError straight
+        # out of the standard library, well before build_node()'s own
+        # _MAX_DEPTH guard ever got a chance to run.
+        with pytest.raises(ParseError, match="nesting exceeds the maximum depth"):
+            read_json("[" * 100_000 + "]" * 100_000)
+
+    def test_deeply_nested_yaml_raises_parse_error_not_recursion_error(self):
+        with pytest.raises(ParseError, match="nesting exceeds the maximum depth"):
+            read_yaml("[" * 100_000 + "]" * 100_000)
+
+    def test_deeply_nested_toml_raises_parse_error_not_recursion_error(self):
+        with pytest.raises(ParseError, match="nesting exceeds the maximum depth"):
+            read_toml("a = " + "[" * 100_000 + "]" * 100_000)
+
+    def test_json_string_content_does_not_count_toward_nesting_depth(self):
+        # the pre-scan must skip bracket-like characters inside a JSON
+        # string, including an escaped quote right before one
+        text = '{"a": "' + ("[" * 500) + r'a \" [x]' + ("]" * 500) + '"}'
+        assert read_json(text) == [("a", "[" * 500 + 'a " [x]' + "]" * 500)]
 
     def test_check_oml_never_sees_an_unwritable_node(self):
         # Before issue #156 (B2), build_node accepted ints past CPython's
