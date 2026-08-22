@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.5"
+        assert ds.__version__ == "0.8.6"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1543,6 +1543,25 @@ class TestOsdErrorCodes:
             parse_schema('record R { "a: integer }\nroot R')
         assert exc.value.code == "parse.unterminated-string"
         assert exc.value.path == "11"
+
+    def test_control_character_in_string(self):
+        # #303/omnist-spec Sec5.3.1: a raw control character (< U+0020) in
+        # an OSD string is an error, matching OML's existing rule -- found
+        # via a cross-port audit (Go/TS already rejected it, Python/Java/Rust
+        # didn't).
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "a\x01b": integer }\nroot R')
+        assert exc.value.code == "parse.control-character"
+        assert exc.value.path == "13"
+        assert "U+0001" in str(exc.value)
+
+    def test_escaped_backslash_n_is_not_a_control_character(self):
+        # OSD has no named-escape table -- "\n" (backslash, n) unescapes to
+        # the two-character-turned-one-character label "n" appended after
+        # "a", not a literal newline -- the control-character check must
+        # only look at the string's *raw* text, never an unescaped form.
+        s = parse_schema(r'record R { "a\nb": integer }' + "\nroot R")
+        assert s.env["R"].fields[0].label == "anb"
 
     def test_unexpected_character(self):
         with pytest.raises(SchemaError) as exc:

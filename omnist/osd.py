@@ -66,6 +66,19 @@ def _tokenize(text: str) -> List[_Tok]:
         kind = m.lastgroup
         if kind in ("ws", "comment"):
             continue
+        if kind == "string":
+            # #303/omnist-spec Sec5.3.1: a raw control character (< U+0020)
+            # in a string body is an error -- matches OML's existing rule
+            # (oml.py's _scan_string_slow). The tokenizer's regex alone
+            # can't express "no control characters", so check the matched
+            # text after the fact rather than complicating the pattern.
+            text_val = m.group()
+            for offset, ch in enumerate(text_val):
+                if ord(ch) < 0x20:
+                    pos = m.start() + offset
+                    raise SchemaError(
+                        f"control character U+{ord(ch):04X} in string at {pos}",
+                        code="parse.control-character", path=str(pos))
         toks.append(_Tok(kind or "", m.group() or "", m.start()))
     toks.append(_Tok("eof", "", len(text)))
     return toks

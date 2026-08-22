@@ -6,6 +6,26 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.6] — OSD strings reject raw control characters
+
+- Closed [#303](https://github.com/omnist-dev/omnist/issues/303):
+  a cross-port audit found `osd.py`'s string tokenizer accepted any raw
+  control character (code point < U+0020) inside a quoted OSD string with
+  no rejection at all — `omnist-go` and `omnist-ts` already independently
+  rejected this; `omnist`/`omnist-j`/`omnist-rs` didn't. `omnist-spec`
+  formalized the rule as normative (§5.3.1): a literal control character
+  in an OSD string is an error, matching OML's existing rule.
+- `osd.py` now rejects it, raising `SchemaError` with the structured
+  `code="parse.control-character"` shape #301 added — the tokenizer's
+  regex can't express "no control characters" directly, so the matched
+  string body is checked after the fact. `\n` (backslash, `n` — OSD has
+  no named-escape table) is unaffected; only a *raw* control character in
+  the string's literal text triggers this, never an escaped form.
+- No previously-valid schema stops parsing: a raw control character
+  inside a quoted string was never meaningful OSD content to begin with
+  (field labels are identifiers in practice), so this tightens acceptance
+  of malformed input rather than breaking anything real.
+
 ## [v0.8.5] — SchemaError gains structured code/path for OSD errors
 
 - Closed [#301](https://github.com/omnist-dev/omnist/issues/301):
