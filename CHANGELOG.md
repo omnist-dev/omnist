@@ -32,10 +32,14 @@ deprecation cycle, not silently between releases.
   `omnist validate --json`'s `errors` list, which now gets a real
   entry for a malformed `--schema` instead of always `[]`.
 - Deliberately not wired this round, flagged rather than silently
-  skipped: `parse.trailing-content` (the parser currently accepts
-  content after `root NAME` with no error — enforcing that is a real,
-  independent parsing-behavior change deserving its own issue, not
-  bundled in here), `parse.invalid-escape`/`parse.unpaired-surrogate`
+  skipped: `parse.trailing-content` (malformed trailing text after
+  `root NAME` already errors, just under the generic
+  `parse.unexpected-token` code rather than a dedicated one — but a
+  *syntactically valid* record declaration placed after `root` is
+  silently accepted into the schema's env, never flagged at all;
+  fixing that gap is a real, independent parsing-behavior change
+  deserving its own issue, not bundled in here),
+  `parse.invalid-escape`/`parse.unpaired-surrogate`
   (not reachable given OSD's own escaping rule — `\X` always means
   literal `X`, no named-escape table, no `\uXXXX` syntax exists in
   this grammar), and `parse.control-character` (whether OSD's grammar
