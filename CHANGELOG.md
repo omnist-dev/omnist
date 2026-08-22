@@ -6,6 +6,27 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.8] — read_json/read_yaml/read_toml no longer crash on deeply-nested input
+
+- Closed [#307](https://github.com/omnist-dev/omnist/issues/307): a Gemini
+  deep-dive audit's checklist item, elevated during independent
+  verification into a concrete, reproducible crash — `read_json`,
+  `read_yaml`, and `read_toml` enforced `_MAX_DEPTH` only *after* the
+  underlying library had already fully parsed the input, so a deeply-nested
+  malicious document raised an uncaught `RecursionError` straight out of
+  the standard library, before the depth guard ever ran. `read_xml` was
+  already safe (its own recursive descent checks depth inline).
+- `read_json` now pre-scans the raw text's bracket nesting (skipping string
+  contents) before calling `json.loads`, rejecting past `_MAX_DEPTH` with
+  a clean `ParseError` — precise prevention, no wasted parse work.
+- `read_yaml`/`read_toml` now catch `RecursionError` from the underlying
+  parser and convert it to the same clean `ParseError` — a pragmatic
+  safety net rather than a precise pre-scan, since bounding YAML/TOML
+  nesting from raw text without reimplementing their grammars isn't
+  worth the complexity.
+- Not a breaking change in practice: the old behavior was always a crash,
+  never a supported code path a caller could have been relying on.
+
 ## [v0.8.7] — materialize() rejects non-value-exact integer/number conversions
 
 - Closed [#306](https://github.com/omnist-dev/omnist/issues/306): a Gemini
