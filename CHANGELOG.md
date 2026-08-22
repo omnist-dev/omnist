@@ -6,6 +6,26 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.7] — materialize() rejects non-value-exact integer/number conversions
+
+- Closed [#306](https://github.com/omnist-dev/omnist/issues/306): a Gemini
+  deep-dive audit of this repo found `materialize()` silently losing or
+  inventing precision on `integer <-> number` upgrades — `9007199254740993`
+  (an `integer`, past `2**53 - 1`) upgraded to `number` as
+  `9007199254740992.0`, and `1e25` (a whole-valued `number`) upgraded to
+  `integer` as a fabricated 26-digit value, both violating
+  `docs/07-codecs-and-deserialization.md` §7.2's "loses nothing and invents
+  nothing" rule.
+- Both directions now reject past `[-2**53, 2**53]` — the range where every
+  integer has an exact IEEE-754 double representation and vice versa — with
+  the same `ParseError`/`type-mismatch` a non-value-exact conversion always
+  raised. Boundary case (`2**53` exactly) still converts, both directions.
+- **Breaking in the narrow sense** that a schema-directed read of a
+  document with an out-of-range `integer`/`number` field, which previously
+  succeeded with a silently-wrong value, now correctly raises `ParseError`
+  — this is a bug fix, not a new restriction: the old behavior was never
+  a value-exact conversion, just an unchecked one.
+
 ## [v0.8.6] — OSD strings reject raw control characters
 
 - Closed [#303](https://github.com/omnist-dev/omnist/issues/303):

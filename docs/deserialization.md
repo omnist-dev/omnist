@@ -144,6 +144,14 @@ value-exact as `4`). If more than one problem exists, the `ParseError`
 message lists every one of them, each on its own line with its path — the
 same multi-error formatting `Schema.validate` uses.
 
+`integer`↔`number` has one more value-exact boundary: an IEEE-754 `number`
+only has 53 bits of mantissa, so an `integer` outside `[-2**53, 2**53]`
+can't upgrade to `number` without losing low-order digits, and a whole-valued
+`number` outside that same range can't upgrade to `integer` without
+inventing digits that were never in the original data (issue #306) — both
+directions raise `ParseError` past the boundary, exactly like any other
+non-value-exact conversion.
+
 ## XML's numeric and boolean strings are a `read_xml`-only exception
 
 XML has no `boolean`/`integer`/`number` literals either — every leaf is text,

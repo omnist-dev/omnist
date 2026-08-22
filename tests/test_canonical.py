@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.6"
+        assert ds.__version__ == "0.8.7"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1171,6 +1171,33 @@ class TestDeserialize:
             materialize([("i", True)], s)
         with pytest.raises(ParseError):
             materialize([("n", True)], s)
+
+    def test_int_to_number_rejects_beyond_safe_range(self):
+        # #306: an IEEE-754 double only has 53 bits of mantissa -- past
+        # 2**53, float(value) silently drops low-order bits (loses).
+        s = parse_schema('record R { "n": number }\nroot R')
+        with pytest.raises(ParseError):
+            materialize([("n", 2 ** 53 + 1)], s)
+        with pytest.raises(ParseError):
+            materialize([("n", -(2 ** 53) - 1)], s)
+        # exactly at the boundary is still value-exact, both directions
+        assert materialize([("n", 2 ** 53)], s) == [("n", float(2 ** 53))]
+        assert materialize([("n", -(2 ** 53))], s) == [("n", float(-(2 ** 53)))]
+
+    def test_float_to_integer_rejects_beyond_safe_range(self):
+        # #306: a whole-valued float past 2**53 (e.g. 1e25) isn't actually
+        # equal to any specific large decimal integer -- int() on it
+        # fabricates digits that were never in the original data (invents).
+        s = parse_schema('record R { "i": integer }\nroot R')
+        with pytest.raises(ParseError):
+            materialize([("i", 1e25)], s)
+        with pytest.raises(ParseError):
+            materialize([("i", -1e25)], s)
+        # exactly at the boundary is still value-exact
+        assert materialize([("i", float(2 ** 53))], s) == [("i", 2 ** 53)]
+        # still rejects a genuine fractional float regardless of magnitude
+        with pytest.raises(ParseError):
+            materialize([("i", 1.5)], s)
 
     def test_materialize_never_upgrades_a_numeric_shaped_string(self):
         # #288: unlike XML (see TestXmlSchemaDirectedNumericAndBooleanRecovery
