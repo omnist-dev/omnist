@@ -39,6 +39,15 @@ from .schema import AnyType, Record, Scalar, Schema, ValidationResult, _is_iso
 
 _TEMPORAL_CLASS = {"date": _dt.date, "time": _dt.time, "datetime": _dt.datetime}
 
+# #306: an IEEE-754 double has 53 bits of mantissa, so every integer in
+# [-2**53, 2**53] has an exact float representation and vice versa -- outside
+# that range, int->number loses low-order bits and float->integer invents
+# them (a whole-valued float like 1e25 is not actually equal to any specific
+# 25-digit decimal integer; int() on it fabricates digits that were never in
+# the original data). Both directions of docs/07-codecs-and-deserialization.md
+# Sec7.2's "loses nothing and invents nothing" rule need this same bound.
+_MAX_SAFE_FLOAT_INT = 2 ** 53
+
 
 def materialize(node: Any, schema: Schema) -> Any:
     """A copy of ``node`` with leaf values upgraded to match ``schema``,
@@ -107,12 +116,15 @@ def _materialize_scalar(value: Any, s: Scalar, path: str, res: ValidationResult)
             pass
         elif isinstance(value, int):
             return value
-        elif isinstance(value, float) and value.is_integer():
+        elif (isinstance(value, float) and value.is_integer()
+              and -_MAX_SAFE_FLOAT_INT <= value <= _MAX_SAFE_FLOAT_INT):
             return int(value)
     elif s.name == "number":
         if isinstance(value, bool):
             pass
-        elif isinstance(value, (int, float)):
+        elif isinstance(value, float):
+            return value
+        elif isinstance(value, int) and -_MAX_SAFE_FLOAT_INT <= value <= _MAX_SAFE_FLOAT_INT:
             return float(value)
     elif s.name in _TEMPORAL_CLASS:
         converted = _materialize_temporal(value, s.name)
