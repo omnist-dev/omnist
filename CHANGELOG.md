@@ -6,6 +6,44 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.10] — the node-count safety limit counts containers, not scalar leaves
+
+- Closed [#309](https://github.com/omnist-dev/omnist/issues/309): a Gemini
+  deep-dive audit finding, resolved after direct consultation with
+  `omnist-spec` since the two sides of the question genuinely disagreed —
+  `build_node()`'s `_MAX_NODES` budget incremented once per *value*
+  (scalar leaves included), not once per `node` in `vendor/omnist-spec`'s
+  own formal sense (§2.2: `node = [edge, edge, ...]`, distinct from a
+  scalar `value`). Confirmed against the vendored conformance test
+  suite's own binding vector (`document-model/limits/
+  node-count-at-declared-limit-succeeds`): a flat two-scalar-edge
+  document at a declared node limit of 1 must succeed — this repo's old
+  counting would have rejected it.
+- `build_node()` now increments the budget only when materializing an
+  actual `dict` (the only Python shape that becomes a container node in
+  this model — arrays expand into repeated edges under their parent, they
+  never become their own node). A flat document with any number of
+  scalar sibling edges is now correctly one node, matching every other
+  already-fixed port (`omnist-j`/`omnist-rs`/`omnist-go`/`omnist-ts` all
+  made this same fix during their own audit cycles).
+- The `#256` YAML alias/anchor amplification defense this budget also
+  exists for is unaffected: an aliased value in the amplification attack
+  is itself a container (a mapping), so container-only counting still
+  increments at the same exponential rate. Re-verified directly, not
+  assumed — both pre-existing `#256` regression tests still pass
+  unchanged, plus a new, independent adversarial test added specifically
+  for this fix.
+- The reference default (1,000,000) is unchanged — deliberately left
+  alone per `omnist-spec`'s own guidance, since the threshold *number* is
+  explicitly permitted to vary per implementation (§9.1), only the
+  counting *semantics* were the actual conformance bug.
+- **A separate, genuine gap was found while implementing this fix, not
+  part of #309's own scope**: `omnist/oml.py`'s `read_oml` has no
+  `_MAX_NODES` enforcement at all (confirmed live: 1.1 million OML edges
+  parse with no error). Filed as its own issue,
+  [#313](https://github.com/omnist-dev/omnist/issues/313), rather than
+  folded into this fix.
+
 ## [v0.8.9] — ParseError gains structured code/path for syntax failures
 
 - Closed [#308](https://github.com/omnist-dev/omnist/issues/308): natural

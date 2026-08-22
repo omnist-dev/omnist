@@ -102,16 +102,26 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
     """
     if budget is None:
         budget = [0]
-    budget[0] += 1
-    if budget[0] > _MAX_NODES:
-        raise DocumentError(
-            f"{path}: too many nodes materialized (over {_MAX_NODES}) -- "
-            "likely a YAML alias/anchor amplification (a shared node "
-            "reached via more than one reference is walked in full at "
-            "each occurrence)")
     if depth > _MAX_DEPTH:
         raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
     if isinstance(value, dict):
+        # #309: only an actual container -- omnist-spec Sec2.2's formal
+        # `node = [edge, edge, ...]` -- counts against the node budget. A
+        # scalar leaf is a `value`, not a `node`, per that same grammar;
+        # the vendored test-suite's node-count-at-declared-limit-succeeds
+        # vector pins this exactly (a flat two-scalar-edge document must
+        # count as one node, not three). This still defends against the
+        # YAML alias/anchor amplification the budget exists for (see the
+        # docstring above) -- an amplified alias chain still re-walks a
+        # real *container* at every occurrence, so it still increments
+        # here at the same rate; only scalar leaves stopped counting.
+        budget[0] += 1
+        if budget[0] > _MAX_NODES:
+            raise DocumentError(
+                f"{path}: too many nodes materialized (over {_MAX_NODES}) -- "
+                "likely a YAML alias/anchor amplification (a shared node "
+                "reached via more than one reference is walked in full at "
+                "each occurrence)")
         seen = seen or frozenset()
         if id(value) in seen:
             raise DocumentError(f"{path}: cycle detected")
