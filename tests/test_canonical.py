@@ -45,6 +45,7 @@ from omnist import (
     write_xml,
     write_yaml,
 )
+from omnist.document import build_node
 from omnist.errors import DocumentError, ParseError, SchemaError, WriteError
 from omnist.oml import check_oml, read_oml, write_oml
 from omnist.ops import compatible_with, equivalent, is_empty, normalize, prune
@@ -62,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.9"
+        assert ds.__version__ == "0.8.10"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1989,14 +1990,46 @@ class TestDocumentRobustness:
     def test_large_legitimate_document_is_not_rejected_by_node_budget(self):
         # Non-regression: the exact "100k-edge document" shape docs/
         # why-omnist.md's own performance benchmark measures (33k records
-        # of 3 fields each) must still build successfully -- it needs
-        # ~132,001 actual build_node calls once every scalar leaf and
-        # container is counted individually, comfortably under the real
+        # of 3 fields each) must still build successfully -- 33,001
+        # container nodes (the root plus one dict per item; #309: scalar
+        # leaves no longer count at all), comfortably under the real
         # 1,000,000 production ceiling. Confirms the fix didn't
         # over-tighten the guard against real, already-measured usage.
         big = {"items": [{"a": i, "b": i, "c": i} for i in range(33000)]}
         d = doc(big)
         assert len(d.to_data()) == 33000
+
+    def test_flat_document_with_a_million_scalar_edges_is_one_node(self):
+        # #309: a flat document is one *container* node (the root) no
+        # matter how many scalar sibling edges it has -- omnist-spec's
+        # vendored node-count-at-declared-limit-succeeds vector pins this
+        # exactly (a two-scalar-edge document at a declared limit of 1
+        # must succeed). Confirmed against the real 1,000,000 production
+        # ceiling directly, not a monkeypatched-down one, since this is
+        # precisely the boundary the old (every-value) counting used to
+        # get wrong.
+        big = {f"k{i}": i for i in range(1_000_000)}
+        node = build_node(big)
+        assert len(node) == 1_000_000
+
+    def test_adversarial_yaml_amplification_still_caught_after_309_fix(self, monkeypatch):
+        # #309: explicit re-verification that switching the node budget to
+        # count only actual container nodes (not scalar leaves) does NOT
+        # reopen the #256 alias/anchor amplification hole. Each generation
+        # in the chain aliases a *dict* (a container), so container-only
+        # counting still increments at the same O(2**n) rate the guard
+        # depends on -- verified empirically here, not assumed. Uses a
+        # deeper chain (12 generations) and a lower budget than the
+        # pre-existing #256 tests, as its own independent check.
+        import omnist.document as document_module
+        monkeypatch.setattr(document_module, "_MAX_NODES", 30)
+
+        text = "a0: &a0 {x: 1}\n"
+        for i in range(1, 12):
+            text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
+
+        with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_yaml(text)
 
     def test_unsupported_python_type_raises(self):
         with pytest.raises(DocumentError, match="is not a Document value"):
