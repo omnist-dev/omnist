@@ -225,18 +225,18 @@ class _Scanner:
         col = pos - nl if nl != -1 else pos + 1
         return line, col
 
-    def error_at(self, pos: int, msg: str) -> ParseError:
+    def error_at(self, pos: int, msg: str, code: str = "parse.unexpected-token") -> ParseError:
         line, col = self.line_col(pos)
-        return ParseError(f"line {line}, col {col}: {msg}")
+        return ParseError(f"line {line}, col {col}: {msg}", code=code, path=f"{line}:{col}")
 
-    def error_eof(self, msg: str) -> ParseError:
+    def error_eof(self, msg: str, code: str = "parse.unexpected-token") -> ParseError:
         # Quirk preserved from the original scanner: its EOF token was
         # constructed with no pos=/col= args (`Token(Tok.EOF, "")`), so any
         # error naming "got EOF" always reported line 0, col 0 rather than
         # the source's actual end position. Used only where the *current
         # token* being reported in the message is EOF itself -- byte-
         # identical to v0.2.26, verified by differential fuzzing (see PR).
-        return ParseError(f"line 0, col 0: {msg}")
+        return ParseError(f"line 0, col 0: {msg}", code=code, path="0:0")
 
     def next(self) -> Tuple[str, int, int]:
         """Advance past (and return) the next significant token as
@@ -273,7 +273,8 @@ class _Scanner:
                 self.pos = end
                 return ("STRING", pos, end)
             if kind == SQUOTE:
-                raise self.error_at(pos, "unterminated raw string (missing closing ')")
+                raise self.error_at(pos, "unterminated raw string (missing closing ')",
+                                    code="parse.unterminated-string")
             self.pos = end
             assert kind is not None
             return (kind, pos, end)
@@ -297,7 +298,8 @@ class _Scanner:
         i = start + 1
         while True:
             if i >= n:
-                raise self.error_at(start, "unterminated string (missing closing \")")
+                raise self.error_at(start, "unterminated string (missing closing \")",
+                                    code="parse.unterminated-string")
             ch = s[i]
             if ch == '"':
                 return start, i + 1
@@ -305,7 +307,8 @@ class _Scanner:
                 i = self._skip_escape(start, i)
                 continue
             if ord(ch) < 0x20:
-                raise self.error_at(start, f"control character U+{ord(ch):04X} in string")
+                raise self.error_at(start, f"control character U+{ord(ch):04X} in string",
+                                    code="parse.control-character")
             i += 1
 
     def _scan_multiline(self, start: int) -> Tuple[int, int]:
@@ -318,7 +321,8 @@ class _Scanner:
         while True:
             if i >= n:
                 raise self.error_at(
-                    start, 'unterminated multiline string (missing closing """)')
+                    start, 'unterminated multiline string (missing closing """)',
+                    code="parse.unterminated-string")
             ch = s[i]
             if ch == '"':
                 run = 0
@@ -336,7 +340,8 @@ class _Scanner:
             if ch == "\t" or ch == "\n" or ord(ch) >= 0x20:
                 i += 1
                 continue
-            raise self.error_at(start, f"control character U+{ord(ch):04X} in multiline string")
+            raise self.error_at(start, f"control character U+{ord(ch):04X} in multiline string",
+                                code="parse.control-character")
 
     def _skip_escape(self, tok_start: int, i: int) -> int:
         """Validate (but don't decode) one escape sequence starting at the
@@ -347,14 +352,16 @@ class _Scanner:
         ``_scan_string_slow``."""
         s, n = self.s, self.n
         if i + 1 >= n:
-            raise self.error_at(tok_start, "unterminated escape sequence")
+            raise self.error_at(tok_start, "unterminated escape sequence",
+                                code="parse.unterminated-string")
         c = s[i + 1]
         if c in _ESCAPES:
             return i + 2
         if c == "u":
             hexs = s[i + 2:i + 6]
             if len(hexs) != 4 or not _HEX4_RE.fullmatch(hexs):
-                raise self.error_at(tok_start, r"invalid \u escape (need 4 hex digits)")
+                raise self.error_at(tok_start, r"invalid \u escape (need 4 hex digits)",
+                                    code="parse.invalid-escape")
             cp = int(hexs, 16)
             j = i + 6
             if 0xD800 <= cp <= 0xDBFF:
@@ -365,11 +372,12 @@ class _Scanner:
                         return j + 6
                 raise self.error_at(
                     tok_start, f"unpaired high surrogate \\u{hexs} (needs a following "
-                    r"low-surrogate \uDC00-\uDFFF escape)")
+                    r"low-surrogate \uDC00-\uDFFF escape)", code="parse.unpaired-surrogate")
             if 0xDC00 <= cp <= 0xDFFF:
-                raise self.error_at(tok_start, f"unpaired low surrogate \\u{hexs}")
+                raise self.error_at(tok_start, f"unpaired low surrogate \\u{hexs}",
+                                    code="parse.unpaired-surrogate")
             return j
-        raise self.error_at(tok_start, rf"invalid escape \{c}")
+        raise self.error_at(tok_start, rf"invalid escape \{c}", code="parse.invalid-escape")
 
 
 # ---------------------------------------------------------------------------

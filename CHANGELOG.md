@@ -6,6 +6,36 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.9] — ParseError gains structured code/path for syntax failures
+
+- Closed [#308](https://github.com/omnist-dev/omnist/issues/308): natural
+  follow-up to #301 — `ParseError` (raised by OML/JSON/YAML/TOML/XML
+  syntax failures) carried no machine-readable code, only `.errors`
+  (populated for schema-conformance failures via `materialize`, always
+  empty for a syntax failure) and a human-readable message.
+- `ParseError` gains optional `code`/`path` attributes, both `None` by
+  default, keyword-only — purely additive, every existing
+  `raise ParseError("msg")`/`ParseError("msg", errors)` call keeps working
+  unchanged. Mirrors `SchemaError`'s own scope decision (#301): a single
+  syntax failure has one position to point at, so this is flat attributes
+  set only for the syntax-failure case, not a second collected list —
+  `.errors` and `code`/`path` are never both populated on the same
+  exception.
+- `omnist/oml.py`'s tokenizer/parser now set the matching taxonomy code
+  at every raise site: `parse.unexpected-token` (the default, covering
+  every "expected X, got Y" case), `parse.unterminated-string`,
+  `parse.control-character`, `parse.invalid-escape`,
+  `parse.unpaired-surrogate`.
+- `omnist/formats.py`'s JSON/YAML/TOML/XML syntax-failure wrappers get
+  `parse.syntax` — a single generic code, since we can't finely diagnose
+  a third-party parser's own exception the way OML's own tokenizer can
+  diagnose itself.
+- `tests/test_public_api.py`'s frozen `ParseError.__init__` signature
+  updated to match — a pure signature addition (new keyword-only,
+  defaulted params), not a removal, so this doesn't require the
+  deprecation cycle in `docs/stability.md`: every pre-existing call stays
+  call-compatible.
+
 ## [v0.8.8] — read_json/read_yaml/read_toml no longer crash on deeply-nested input
 
 - Closed [#307](https://github.com/omnist-dev/omnist/issues/307): a Gemini

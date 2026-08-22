@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.8.8"
+omnist.__version__        # "0.8.9"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -377,7 +377,7 @@ simulating a write without producing output. The four built-ins all provide
 |---|---|
 | `OmnistError` | base class for all Omnist errors |
 | `SchemaError` | invalid schema text or structure (bad OSD, undefined `Ref`, bad cardinality) — `.code`/`.path` are set for OSD's own lexical (`parse.*`) and well-formedness (`schema.*`) failures (issue #301), `None` otherwise |
-| `ParseError` | a document couldn't be read from its format, or didn't conform to a schema — see [Schema-directed deserialization](deserialization.md) for the structured `.errors` list |
+| `ParseError` | a document couldn't be read from its format, or didn't conform to a schema — see [Schema-directed deserialization](deserialization.md) for the structured `.errors` list. For a syntax failure, `.code`/`.path` are set instead (issue #308; `None` for a schema-conformance failure, where `.errors` is populated instead) |
 | `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation |
 | `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML) |
 | `DetachedNode` | (`DocumentError` subclass) a cursor used after its node was removed |

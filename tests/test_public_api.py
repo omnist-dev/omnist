@@ -207,7 +207,13 @@ def test_frozen_function_signature_names_match_all_functions():
 
 FROZEN_METHOD_SIGNATURES = {
     "ParseError": {
-        "__init__": "(self, message: str, errors: 'Optional[List[Error]]' = None) -> None",
+        # #308: code/path are new, keyword-only, defaulted to None -- every
+        # pre-existing call (positional message, positional-or-keyword
+        # errors) stays call-compatible, so this is the same additive-only
+        # change #301 already made to SchemaError, not a deprecation-cycle
+        # case (nothing is removed or made incompatible).
+        "__init__": ("(self, message: str, errors: 'Optional[List[Error]]' = None, *, "
+                     "code: 'Optional[str]' = None, path: 'Optional[str]' = None) -> None"),
     },
     "WriteError": {
         "__init__": "(self, message: str, report: 'WriteReport | None' = None) -> None",

@@ -38,19 +38,31 @@ class SchemaError(OmnistError):
 class ParseError(OmnistError):
     """A document could not be read from its format (outside the supported profile).
 
-    Format-syntax failures (invalid JSON/YAML/TOML/XML text) carry only the
-    message -- ``.errors`` is empty. Schema-conformance failures from
-    :func:`~omnist.deserialize.materialize` carry the full structured list of
+    Format-syntax failures (invalid JSON/YAML/TOML/XML/OML text) carry
+    ``code``/``path`` (issue #308) -- optional structured attributes, ``None``
+    unless the raiser passed them, so every existing ``raise
+    ParseError("msg")`` call keeps working unchanged -- but ``.errors`` stays
+    empty, the same way :class:`SchemaError` distinguishes a single
+    lexical/well-formedness problem from a collected list: a syntax failure
+    stops parsing at the first error, so there is nothing to collect.
+    Schema-conformance failures from :func:`~omnist.deserialize.materialize`
+    go the other way: they carry the full structured ``.errors`` list of
     every problem found (path, message, machine-readable code), not just the
     first one, so callers -- an API server turning this into a JSON error
     response, for instance -- can inspect and report on each one
-    individually instead of parsing ``str(exc)``.
+    individually instead of parsing ``str(exc)``; ``code``/``path`` stay
+    unset for this case, since there's no single position to point at.
     """
 
-    def __init__(self, message: str, errors: "Optional[List[Error]]" = None) -> None:
-        """Initialize ParseError with a human-readable message and structured issues."""
+    def __init__(self, message: str, errors: "Optional[List[Error]]" = None, *,
+                 code: "Optional[str]" = None, path: "Optional[str]" = None) -> None:
+        """Initialize ParseError with a human-readable message and either
+        structured per-problem issues (materialize) or a structured
+        code/path for a single syntax failure -- never both at once."""
         super().__init__(message)
         self.errors: "List[Error]" = errors or []
+        self.code = code
+        self.path = path
 
 
 class DocumentError(OmnistError):
