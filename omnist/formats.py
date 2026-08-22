@@ -104,14 +104,14 @@ def read_json(text: str, *, schema: Optional["Schema"] = None) -> Any:
     try:
         node = build_node(_json.loads(text))
     except _json.JSONDecodeError as exc:
-        raise ParseError(f"invalid JSON: {exc}") from exc
+        raise ParseError(f"invalid JSON: {exc}", code="parse.syntax") from exc
     except ValueError as exc:
         # json.loads converts integer literals to `int` while parsing, so an
         # over-digit-limit literal trips CPython's int-string-conversion
         # guard here -- before build_node ever sees a value -- as a bare
         # ValueError, not a JSONDecodeError.  Translate it like any other
         # parse-time failure.
-        raise ParseError(f"invalid JSON: {exc}") from exc
+        raise ParseError(f"invalid JSON: {exc}", code="parse.syntax") from exc
     return _materialize(node, schema)
 
 
@@ -164,11 +164,11 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None) -> Any:
     try:
         node = build_node(yaml.safe_load(text))
     except yaml.YAMLError as exc:
-        raise ParseError(f"invalid YAML: {exc}") from exc
+        raise ParseError(f"invalid YAML: {exc}", code="parse.syntax") from exc
     except ValueError as exc:
         # Same int-string-conversion guard as read_json (see its comment):
         # PyYAML converts an integer scalar to `int` while loading.
-        raise ParseError(f"invalid YAML: {exc}") from exc
+        raise ParseError(f"invalid YAML: {exc}", code="parse.syntax") from exc
     except RecursionError as exc:
         # #307: unlike JSON's bracket grammar, YAML nesting (indentation,
         # flow collections, anchors) isn't cheap to bound from raw text
@@ -261,11 +261,11 @@ def read_toml(text: str, *, schema: Optional["Schema"] = None) -> Any:
     try:
         node = build_node(tomllib.loads(text))
     except tomllib.TOMLDecodeError as exc:
-        raise ParseError(f"invalid TOML: {exc}") from exc
+        raise ParseError(f"invalid TOML: {exc}", code="parse.syntax") from exc
     except ValueError as exc:
         # Same int-string-conversion guard as read_json (see its comment):
         # tomllib converts an integer literal to `int` while loading.
-        raise ParseError(f"invalid TOML: {exc}") from exc
+        raise ParseError(f"invalid TOML: {exc}", code="parse.syntax") from exc
     except RecursionError as exc:
         # #307: same safety net as read_yaml -- TOML nesting (inline
         # tables/arrays, dotted keys) isn't cheap to bound from raw text
@@ -331,7 +331,7 @@ def read_xml(text: str, *, schema: Optional["Schema"] = None) -> Any:
     try:
         root = ET.fromstring(text)
     except Exception as exc:
-        raise ParseError(f"invalid XML: {exc}") from exc
+        raise ParseError(f"invalid XML: {exc}", code="parse.syntax") from exc
     node = [(_local(root.tag), _xml_to_node(root, "$", 0, [0]))]
     if schema is not None:
         # #288: recover boolean/integer/number from XML's untyped text
@@ -391,12 +391,14 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int]) -> Any:
         if elem.text and elem.text.strip():
             raise ParseError(
                 f"{path}: mixed content (text alongside child elements) is "
-                "outside the data-XML profile")
+                "outside the data-XML profile", code="parse.syntax", path=path)
         for c in children:
             if c.tail and c.tail.strip():
+                p = f"{path}.{_local(c.tag)}"
                 raise ParseError(
-                    f"{path}.{_local(c.tag)}: mixed content (text alongside "
-                    "child elements) is outside the data-XML profile")
+                    f"{p}: mixed content (text alongside "
+                    "child elements) is outside the data-XML profile",
+                    code="parse.syntax", path=p)
         return [(_local(c.tag), _xml_to_node(c, f"{path}.{_local(c.tag)}", depth + 1, budget))
                 for c in children]
     return elem.text or ""

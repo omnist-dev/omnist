@@ -46,7 +46,7 @@ from omnist import (
     write_yaml,
 )
 from omnist.errors import DocumentError, ParseError, SchemaError, WriteError
-from omnist.oml import check_oml, write_oml
+from omnist.oml import check_oml, read_oml, write_oml
 from omnist.ops import compatible_with, equivalent, is_empty, normalize, prune
 from omnist.schema import matches_kind, value_kind
 
@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.8"
+        assert ds.__version__ == "0.8.9"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -894,6 +894,114 @@ class TestMalformedInput:
         node = doc({"a": big_ok, "b": [1, 2], "c": {"d": "x"}}).to_data()
         assert list(check_oml(node)) == []
         write_oml(node)   # must not raise
+
+
+# ---------------------------------------- ParseError codes/paths (issue #308)
+class TestParseErrorCodes:
+    """ParseError.code/.path -- unset (None) unless the raiser passed them,
+    so this is purely additive over the message-matching tests above.
+    Mirrors TestOsdErrorCodes' discipline for SchemaError (#301)."""
+
+    def test_oml_stray_character_is_unexpected_token(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml("?? bogus")
+        assert exc.value.code == "parse.unexpected-token"
+        assert exc.value.path is not None
+
+    def test_oml_unterminated_string(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: "unterminated')
+        assert exc.value.code == "parse.unterminated-string"
+
+    def test_oml_unterminated_raw_string(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml("a: 'unterminated")
+        assert exc.value.code == "parse.unterminated-string"
+
+    def test_oml_unterminated_multiline_string(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: """unterminated')
+        assert exc.value.code == "parse.unterminated-string"
+
+    def test_oml_control_character_in_string(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: "str\x01ing"')
+        assert exc.value.code == "parse.control-character"
+
+    def test_oml_control_character_in_multiline_string(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: """str\x01ing"""')
+        assert exc.value.code == "parse.control-character"
+
+    def test_oml_invalid_escape_character(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: "\\z"')
+        assert exc.value.code == "parse.invalid-escape"
+
+    def test_oml_unterminated_escape_sequence(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: "\\')
+        assert exc.value.code == "parse.unterminated-string"
+
+    def test_oml_invalid_unicode_escape(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: "\\u12"')
+        assert exc.value.code == "parse.invalid-escape"
+
+    def test_oml_unpaired_high_surrogate(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: "\\uD800"')
+        assert exc.value.code == "parse.unpaired-surrogate"
+
+    def test_oml_unpaired_low_surrogate(self):
+        with pytest.raises(ParseError) as exc:
+            read_oml('a: "\\uDC00"')
+        assert exc.value.code == "parse.unpaired-surrogate"
+
+    def test_json_syntax_failure(self):
+        with pytest.raises(ParseError) as exc:
+            read_json("{not json")
+        assert exc.value.code == "parse.syntax"
+
+    def test_yaml_syntax_failure(self):
+        with pytest.raises(ParseError) as exc:
+            read_yaml("a: [1, 2\n")
+        assert exc.value.code == "parse.syntax"
+
+    def test_toml_syntax_failure(self):
+        with pytest.raises(ParseError) as exc:
+            read_toml("not [ valid toml")
+        assert exc.value.code == "parse.syntax"
+
+    def test_xml_syntax_failure(self):
+        with pytest.raises(ParseError) as exc:
+            read_xml("<unclosed>")
+        assert exc.value.code == "parse.syntax"
+
+    def test_xml_mixed_content_is_parse_syntax(self):
+        with pytest.raises(ParseError) as exc:
+            read_xml("<p>Hello <b>w</b></p>")
+        assert exc.value.code == "parse.syntax"
+        assert exc.value.path == "$"
+
+    def test_materialize_failure_leaves_code_and_path_unset(self):
+        # the .errors-collecting case (issue #308's docstring update): a
+        # schema-conformance ParseError from materialize() has no single
+        # position to point at, so code/path stay None -- only the
+        # per-problem .errors list is populated.
+        s = parse_schema('record R { "n": integer }\nroot R')
+        with pytest.raises(ParseError) as exc:
+            read_json('{"n": "abc"}', schema=s)
+        assert exc.value.code is None
+        assert exc.value.path is None
+        assert exc.value.errors
+
+    def test_unstructured_parseerror_has_no_code_or_path(self):
+        # backward compatible: an unstructured ParseError still defaults
+        # both to None, not a silent "" placeholder.
+        exc = ParseError("plain message, no structure")
+        assert exc.code is None
+        assert exc.path is None
 
 
 class TestCodecs:
