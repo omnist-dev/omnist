@@ -62,7 +62,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.4"
+        assert ds.__version__ == "0.8.5"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1529,6 +1529,104 @@ class TestOsdErrors:
     def test_unknown_referenced_name(self):
         with pytest.raises(SchemaError, match="unknown type 'Missing'"):
             parse_schema('record R { "a": Missing }\nroot R')
+
+
+# ---------------------------------------- OSD error codes/paths (issue #301)
+class TestOsdErrorCodes:
+    """SchemaError.code/.path -- unset (None) unless the raiser passed them,
+    so this is purely additive over the message-matching tests above. Every
+    site osd.py's own raises wire a code to (parse.* for lexical/token-level
+    failures, schema.* for well-formedness) gets one test here."""
+
+    def test_unterminated_string(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "a: integer }\nroot R')
+        assert exc.value.code == "parse.unterminated-string"
+        assert exc.value.path == "11"
+
+    def test_unexpected_character(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "status": "open" | "closed" }\nroot R')
+        assert exc.value.code == "parse.unexpected-token"
+        assert exc.value.path is not None
+
+    def test_expect_mismatch(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "a" integer }\nroot R')
+        assert exc.value.code == "parse.unexpected-token"
+
+    def test_garbage_top_level_token(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('bogus X\nroot R')
+        assert exc.value.code == "parse.unexpected-token"
+
+    def test_missing_root_declaration(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "a": integer }')
+        assert exc.value.code == "schema.no-root"
+        assert exc.value.path is None
+
+    def test_any_as_record_name_is_reserved_name(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record any { "a": integer }\nroot any')
+        assert exc.value.code == "schema.reserved-name"
+        assert exc.value.path == "any"
+
+    def test_scalar_keyword_as_record_name_is_reserved_name(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record string { "x": integer }\nroot string')
+        assert exc.value.code == "schema.reserved-name"
+        assert exc.value.path == "string"
+
+    def test_duplicate_definition(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record A { "x": integer }\nrecord A { "y": string }\nroot A')
+        assert exc.value.code == "schema.duplicate-record"
+        assert exc.value.path == "A"
+
+    def test_unquoted_field_label(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { x: integer }\nroot R')
+        assert exc.value.code == "schema.unquoted-label"
+
+    def test_empty_cardinality(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "a" []: integer }\nroot R')
+        assert exc.value.code == "schema.empty-cardinality"
+
+    def test_non_integer_cardinality(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "a" [1.5,3]: integer }\nroot R')
+        assert exc.value.code == "schema.non-integer-cardinality"
+
+    def test_quoted_string_in_type_position(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "status": "open" }\nroot R')
+        assert exc.value.code == "schema.quoted-type"
+
+    def test_number_in_type_position_is_unexpected_token_not_quoted_type(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "n": 5 }\nroot R')
+        assert exc.value.code == "parse.unexpected-token"
+
+    def test_any_question_mark_is_nullable_any(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R { "a": any? }\nroot R')
+        assert exc.value.code == "schema.nullable-any"
+
+    def test_question_mark_on_ref_is_nullable_ref(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record A { "x": integer }\nrecord R { "a": A? }\nroot R')
+        assert exc.value.code == "schema.nullable-ref"
+        assert exc.value.path == "A"
+
+    def test_unstructured_schemaerror_has_no_code_or_path(self):
+        # any SchemaError site this issue didn't touch (most of schema.py's
+        # builder-API raises) still defaults both to None -- backward
+        # compatible, not a silent "code": "" placeholder.
+        exc = SchemaError("plain message, no structure")
+        assert exc.code is None
+        assert exc.path is None
 
 
 # --------------------------------------------------- Document robustness

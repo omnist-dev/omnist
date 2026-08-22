@@ -53,7 +53,15 @@ def _tokenize(text: str) -> List[_Tok]:
     while i < len(text):
         m = _TOKEN.match(text, i)
         if not m:
-            raise SchemaError(f"unexpected character {text[i]!r} at {i}")
+            # A quote with no matching close is its own diagnosis
+            # (Sec8.3.1 parse.unterminated-string) -- distinguish it from
+            # every other unmatched-character case before falling back to
+            # the generic parse.unexpected-token.
+            if text[i] == '"':
+                raise SchemaError(f"unterminated string starting at {i}",
+                                  code="parse.unterminated-string", path=str(i))
+            raise SchemaError(f"unexpected character {text[i]!r} at {i}",
+                              code="parse.unexpected-token", path=str(i))
         i = m.end()
         kind = m.lastgroup
         if kind in ("ws", "comment"):
@@ -84,7 +92,8 @@ class _Parser:
         t = self._next()
         if t.kind != kind or (text is not None and t.text != text):
             want = text or kind
-            raise SchemaError(f"expected {want!r} at {t.pos}, got {t.text!r}")
+            raise SchemaError(f"expected {want!r} at {t.pos}, got {t.text!r}",
+                              code="parse.unexpected-token", path=str(t.pos))
         return t
 
     def parse(self) -> Schema:
@@ -100,9 +109,10 @@ class _Parser:
                 root = self._expect("name").text
             else:
                 raise SchemaError(f"expected 'record' or 'root' at {t.pos}, "
-                                  f"got {t.text!r}")
+                                  f"got {t.text!r}",
+                                  code="parse.unexpected-token", path=str(t.pos))
         if root is None:
-            raise SchemaError("a schema must declare a root")
+            raise SchemaError("a schema must declare a root", code="schema.no-root")
         return Schema(Ref(root), env)
 
     def _define(self, env: dict[str, Record], name: str, rec: Record,
@@ -111,14 +121,17 @@ class _Parser:
             if name == "any":
                 raise SchemaError(
                     "'any' is a reserved type name and cannot be used as a "
-                    f"record name at {name_pos}")
+                    f"record name at {name_pos}",
+                    code="schema.reserved-name", path=name)
             raise SchemaError(
                 f"{name!r} is a reserved scalar name; a record cannot be "
                 "defined with this name, or it could never be referenced "
                 "(a bare name in a type position always means the builtin "
-                "scalar)")
+                "scalar)",
+                code="schema.reserved-name", path=name)
         if name in env:
-            raise SchemaError(f"duplicate definition {name!r}")
+            raise SchemaError(f"duplicate definition {name!r}",
+                              code="schema.duplicate-record", path=name)
         env[name] = rec
 
     def _record(self) -> tuple[str, Record, int]:
@@ -140,7 +153,8 @@ class _Parser:
         label_tok = self._next()
         if label_tok.kind != "string":
             raise SchemaError(f"expected a quoted field name at {label_tok.pos}, "
-                              f"got {label_tok.text!r}")
+                              f"got {label_tok.text!r}",
+                              code="schema.unquoted-label", path=str(label_tok.pos))
         label = _unquote(label_tok.text)
         lo: int = 1
         hi: Optional[int] = 1
@@ -164,7 +178,9 @@ class _Parser:
             hi = second
         else:
             if first is None:
-                raise SchemaError(f"empty cardinality at {self._peek().pos}")
+                raise SchemaError(f"empty cardinality at {self._peek().pos}",
+                                  code="schema.empty-cardinality",
+                                  path=str(self._peek().pos))
             lo = hi = first
         self._expect("punct", "]")
         return lo, hi
@@ -173,23 +189,30 @@ class _Parser:
         t = self._next()
         if "." in t.text:
             raise SchemaError(f"cardinality must be a whole number, got {t.text!r} "
-                              f"at {t.pos}")
+                              f"at {t.pos}",
+                              code="schema.non-integer-cardinality", path=str(t.pos))
         return int(t.text)
 
     def _type(self) -> Scalar | Ref | AnyType:
         t = self._next()
         if t.kind != "name":
+            # A quoted string in type position gets its own code (Sec5.2's
+            # quoting rule, the mirror image of schema.unquoted-label) --
+            # any other wrong token kind is a plain unexpected-token.
+            code = "schema.quoted-type" if t.kind == "string" else "parse.unexpected-token"
             raise SchemaError(
                 f"expected a scalar name or a reference at {t.pos}, got {t.text!r} "
                 "(enums and literal-valued fields are not supported -- a "
                 "field's type is always one scalar or a reference to a "
-                "named record)")
+                "named record)",
+                code=code, path=str(t.pos))
         if t.text == "any":
             if self._peek().text == "?":
                 q = self._next()
                 raise SchemaError(
                     "'any' already includes null; 'any?' is redundant at "
-                    f"{q.pos}")
+                    f"{q.pos}",
+                    code="schema.nullable-any", path=str(q.pos))
             return ANY
         nullable = False
         if self._peek().text == "?":
@@ -200,7 +223,8 @@ class _Parser:
         if nullable:
             raise SchemaError(
                 f"'?' cannot apply to the reference {t.text!r}; use "
-                "cardinality [0,1] for an optional field")
+                "cardinality [0,1] for an optional field",
+                code="schema.nullable-ref", path=t.text)
         return Ref(t.text)
 
 

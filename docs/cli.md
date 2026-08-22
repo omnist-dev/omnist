@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.8.4
+omnist 0.8.5
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -389,10 +389,14 @@ and its shape, differ from the default.
 
 - Success: `{"ok": true}`.
 - Conformance failure: `{"ok": false, "message": str, "errors": [{"path": str, "code": str, "message": str}, ...]}` — one entry per problem.
-- Format-syntax failure (invalid `FMT` text, or a malformed `--schema`):
-  same shape, but `"errors"` is always `[]` — there's no structured
-  per-problem list for a document that couldn't even be parsed, so the
-  parse error is only in `"message"`.
+- Format-syntax failure (invalid `FMT` document text): same shape, but
+  `"errors"` is always `[]` — there's no structured per-problem list for a
+  document that couldn't even be parsed, so the parse error is only in
+  `"message"`.
+- Malformed `--schema`: a single-entry `"errors"` list (issue #301) for
+  OSD's own lexical (`parse.*`) and well-formedness (`schema.*`) failures
+  — `[]` for the small remainder of `SchemaError` sites that don't yet
+  carry a structured code.
 
 ```sh
 $ omnist validate examples/cli/person.json --from json --schema examples/cli/person.osd --json

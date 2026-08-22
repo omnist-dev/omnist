@@ -6,6 +6,46 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.5] — SchemaError gains structured code/path for OSD errors
+
+- Closed [#301](https://github.com/omnist-dev/omnist/issues/301):
+  `omnist-spec` resolved issue #47 — §8.3.1's `parse.*` codes now
+  normatively cover OSD's own lexical/tokenization stage, not just
+  OML's. `SchemaError` carried no structured data at all; this repo
+  (the reference implementation) had less error structure than
+  `omnist-rs`/`omnist-j`, which just adopted a real `{path, code,
+  message}` shape.
+- `SchemaError` gains optional `code`/`path` attributes, both `None`
+  by default — purely additive, every existing `raise
+  SchemaError("msg")` call keeps working unchanged. Unlike
+  `ParseError`, a single `SchemaError` always represents exactly one
+  problem (OSD parsing stops at the first error), so this is flat
+  attributes, not a collected `.errors` list.
+- Every `osd.py` raise site now sets the matching taxonomy code:
+  `parse.unexpected-token`, `parse.unterminated-string` (a new,
+  deliberate distinction — an unclosed quote used to fall through to
+  the generic unexpected-character message), `schema.no-root`,
+  `schema.reserved-name`, `schema.duplicate-record`,
+  `schema.unquoted-label`, `schema.quoted-type`,
+  `schema.empty-cardinality`, `schema.non-integer-cardinality`,
+  `schema.nullable-any`, `schema.nullable-ref`. Wired end-to-end into
+  `omnist validate --json`'s `errors` list, which now gets a real
+  entry for a malformed `--schema` instead of always `[]`.
+- Deliberately not wired this round, flagged rather than silently
+  skipped: `parse.trailing-content` (malformed trailing text after
+  `root NAME` already errors, just under the generic
+  `parse.unexpected-token` code rather than a dedicated one — but a
+  *syntactically valid* record declaration placed after `root` is
+  silently accepted into the schema's env, never flagged at all;
+  fixing that gap is a real, independent parsing-behavior change
+  deserving its own issue, not bundled in here),
+  `parse.invalid-escape`/`parse.unpaired-surrogate`
+  (not reachable given OSD's own escaping rule — `\X` always means
+  literal `X`, no named-escape table, no `\uXXXX` syntax exists in
+  this grammar), and `parse.control-character` (whether OSD's grammar
+  should forbid a literal control character in a string is an open
+  question against the spec, not assumed here).
+
 ## [v0.8.4] — coverage gate added to CI
 
 - Closed [#295](https://github.com/omnist-dev/omnist/issues/295):
