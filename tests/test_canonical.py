@@ -1771,6 +1771,17 @@ class TestOsdErrorCodes:
         assert exc.value.code == "schema.no-root"
         assert exc.value.path is None
 
+    def test_duplicate_root_declaration_is_an_error(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema(
+                "record R { \"a\": string }\n"
+                "record S { \"b\": string }\n"
+                "root R\n"
+                "root S\n"
+            )
+        assert exc.value.code == "schema.duplicate-root"
+        assert exc.value.path == "$"
+
     def test_any_as_record_name_is_reserved_name(self):
         with pytest.raises(SchemaError) as exc:
             parse_schema('record any { "a": integer }\nroot any')
