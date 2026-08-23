@@ -238,9 +238,9 @@ def test_oml_round_trip_is_exact_with_arrays(node):
 # ---------------------------------------------------------------------------
 
 _ALLOWED_CODES = {
-    "json": {"temporal.stringified", "float.special"},
-    "yaml": {"temporal.stringified"},
-    "toml": {"null.omitted"},
+    "json": {"temporal.stringified", "float.special", "format.interleaving-lost"},
+    "yaml": {"temporal.stringified", "format.interleaving-lost"},
+    "toml": {"null.omitted", "format.interleaving-lost"},
     "xml": {"null.omitted", "temporal.stringified", "value.stringified",
             "key.sanitized", "shape.empty_ambiguous"},
 }

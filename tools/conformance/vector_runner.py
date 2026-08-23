@@ -135,18 +135,34 @@ def run_parse(v: Dict[str, Any], tmp: Path) -> Result:
     expect = v["expect"]
     fmt = inp["format"]
     src = _write_tmp(tmp, "in." + fmt, inp["text"])
+    wants_read_diagnostics = expect.get("ok") and "diagnostics" in expect
     if fmt == "oml":
         stdout, stderr, code = cli_runner._run(["format", str(src), "--json"])
     else:
-        stdout, stderr, code = cli_runner._run(
-            ["convert", str(src), "--from", fmt, "--to", "oml", "--json"])
+        args = ["convert", str(src), "--from", fmt, "--to", "oml", "--json"]
+        if wants_read_diagnostics:
+            # format.attribute-dropped / format.namespace-dropped (Sec8.3.8):
+            # a *successful* parse can still carry warning-severity
+            # diagnostics -- --report surfaces them on stderr the same way
+            # run_write already checks a writer's adjustments.
+            args += ["--report", "--result-format", "json"]
+        stdout, stderr, code = cli_runner._run(args)
     if expect["ok"]:
         if code != 0:
             return "fail", f"expected success, got exit {code}: {stderr.strip()}"
         expected_oml = write_oml(decode_document(expect["document"]))
-        if compare_document(stdout, expected_oml):
-            return "pass", "ok"
-        return "fail", "parsed document does not match expected"
+        if not compare_document(stdout, expected_oml):
+            return "fail", "parsed document does not match expected"
+        if wants_read_diagnostics:
+            try:
+                report = json.loads(stderr)
+            except json.JSONDecodeError:
+                return "fail", f"non-JSON stderr report: {stderr!r}"
+            exp_paths = _paths(expect["diagnostics"])
+            act_paths = _paths(report)
+            if exp_paths != act_paths:
+                return "fail", f"diagnostic paths differ: expected {exp_paths}, got {act_paths}"
+        return "pass", "ok"
     if "diagnostics" in expect:
         return "skip", "syntax-level ParseError carries no structured path/code"
     if code == 0:

@@ -94,6 +94,51 @@ def test_run_parse_success_non_oml_format(tmp_path, monkeypatch):
     assert seen["args"][0] == "convert"
 
 
+def test_run_parse_success_with_expected_diagnostics_passes(tmp_path, monkeypatch):
+    # format.attribute-dropped/format.namespace-dropped (Sec8.3.8): a
+    # successful parse can still carry warning-severity diagnostics, so
+    # when expect.ok is true AND expect.diagnostics is present, run_parse
+    # must pass --report and compare the reported paths.
+    seen = {}
+
+    def fake_run(args):
+        seen["args"] = args
+        return 'a: "1"\n', json.dumps([{"path": "$.a", "code": "format.attribute-dropped"}]), 0
+
+    monkeypatch.setattr(vr.cli_runner, "_run", fake_run)
+    v = {"input": {"format": "xml", "text": '<a x="1">1</a>'},
+         "expect": {"ok": True,
+                    "document": {"edges": [["a", {"scalar": {"kind": "string", "value": "1"}}]]},
+                    "diagnostics": [{"path": "$.a", "code": "format.attribute-dropped"}]}}
+    status, msg = vr.run_parse(v, tmp_path)
+    assert status == "pass"
+    assert "--report" in seen["args"]
+
+
+def test_run_parse_success_with_diagnostics_mismatch_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        vr.cli_runner, "_run",
+        lambda args: ('a: "1"\n', json.dumps([{"path": "$.wrong", "code": "x"}]), 0))
+    v = {"input": {"format": "xml", "text": '<a x="1">1</a>'},
+         "expect": {"ok": True,
+                    "document": {"edges": [["a", {"scalar": {"kind": "string", "value": "1"}}]]},
+                    "diagnostics": [{"path": "$.a", "code": "format.attribute-dropped"}]}}
+    status, msg = vr.run_parse(v, tmp_path)
+    assert status == "fail"
+    assert "diagnostic paths differ" in msg
+
+
+def test_run_parse_success_with_non_json_report_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(vr.cli_runner, "_run", lambda args: ('a: "1"\n', "not json", 0))
+    v = {"input": {"format": "xml", "text": '<a x="1">1</a>'},
+         "expect": {"ok": True,
+                    "document": {"edges": [["a", {"scalar": {"kind": "string", "value": "1"}}]]},
+                    "diagnostics": [{"path": "$.a", "code": "format.attribute-dropped"}]}}
+    status, msg = vr.run_parse(v, tmp_path)
+    assert status == "fail"
+    assert "non-JSON stderr report" in msg
+
+
 def test_run_parse_expected_success_but_command_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(vr.cli_runner, "_run", lambda args: ("", "boom", 2))
     v = {"input": {"format": "oml", "text": "bad\n"}, "expect": {"ok": True, "document": {}}}

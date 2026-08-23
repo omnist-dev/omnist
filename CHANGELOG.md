@@ -6,6 +6,36 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.9.0] — three format-adjustments MUST now be reported (D-3)
+
+- Closed [#320](https://github.com/omnist-dev/omnist/issues/320): per
+  omnist-spec Sec8.3.8 (D-3), three codec adjustments that used to happen
+  silently now report a warning-severity diagnostic:
+  - **`format.attribute-dropped`** — `read_xml` discards any XML attribute
+    (there is no path from a Document edge back to an attribute); reported
+    at the element the attribute was on.
+  - **`format.namespace-dropped`** — `read_xml` discards any namespace
+    prefix (`<ns:b>` reads as the local name `b`); reported at the element
+    whose prefix was discarded.
+  - **`format.interleaving-lost`** — `write_json`/`write_yaml`/`write_toml`
+    group same-label edges together regardless of position
+    (`[(m,A),(x,X),(m,B)]` → `{"m":[A,B],"x":X}`); reported at `$` (the
+    whole document) whenever grouping actually reordered a label relative
+    to another one — a label repeated only contiguously is not flagged.
+- **New:** `read_xml` gained an optional `report: WriteReport | None = None`
+  keyword (additive, call-compatible — every existing call keeps working
+  unchanged), the same `report=` convention every `write_*` already has.
+  It's threaded through `omnist convert --report`/`--result-format` on the
+  CLI too, merged with the writer's own report on the same stderr payload.
+- **Fixed:** `read_xml` used to require every namespace prefix to be
+  *bound* (`<ns:b>` with no `xmlns:ns="…"` declaration raised "unbound
+  prefix") before it could even report the prefix as dropped — stricter
+  than the format actually needs, since omnist never resolves namespaces
+  either way. It now parses with a non-namespace-aware (but still fully
+  defused: DTD/entity/external-reference-forbidding) expat parser, so an
+  unbound prefix parses and reports `format.namespace-dropped` instead of
+  raising `ParseError`.
+
 ## [v0.8.11] — read_oml now enforces the node-count safety limit
 
 - Closed [#313](https://github.com/omnist-dev/omnist/issues/313): found

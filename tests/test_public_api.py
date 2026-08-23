@@ -150,7 +150,10 @@ FROZEN_FUNCTION_SIGNATURES = {
     "write_toml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
-    "read_xml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> 'Any'",
+    "read_xml": (
+        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+        "report: 'Optional[WriteReport]' = None) -> 'Any'"
+    ),
     "write_xml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),

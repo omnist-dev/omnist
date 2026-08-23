@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.11"
+        assert ds.__version__ == "0.9.0"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -2770,6 +2770,105 @@ class TestXmlAdjustmentCodes:
 
         text = write_xml(node)
         assert read_xml(text) == [("A_B", "x")]
+
+
+# ------------------------------------------------- D-3 codec adjustment diagnostics
+class TestFormatAdjustmentDiagnostics:
+    """omnist-spec Sec8.3.8 (issue #320/D-3): three previously-silent codec
+    adjustments now MUST be reported as warning-severity diagnostics --
+    format.attribute-dropped and format.namespace-dropped on XML read, and
+    format.interleaving-lost on JSON/YAML/TOML write."""
+
+    def test_xml_dropped_attribute_is_reported_at_the_owning_element(self):
+        rep = WriteReport()
+        node = read_xml('<a x="1"><b>hi</b></a>', report=rep)
+        assert node == [("a", [("b", "hi")])]
+        assert [(a.path, a.code, a.severity) for a in rep] == [
+            ("$.a", "format.attribute-dropped", "warning")]
+
+    def test_xml_dropped_namespace_prefix_is_reported_at_the_element(self):
+        rep = WriteReport()
+        node = read_xml('<a><ns:b>hi</ns:b></a>', report=rep)
+        assert node == [("a", [("b", "hi")])]
+        assert [(a.path, a.code, a.severity) for a in rep] == [
+            ("$.a.b", "format.namespace-dropped", "warning")]
+
+    def test_xml_read_without_a_report_still_works(self):
+        # report=None (the default) is a no-op, not a crash -- attribute and
+        # namespace drops still happen silently just like before D-3, for
+        # any caller that doesn't ask to see them.
+        assert read_xml('<a x="1"><ns:b>hi</ns:b></a>') == [("a", [("b", "hi")])]
+
+    def test_xml_clean_read_reports_nothing(self):
+        rep = WriteReport()
+        read_xml('<a><b>hi</b></a>', report=rep)
+        assert list(rep) == []
+
+    def test_xml_multiple_drops_in_one_document_are_each_reported(self):
+        rep = WriteReport()
+        read_xml('<a x="1"><ns:b y="2">hi</ns:b></a>', report=rep)
+        codes = sorted((a.path, a.code) for a in rep)
+        assert codes == [
+            ("$.a", "format.attribute-dropped"),
+            ("$.a.b", "format.attribute-dropped"),
+            ("$.a.b", "format.namespace-dropped"),
+        ]
+
+    def test_xml_doctype_is_rejected(self):
+        # _xml_fromstring's custom expat parser reimplements defusedxml's
+        # own DTD/entity/external-reference forbidding (its default parser
+        # can't be reused as-is because it's namespace-aware, which rejects
+        # an unbound prefix like <ns:b> before omnist can report it as
+        # dropped). A DOCTYPE is rejected outright, the same way the
+        # billion-laughs/XXE vectors it enables are: no distinction between
+        # "just a DOCTYPE" and "a DOCTYPE with malicious entities" is drawn,
+        # since expat only reaches entity declarations after already
+        # accepting the DOCTYPE that would contain them.
+        with pytest.raises(ParseError, match="invalid XML"):
+            read_xml("<!DOCTYPE a><a/>")
+
+    def test_xml_doctype_with_entity_is_rejected_the_same_way(self):
+        # The DOCTYPE itself is rejected before expat ever parses the
+        # entity declaration inside it -- this is what makes the classic
+        # XML entity-expansion ("billion laughs") attack unreachable here,
+        # not a separate entity-specific check.
+        with pytest.raises(ParseError, match="invalid XML"):
+            read_xml('<!DOCTYPE a [<!ENTITY x "y">]><a>&x;</a>')
+
+    @pytest.mark.parametrize("writer", [write_json, write_yaml, write_toml])
+    def test_cross_label_interleaving_lost_is_reported_once_at_root(self, writer):
+        node = [("m", "A"), ("x", "X"), ("m", "B")]
+        rep = WriteReport()
+        writer(node, report=rep)
+        assert [(a.path, a.code, a.severity) for a in rep] == [
+            ("$", "format.interleaving-lost", "warning")]
+
+    @pytest.mark.parametrize("writer", [write_json, write_yaml, write_toml])
+    def test_contiguous_repeated_label_is_not_interleaving(self, writer):
+        # A label repeated back-to-back groups losslessly -- nothing was
+        # reordered, so this must NOT fire format.interleaving-lost.
+        node = [("m", "A"), ("m", "B"), ("x", "X")]
+        rep = WriteReport()
+        writer(node, report=rep)
+        assert "format.interleaving-lost" not in [a.code for a in rep]
+
+    def test_single_label_document_is_not_interleaving(self):
+        node = [("m", "A"), ("m", "B")]
+        rep = check_json(node)
+        assert "format.interleaving-lost" not in [a.code for a in rep]
+
+    def test_interleaving_lost_matches_spec_worked_example(self):
+        # docs/formats -- [(m,A),(x,X),(m,B)] -> {"m":[A,B],"x":X}
+        node = [("m", "A"), ("x", "X"), ("m", "B")]
+        assert write_json(node) == '{"m": ["A", "B"], "x": "X"}'
+
+    def test_nested_interleaving_is_also_reported_at_the_document_root(self):
+        # The loss isn't localized to one label's edges -- it's reported at
+        # "$" (the whole document) even when the interleaving happens inside
+        # a nested node, not at the top level.
+        node = [("r", [("m", "A"), ("x", "X"), ("m", "B")])]
+        rep = check_json(node)
+        assert [(a.path, a.code) for a in rep] == [("$", "format.interleaving-lost")]
 
 
 # ----------------------------------------------------------- TOML write errors

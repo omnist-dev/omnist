@@ -93,6 +93,13 @@ Doc.of({"name": "Ada"}).to_yaml()
 > YAML carries `date`/`datetime` natively, but has no standalone time-of-day
 > type, so a bare `time` leaf is written as a string and reported as
 > `temporal.stringified` (a warning).
+
+> Grouping same-label edges together can also lose their original relative
+> position against *other* labels -- `[(m,A),(x,X),(m,B)]` groups to
+> `m: [A, B]\nx: X\n`, and there is no way back to the interleaved order.
+> Reported as `format.interleaving-lost` at `$` (the whole document)
+> whenever this actually happens -- a label repeated only contiguously
+> (`[(m,A),(m,B),(x,X)]`) groups losslessly and is not flagged.
 >
 > A label or string value containing U+0085 (NEL, "next line") is written
 > double-quoted rather than plain/single-quoted, since YAML's line-break
