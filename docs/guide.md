@@ -245,7 +245,7 @@ See [the Schema model & OSD: Empty schemas](schema.md#empty-schemas) for the
 full explanation and `prune()` semantics.
 
 `lint()` diagnoses a schema's own structural problems — unreachable or
-unsatisfiable records, structurally-duplicate records, and an `any-field`
+unsatisfiable records, structurally-duplicate records, and an `lint.any-field`
 inventory — without mutating anything; `prune`/`normalize` are the
 transforms that fix what it finds. It's also available from the CLI as
 `omnist schema lint`. See [the CLI reference: `omnist schema

@@ -231,8 +231,8 @@ class Record:
 class Error(NamedTuple):
     path: str
     message: str
-    # stable machine-readable code: unexpected-field, cardinality,
-    # type-mismatch, null-not-allowed, shape-mismatch
+    # stable machine-readable code: validate.unexpected-field, validate.cardinality,
+    # validate.type-mismatch, validate.null-not-allowed, validate.shape-mismatch
     code: str
 
 
@@ -334,27 +334,31 @@ class Schema:
 
     def _conform_scalar(self, doc: Any, s: Scalar, res: ValidationResult) -> None:
         if not doc.is_leaf:
-            res.add(doc.path, f"expected a {s.name} value, got an object", "shape-mismatch")
+            res.add(
+                doc.path, f"expected a {s.name} value, got an object", "validate.shape-mismatch"
+            )
             return
         v = doc.value
         if v is None:
             if not s.nullable:
-                res.add(doc.path, "null not allowed here", "null-not-allowed")
+                res.add(doc.path, "null not allowed here", "validate.null-not-allowed")
             return
         if not matches_kind(v, s.name):
-            res.add(doc.path, f"expected {s.name}, got {_typename(v)} ({v!r})", "type-mismatch")
+            res.add(
+                doc.path, f"expected {s.name}, got {_typename(v)} ({v!r})", "validate.type-mismatch"
+            )
 
     def _conform_record(self, doc: Any, rec: Record, res: ValidationResult,
                         depth: int) -> None:
         if doc.is_leaf:
-            res.add(doc.path, "expected an object, got a value", "shape-mismatch")
+            res.add(doc.path, "expected an object, got a value", "validate.shape-mismatch")
             return
         counts: Dict[str, int] = {}
         for label, child in doc.edges():
             counts[label] = counts.get(label, 0) + 1
             f = rec.field(label)
             if f is None:
-                res.add(child.path, "unexpected field", "unexpected-field")
+                res.add(child.path, "unexpected field", "validate.unexpected-field")
             else:
                 self._conform(child, f.type, res, depth + 1)
         for f in rec.fields:
@@ -362,7 +366,7 @@ class Schema:
             if c < f.min or (f.max is not None and c > f.max):
                 res.add(doc.path,
                         f"field {f.label!r} occurs {c} time(s), expected {f.cardinality_str()}",
-                        "cardinality")
+                        "validate.cardinality")
 
     # -- comparison (delegate to operations) ----------------------------
     def compatible_with(self, other: "Schema") -> bool:

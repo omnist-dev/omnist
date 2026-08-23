@@ -1282,7 +1282,11 @@ class TestDeserialize:
         errors = exc.value.errors
         assert len(errors) == 3
         codes = {e.code for e in errors}
-        assert codes == {"type-mismatch", "unexpected-field", "cardinality"}
+        assert codes == {
+            "materialize.inexact-conversion",
+            "validate.unexpected-field",
+            "validate.cardinality",
+        }
         assert all(e.path.startswith("$") for e in errors)
         assert all(isinstance(e.message, str) and e.message for e in errors)
 
@@ -1436,31 +1440,31 @@ class TestDeserialize:
         s1 = parse_schema('record R { "a": integer }\nroot R')
         result = s1.validate(doc({"a": 1, "b": 2}))
         assert not result.ok
-        assert any(e.code == "unexpected-field" for e in result.errors)
+        assert any(e.code == "validate.unexpected-field" for e in result.errors)
 
         # cardinality: field count out of range
         s2 = parse_schema('record R { "a" [1,1]: integer }\nroot R')
         result = s2.validate(doc({"a": [1, 2]}))
         assert not result.ok
-        assert any(e.code == "cardinality" for e in result.errors)
+        assert any(e.code == "validate.cardinality" for e in result.errors)
 
         # type-mismatch: value doesn't match scalar type
         s3 = parse_schema('record R { "a": integer }\nroot R')
         result = s3.validate(doc({"a": "not an int"}))
         assert not result.ok
-        assert any(e.code == "type-mismatch" for e in result.errors)
+        assert any(e.code == "validate.type-mismatch" for e in result.errors)
 
         # null-not-allowed: null for non-nullable scalar
         s4 = parse_schema('record R { "a": integer }\nroot R')
         result = s4.validate(doc({"a": None}))
         assert not result.ok
-        assert any(e.code == "null-not-allowed" for e in result.errors)
+        assert any(e.code == "validate.null-not-allowed" for e in result.errors)
 
         # shape-mismatch: expected object got scalar or vice versa
         s5 = parse_schema('record R { "a": R2 }\nrecord R2 { "x": integer }\nroot R')
         result = s5.validate(doc({"a": 1}))
         assert not result.ok
-        assert any(e.code == "shape-mismatch" for e in result.errors)
+        assert any(e.code == "validate.shape-mismatch" for e in result.errors)
 
 
 # ----------------------------------------------------------- adjustment reports
@@ -2292,7 +2296,7 @@ class TestSchemaModelDunders:
         assert repr(ok) == "ValidationResult(ok=True, errors=0)"
 
         bad = ValidationResult()
-        bad.add("$.a", "boom", "type-mismatch")
+        bad.add("$.a", "boom", "validate.type-mismatch")
         assert bool(bad) is False
         assert str(bad) == "invalid:\n  at $.a: boom"
         assert repr(bad) == "ValidationResult(ok=False, errors=1)"

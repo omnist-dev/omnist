@@ -141,7 +141,7 @@ record Employee { "name": string }
 root Customer
 ''')
     findings = lint(s)
-    assert any(f.code == "duplicate-record" for f in findings)
+    assert any(f.code == "lint.duplicate-record" for f in findings)
 
 
 def test_guide_reading_writing_other_formats():
@@ -681,7 +681,7 @@ def test_api_docs_validation_result_error_iteration():
     r = s.validate(doc({"id": "x"}))
     assert not r.ok
     assert [(e.path, e.code, e.message) for e in r.errors] == [
-        ("$.id", "type-mismatch", "expected integer, got string ('x')")
+        ("$.id", "validate.type-mismatch", "expected integer, got string ('x')")
     ]
 
 
@@ -768,7 +768,7 @@ def test_schema_docs_linting_example():
                      'record Company  { "employee": Employee, "customer": Customer }\n'
                      'root Company')
     assert [(f.code, f.location) for f in lint(s)] == [
-        ("duplicate-record", "Customer, Employee")]
+        ("lint.duplicate-record", "Customer, Employee")]
 
 
 def test_deserialization_docs_core_distinction():
@@ -819,7 +819,11 @@ def test_deserialization_docs_parse_error_structured_errors():
     with pytest.raises(ParseError) as exc:
         read_json('{"a": 1, "b": "extra"}', schema=s2)
     err = exc.value.errors[0]
-    assert (err.path, err.code, err.message) == ("$.b", "unexpected-field", "unexpected field")
+    assert (err.path, err.code, err.message) == (
+        "$.b",
+        "validate.unexpected-field",
+        "unexpected field",
+    )
 
 
 def test_deserialization_docs_numeric_and_boolean_strings():

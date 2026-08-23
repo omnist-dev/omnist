@@ -18,7 +18,7 @@ def test_unsatisfiable_record():
     # a mandatory ref cycle: neither record admits any finite document
     s = parse_schema('record A { "b": B }\nrecord B { "a": A }\nroot A')
     findings = lint(s)
-    unsat = [f for f in findings if f.code == "unsatisfiable-record"]
+    unsat = [f for f in findings if f.code == "lint.unsatisfiable-record"]
     assert {f.location for f in unsat} == {"A", "B"}
     assert all(f.severity == "warning" for f in unsat)
 
@@ -27,7 +27,7 @@ def test_unreachable_record():
     s = parse_schema('record R { "x": integer }\n'
                      'record Orphan { "y": string }\nroot R')
     findings = lint(s)
-    unreach = [f for f in findings if f.code == "unreachable-record"]
+    unreach = [f for f in findings if f.code == "lint.unreachable-record"]
     assert len(unreach) == 1
     assert unreach[0].location == "Orphan"
     assert unreach[0].severity == "warning"
@@ -38,7 +38,7 @@ def test_duplicate_record():
                      'record Location { "c": string }\n'
                      'record R { "a": Addr, "l": Location }\nroot R')
     findings = lint(s)
-    dup = [f for f in findings if f.code == "duplicate-record"]
+    dup = [f for f in findings if f.code == "lint.duplicate-record"]
     assert len(dup) == 1
     assert dup[0].location == "Addr, Location"
     assert dup[0].severity == "warning"
@@ -48,7 +48,7 @@ def test_duplicate_record():
 def test_any_field_inventory():
     s = parse_schema('record R { "id": string, "data": any }\nroot R')
     findings = lint(s)
-    anys = [f for f in findings if f.code == "any-field"]
+    anys = [f for f in findings if f.code == "lint.any-field"]
     assert len(anys) == 1
     assert anys[0].location == "R.data"
     assert anys[0].severity == "info"
@@ -72,12 +72,12 @@ def test_any_only_schema_has_no_warning():
     severity findings -- the exit-code contract keeps it 'ok'."""
     s = parse_schema('record R { "data": any }\nroot R')
     findings = lint(s)
-    assert codes(findings) == ["any-field"]
+    assert codes(findings) == ["lint.any-field"]
     assert not any(f.severity == "warning" for f in findings)
 
 
 def test_lint_finding_is_frozen():
-    f = LintFinding("any-field", "info", "R.x", "msg")
+    f = LintFinding("lint.any-field", "info", "R.x", "msg")
     import pytest
     with pytest.raises(Exception):
         f.code = "other"  # type: ignore[misc]

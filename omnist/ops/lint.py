@@ -8,16 +8,16 @@ design. ``prune`` and ``normalize`` are the transforms that *fix* these issues;
 
 Four checks:
 
-* ``unsatisfiable-record`` (``warning``) -- a reachable record no finite
+* ``lint.unsatisfiable-record`` (``warning``) -- a reachable record no finite
   document can match (e.g. a mandatory ref cycle). Reuses
   :func:`prune.satisfiable_set` (its complement), intersected with reachable.
-* ``unreachable-record`` (``warning``) -- a record defined in ``env`` but not
+* ``lint.unreachable-record`` (``warning``) -- a record defined in ``env`` but not
   reachable from ``root`` by following any ref. A plain reachability walk (no
   pruning): every ``Ref``-typed field is followed regardless of cardinality.
-* ``duplicate-record`` (``warning``) -- two or more structurally identical
+* ``lint.duplicate-record`` (``warning``) -- two or more structurally identical
   records under different names. Reuses :func:`minimize.equivalence_classes` on
   the *raw* schema, so duplicates are reported as authored.
-* ``any-field`` (``info``) -- an inventory of every ``any``-typed field, so a
+* ``lint.any-field`` (``info``) -- an inventory of every ``any``-typed field, so a
   human can audit the schema's deliberate openings. Advisory only; never fails
   the exit code on its own.
 """
@@ -35,10 +35,10 @@ from .prune import satisfiable_set
 @dataclass(frozen=True)
 class LintFinding:
     """One structural diagnostic. ``code`` is a stable machine-readable
-    identifier (``unsatisfiable-record``, ``unreachable-record``,
-    ``duplicate-record``, ``any-field``); ``severity`` is ``warning`` or
+    identifier (``lint.unsatisfiable-record``, ``lint.unreachable-record``,
+    ``lint.duplicate-record``, ``lint.any-field``); ``severity`` is ``warning`` or
     ``info``; ``location`` is a record name (or ``Record.label`` for
-    ``any-field``); ``message`` is a human-readable, actionable description."""
+    ``lint.any-field``); ``message`` is a human-readable, actionable description."""
 
     code: str
     severity: str
@@ -72,21 +72,21 @@ def lint(s: Schema) -> List[LintFinding]:
     reachable = _reachable(s)
     sat = satisfiable_set(s)
 
-    # unsatisfiable-record: reachable but not satisfiable
+    # lint.unsatisfiable-record: reachable but not satisfiable
     for name in reachable - sat:
         findings.append(LintFinding(
-            "unsatisfiable-record", "warning", name,
+            "lint.unsatisfiable-record", "warning", name,
             f"record {name!r} is reachable but unsatisfiable -- no finite "
             f"document can match it (e.g. a mandatory ref cycle)"))
 
-    # unreachable-record: defined in env but not reachable from root
+    # lint.unreachable-record: defined in env but not reachable from root
     for name in set(s.env) - reachable:
         findings.append(LintFinding(
-            "unreachable-record", "warning", name,
+            "lint.unreachable-record", "warning", name,
             f"record {name!r} is defined but never reachable from the root; "
             f"drop it with `schema prune`"))
 
-    # duplicate-record: structurally identical records under different names
+    # lint.duplicate-record: structurally identical records under different names
     for block in equivalence_classes(s):
         if len(block) > 1:
             group = sorted(block)
@@ -94,16 +94,16 @@ def lint(s: Schema) -> List[LintFinding]:
             keep = group[0]
             others = ", ".join(repr(n) for n in group[1:])
             findings.append(LintFinding(
-                "duplicate-record", "warning", location,
+                "lint.duplicate-record", "warning", location,
                 f"records {others} are structurally identical to {keep!r}; "
                 f"merge them with `schema normalize`"))
 
-    # any-field: inventory of every any-typed field
+    # lint.any-field: inventory of every any-typed field
     for name in sorted(s.env):
         for f in s.env[name].fields:
             if isinstance(f.type, AnyType):
                 findings.append(LintFinding(
-                    "any-field", "info", f"{name}.{f.label}",
+                    "lint.any-field", "info", f"{name}.{f.label}",
                     f"field {f.label!r} of record {name!r} is typed `any` "
                     f"(accepts any value unchecked)"))
 

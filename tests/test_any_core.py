@@ -116,7 +116,7 @@ def test_validate_still_enforces_cardinality_on_any_label():
     d = doc({})  # missing "data" entirely
     res = s.validate(d)
     assert not res.ok
-    assert any(e.code == "cardinality" for e in res.errors)
+    assert any(e.code == "validate.cardinality" for e in res.errors)
 
 
 def test_validate_any_field_cardinality_range_respected():

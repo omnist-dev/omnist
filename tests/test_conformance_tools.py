@@ -340,6 +340,12 @@ def test_run_lint_all_branches(tmp_path, monkeypatch):
         cli_runner, "lint",
         lambda s: (json.dumps({"ok": False, "findings": [
             {**finding, "code": "different-code"}]}), "", 0))
+    assert runner.run_lint(case)[0] == "pass"  # code excluded from comparison (Sec8.5.2 rule 4)
+
+    monkeypatch.setattr(
+        cli_runner, "lint",
+        lambda s: (json.dumps({"ok": False, "findings": [
+            {**finding, "location": "R.different"}]}), "", 0))
     status, msg = runner.run_lint(case)
     assert status == "fail" and "expected" in msg
 
