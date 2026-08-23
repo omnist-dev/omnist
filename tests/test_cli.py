@@ -533,8 +533,8 @@ class TestValidate:
         assert payload["ok"] is False
         assert isinstance(payload["message"], str) and payload["message"]
         errors = {(e["path"], e["code"]): e["message"] for e in payload["errors"]}
-        assert errors[("$.b", "unexpected-field")] == "unexpected field"
-        assert errors[("$", "cardinality")] == "field 'a' occurs 0 time(s), expected exactly 1"
+        assert errors[("$.b", "validate.unexpected-field")] == "unexpected field"
+        assert errors[("$", "validate.cardinality")] == "field 'a' occurs 0 time(s), expected exactly 1"
         assert len(payload["errors"]) == 2
 
     def test_json_flag_syntax_failure_has_empty_errors(self, tmp_path, capsys):
@@ -1087,7 +1087,7 @@ class TestSchemaLint:
         code, out, err = run(
             ["schema", "lint", str(p)], capsys=capsys, monkeypatch=None)
         assert code == 1
-        assert "unreachable-record" in out
+        assert "lint.unreachable-record" in out
         assert "Orphan" in out
 
     def test_json_output_shape(self, tmp_path, capsys):
@@ -1099,7 +1099,7 @@ class TestSchemaLint:
         assert code == 1
         payload = json.loads(out)
         assert payload["ok"] is False
-        assert payload["findings"][0]["code"] == "unreachable-record"
+        assert payload["findings"][0]["code"] == "lint.unreachable-record"
         assert set(payload["findings"][0]) == {"code", "severity", "location", "message"}
 
     def test_info_only_is_ok_exit_0(self, tmp_path, capsys):
@@ -1110,7 +1110,7 @@ class TestSchemaLint:
         assert code == 0
         payload = json.loads(out)
         assert payload["ok"] is True
-        assert payload["findings"][0]["code"] == "any-field"
+        assert payload["findings"][0]["code"] == "lint.any-field"
 
     def test_severity_warning_filters_out_info(self, tmp_path, capsys):
         p = tmp_path / "in.osd"
@@ -1411,7 +1411,7 @@ class TestGlobalJson:
         assert code == 1
         assert out == (
             '{"ok": false, "message": "invalid:\\n  at $.b: unexpected field", '
-            '"errors": [{"path": "$.b", "code": "unexpected-field", '
+            '"errors": [{"path": "$.b", "code": "validate.unexpected-field", '
             '"message": "unexpected field"}]}\n')
 
     def test_lint_json_shape_unchanged(self, tmp_path, capsys):

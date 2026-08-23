@@ -143,8 +143,8 @@ omnist validate order.xml --from xml --schema order.osd --result-format json
 
 - `--json`: a distinct, more detailed machine-readable mode (issue #182),
   independent of `--result-format`. Each errors entry also carries the
-  stable machine-readable `code` (`unexpected-field`, `cardinality`,
-  `type-mismatch`, `null-not-allowed`, `shape-mismatch`) from
+  stable machine-readable `code` (`validate.unexpected-field`, `validate.cardinality`,
+  `validate.type-mismatch`, `validate.null-not-allowed`, `validate.shape-mismatch`) from
   `ValidationResult`/`ParseError.errors` (the same structured list
   `ParseError` has exposed since v0.4.1). Unlike `--result-format`,
   `--json` also converts read/parse errors -- normally `error: ...` on
@@ -234,16 +234,16 @@ boolean-result convention as `compatible-with`/`equivalent`.
 
 `lint()` — non-destructive structural diagnostics for the schema itself.
 Reports, never mutates (`prune`/`normalize` are the transforms). Four
-checks: `unsatisfiable-record` (reachable but no finite document matches),
-`unreachable-record` (defined but not reachable from root),
-`duplicate-record` (structurally identical records under different names),
-each `warning`; and `any-field` (inventory of every `any`-typed field),
+checks: `lint.unsatisfiable-record` (reachable but no finite document matches),
+`lint.unreachable-record` (defined but not reachable from root),
+`lint.duplicate-record` (structurally identical records under different names),
+each `warning`; and `lint.any-field` (inventory of every `any`-typed field),
 `info`. Findings sort by `(code, location)`. Text output is one
 `severity: code: location: message` line per finding, or `no findings`.
 `--json` prints `{"ok": bool, "findings": [{"code","severity","location",
 "message"}, ...]}`, mirroring `validate --json`'s shape. `--severity`
 filters by minimum severity (`info` default keeps everything; `warning`
-drops the `any-field` inventory). Exit `0` if no surviving finding is
+drops the `lint.any-field` inventory). Exit `0` if no surviving finding is
 `warning`-severity, `1` if any is — an `info`-only result always exits `0`.
 
 ### `omnist schema extract <schema-file> --keep label1,label2,... [--compact] [-o OUTPUT]`

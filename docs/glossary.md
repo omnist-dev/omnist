@@ -160,9 +160,9 @@ valid. Defined formally in
   [model spec §13](design/model.md#13-minimization-and-canonical-form).
 - **lint** / **`Schema.lint()`** / **`LintFinding`** — non-destructive
   structural diagnostics for a *schema itself* (as opposed to `validate`,
-  which checks a *document* against a schema): `unsatisfiable-record`,
-  `unreachable-record`, and `duplicate-record` (all `warning`), plus an
-  `any-field` inventory (`info`, advisory only). `lint` only reports —
+  which checks a *document* against a schema): `lint.unsatisfiable-record`,
+  `lint.unreachable-record`, and `lint.duplicate-record` (all `warning`), plus an
+  `lint.any-field` inventory (`info`, advisory only). `lint` only reports —
   `prune`/`normalize` are the transforms that fix what it finds. Each
   finding is a `LintFinding(code, severity, location, message)`. See
   [the CLI reference](cli.md#omnist-schema-lint).

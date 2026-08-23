@@ -417,14 +417,14 @@ s = parse_schema('record Employee { "name": string }\n'
 
 Four checks, each a `LintFinding(code, severity, location, message)`:
 
-- **`unsatisfiable-record`** (`warning`) — a *reachable* record no finite
+- **`lint.unsatisfiable-record`** (`warning`) — a *reachable* record no finite
   document can match (e.g. a mandatory ref cycle). `is_empty()` asks the
   same question of the root; lint surfaces every offending record.
-- **`unreachable-record`** (`warning`) — a record defined in the env but
+- **`lint.unreachable-record`** (`warning`) — a record defined in the env but
   never reachable from `root`. `prune()` removes these.
-- **`duplicate-record`** (`warning`) — two or more structurally identical
+- **`lint.duplicate-record`** (`warning`) — two or more structurally identical
   records under different names. `normalize()` merges them.
-- **`any-field`** (`info`) — an inventory of every `any`-typed field, so a
+- **`lint.any-field`** (`info`) — an inventory of every `any`-typed field, so a
   human can audit the schema's deliberate openings. Advisory only.
 
 Findings are sorted by `(code, location)`. The three `warning` codes each

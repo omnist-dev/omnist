@@ -228,11 +228,11 @@ stable machine-readable `.code`:
 
 | code | meaning |
 |---|---|
-| `unexpected-field` | a label the (closed) record doesn't declare |
-| `cardinality` | a label occurs outside its `[min,max]` range |
-| `type-mismatch` | a value doesn't match the field's scalar type |
-| `null-not-allowed` | `null` for a non-nullable (`?`-less) scalar |
-| `shape-mismatch` | an object where a value was expected, or vice versa |
+| `validate.unexpected-field` | a label the (closed) record doesn't declare |
+| `validate.cardinality` | a label occurs outside its `[min,max]` range |
+| `validate.type-mismatch` | a value doesn't match the field's scalar type |
+| `validate.null-not-allowed` | `null` for a non-nullable (`?`-less) scalar |
+| `validate.shape-mismatch` | an object where a value was expected, or vice versa |
 
 The codes are part of the API contract — match on `.code`, not on message
 text, when reacting to failures programmatically. `str(result)` output is

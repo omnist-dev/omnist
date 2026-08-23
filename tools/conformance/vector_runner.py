@@ -10,12 +10,12 @@ share a natural code path, so they stay separate, sharing only
 **Diagnostics matching mode.** Sec8.5.2 lists four normative rules; rule 4
 permits "code-agnostic mode" (compare only ``ok`` plus the *set* of
 ``path``s, never ``code``) for implementations that have not adopted the
-Sec8.3 code taxonomy. omnist has not: its diagnostic codes (``type-mismatch``,
-``temporal.stringified``, ...) predate Sec8.3 and were never renamed to
-match it -- confirmed directly against several vectors' expected codes
-(e.g. a real ``validate`` run reports ``type-mismatch``, the vector expects
-``validate.type-mismatch``). This runner therefore always compares in
-code-agnostic mode. Message text is never compared either way (rule 1).
+Sec8.3 code taxonomy. omnist's diagnostic codes were namespaced to match it
+in issue #315 (``validate.type-mismatch``, ``materialize.inexact-conversion``,
+``lint.any-field``, etc.), but this runner still always compares in
+code-agnostic mode -- switching to strict code comparison is a separate,
+unverified decision left for a future issue. Message text is never compared
+either way (rule 1).
 
 **Two more decisions, made explicit rather than silently applied
 (per the issue's instruction not to silently drop anything):**

@@ -74,7 +74,7 @@ def _materialize_type(node: Any, schema: Schema, t: Any, path: str,
 def _materialize_record(node: Any, schema: Schema, rec: Record, path: str,
                          res: ValidationResult) -> Any:
     if not isinstance(node, list):
-        res.add(path, "expected an object, got a value", "shape-mismatch")
+        res.add(path, "expected an object, got a value", "validate.shape-mismatch")
         return node
     out: list[tuple[str, Any]] = []
     counts: dict[str, int] = {}
@@ -84,7 +84,7 @@ def _materialize_record(node: Any, schema: Schema, rec: Record, path: str,
         p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
         f = rec.field(label)
         if f is None:
-            res.add(p, "unexpected field", "unexpected-field")
+            res.add(p, "unexpected field", "validate.unexpected-field")
             out.append((label, child))
         else:
             out.append((label, _materialize_type(child, schema, f.type, p, res)))
@@ -93,17 +93,17 @@ def _materialize_record(node: Any, schema: Schema, rec: Record, path: str,
         if c < f.min or (f.max is not None and c > f.max):
             res.add(path,
                     f"field {f.label!r} occurs {c} time(s), expected {f.cardinality_str()}",
-                    "cardinality")
+                    "validate.cardinality")
     return out
 
 
 def _materialize_scalar(value: Any, s: Scalar, path: str, res: ValidationResult) -> Any:
     if isinstance(value, list):
-        res.add(path, f"expected a {s.name} value, got an object", "shape-mismatch")
+        res.add(path, f"expected a {s.name} value, got an object", "validate.shape-mismatch")
         return value
     if value is None:
         if not s.nullable:
-            res.add(path, "null not allowed here", "null-not-allowed")
+            res.add(path, "null not allowed here", "validate.null-not-allowed")
         return value
     if s.name == "string":
         if isinstance(value, str):
@@ -131,7 +131,7 @@ def _materialize_scalar(value: Any, s: Scalar, path: str, res: ValidationResult)
         if converted is not _SENTINEL:
             return converted
     res.add(path, f"{value!r} cannot be read as {s.name} (not a value-exact conversion)",
-            "type-mismatch")
+            "materialize.inexact-conversion")
     return value
 
 
