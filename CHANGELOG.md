@@ -6,6 +6,24 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.8.11] — read_oml now enforces the node-count safety limit
+
+- Closed [#313](https://github.com/omnist-dev/omnist/issues/313): found
+  while implementing #309 — `omnist/oml.py`'s recursive-descent parser
+  builds its edge lists directly, bypassing `build_node()` entirely, and
+  had no `_MAX_NODES` enforcement of its own at all. Confirmed live
+  before this fix: 1.1 million OML edges parsed with no error whatsoever.
+- `_Parser` now tracks its own node count, incremented once per container
+  node (`parse_node_edges` call — the top-level document and every nested
+  `{...}`), raising `ParseError` past `_MAX_NODES`, matching
+  `build_node()`'s post-#309 container-only counting semantics exactly.
+  A flat OML document with any number of scalar sibling edges is still
+  correctly one node, same as every other reader.
+- Not breaking in practice: only a genuinely oversized (or maliciously
+  crafted) document — one that legitimately exceeds the same
+  1,000,000-node ceiling every other reader already enforces — is
+  affected; nothing a normal caller would have been relying on changes.
+
 ## [v0.8.10] — the node-count safety limit counts containers, not scalar leaves
 
 - Closed [#309](https://github.com/omnist-dev/omnist/issues/309): a Gemini
