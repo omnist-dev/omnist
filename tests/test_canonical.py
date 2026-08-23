@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.8.10"
+        assert ds.__version__ == "0.8.11"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -882,6 +882,30 @@ class TestMalformedInput:
         # string, including an escaped quote right before one
         text = '{"a": "' + ("[" * 500) + r'a \" [x]' + ("]" * 500) + '"}'
         assert read_json(text) == [("a", "[" * 500 + 'a " [x]' + "]" * 500)]
+
+    def test_oml_many_container_nodes_raises_parse_error(self, monkeypatch):
+        # #313: unlike the JSON/YAML/TOML readers (which all go through
+        # build_node(), whose own _MAX_NODES budget already covers this),
+        # OML's recursive-descent parser built its edge lists directly,
+        # with no node-count enforcement of its own at all -- confirmed
+        # live before this fix (1.1M OML edges parsed with no error
+        # whatsoever). Monkeypatches the cap down so this doesn't need to
+        # actually build a million real nodes to prove the guard fires.
+        import omnist.oml as oml_module
+        monkeypatch.setattr(oml_module, "_MAX_NODES", 50)
+
+        text = "".join(f"k{i}: {{ x: {i} }}\n" for i in range(60))
+        with pytest.raises(ParseError, match="too many nodes materialized"):
+            read_oml(text)
+
+    def test_oml_flat_document_with_many_scalar_edges_is_one_node(self):
+        # A flat document is one *container* node (the root) regardless of
+        # how many scalar sibling edges it has -- matching #309's
+        # container-only counting semantics for build_node(), now that OML
+        # enforces the same cap independently.
+        text = "".join(f"k{i}: {i}\n" for i in range(1100))
+        node = read_oml(text)
+        assert len(node) == 1100
 
     def test_check_oml_never_sees_an_unwritable_node(self):
         # Before issue #156 (B2), build_node accepted ints past CPython's

@@ -34,7 +34,7 @@ import datetime as _dt
 import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
-from .document import _MAX_DEPTH, _MAX_INT_DIGITS
+from .document import _MAX_DEPTH, _MAX_INT_DIGITS, _MAX_NODES
 from .errors import ParseError, WriteError
 from .schema import _DATE_RE, _DATETIME_RE, _TIME_RE
 
@@ -460,6 +460,14 @@ class _Parser:
     def __init__(self, scanner: _Scanner) -> None:
         self.sc = scanner
         self.kind, self.start, self.end = scanner.next()
+        # #313: build_node() (document.py) enforces this same cap for the
+        # other readers, but OML's own recursive-descent parser builds its
+        # edge lists directly, bypassing build_node entirely -- nothing
+        # else enforced a node-count ceiling on OML text at all. One
+        # counter for the whole parse, incremented once per container node
+        # (parse_node_edges call), matching build_node's post-#309
+        # container-only semantics exactly.
+        self.node_count = 0
 
     def _advance(self) -> Tuple[str, int, int]:
         cur = (self.kind, self.start, self.end)
@@ -521,6 +529,11 @@ class _Parser:
         return kind
 
     def parse_node_edges(self, depth: int) -> List[Tuple[str, Any]]:
+        self.node_count += 1
+        if self.node_count > _MAX_NODES:
+            raise ParseError(
+                f"too many nodes materialized (over {_MAX_NODES}) -- "
+                "likely a runaway or maliciously large document")
         edges: List[Tuple[str, Any]] = []
         self.skip_sep()
         while self.kind not in (RBRACE, "EOF"):
