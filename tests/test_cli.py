@@ -534,7 +534,10 @@ class TestValidate:
         assert isinstance(payload["message"], str) and payload["message"]
         errors = {(e["path"], e["code"]): e["message"] for e in payload["errors"]}
         assert errors[("$.b", "validate.unexpected-field")] == "unexpected field"
-        assert errors[("$", "validate.cardinality")] == "field 'a' occurs 0 time(s), expected exactly 1"
+        assert (
+            errors[("$", "validate.cardinality")]
+            == "field 'a' occurs 0 time(s), expected exactly 1"
+        )
         assert len(payload["errors"]) == 2
 
     def test_json_flag_syntax_failure_has_empty_errors(self, tmp_path, capsys):

@@ -1282,7 +1282,11 @@ class TestDeserialize:
         errors = exc.value.errors
         assert len(errors) == 3
         codes = {e.code for e in errors}
-        assert codes == {"materialize.inexact-conversion", "validate.unexpected-field", "validate.cardinality"}
+        assert codes == {
+            "materialize.inexact-conversion",
+            "validate.unexpected-field",
+            "validate.cardinality",
+        }
         assert all(e.path.startswith("$") for e in errors)
         assert all(isinstance(e.message, str) and e.message for e in errors)
 

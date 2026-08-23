@@ -819,7 +819,11 @@ def test_deserialization_docs_parse_error_structured_errors():
     with pytest.raises(ParseError) as exc:
         read_json('{"a": 1, "b": "extra"}', schema=s2)
     err = exc.value.errors[0]
-    assert (err.path, err.code, err.message) == ("$.b", "validate.unexpected-field", "unexpected field")
+    assert (err.path, err.code, err.message) == (
+        "$.b",
+        "validate.unexpected-field",
+        "unexpected field",
+    )
 
 
 def test_deserialization_docs_numeric_and_boolean_strings():

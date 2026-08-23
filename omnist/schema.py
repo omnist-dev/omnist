@@ -334,7 +334,9 @@ class Schema:
 
     def _conform_scalar(self, doc: Any, s: Scalar, res: ValidationResult) -> None:
         if not doc.is_leaf:
-            res.add(doc.path, f"expected a {s.name} value, got an object", "validate.shape-mismatch")
+            res.add(
+                doc.path, f"expected a {s.name} value, got an object", "validate.shape-mismatch"
+            )
             return
         v = doc.value
         if v is None:
@@ -342,7 +344,9 @@ class Schema:
                 res.add(doc.path, "null not allowed here", "validate.null-not-allowed")
             return
         if not matches_kind(v, s.name):
-            res.add(doc.path, f"expected {s.name}, got {_typename(v)} ({v!r})", "validate.type-mismatch")
+            res.add(
+                doc.path, f"expected {s.name}, got {_typename(v)} ({v!r})", "validate.type-mismatch"
+            )
 
     def _conform_record(self, doc: Any, rec: Record, res: ValidationResult,
                         depth: int) -> None:

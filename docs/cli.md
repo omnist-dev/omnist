@@ -410,6 +410,7 @@ $ echo '{not valid json' | omnist validate - --from json --schema examples/cli/p
 {"ok": false, "message": "invalid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)", "errors": []}
 # exit 2
 ```
+<!-- verified-by: tests/test_cli_examples.py::TestValidateExamples::test_invalid_person_json_flag -->
 
 ## `omnist schema format`
 

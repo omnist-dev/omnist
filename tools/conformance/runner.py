@@ -164,13 +164,16 @@ def run_infer(case_dir: Path) -> Tuple[str, str]:
 
 
 def _drop_messages(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Message text is never compared (Sec8.5's own matching rule 1) --
-    strip it so a fixture's expected.json doesn't have to pin exact
-    wording, only code/severity/location."""
+    """Message text is never compared (Sec8.5's own matching rule 1), and
+    ``code`` is compared code-agnostically (Sec8.5.2 rule 4,
+    docs/conformance-harness.md) -- strip both, so a fixture's
+    expected.json doesn't have to pin exact wording or a
+    bare-vs-namespaced code spelling, only severity/location. Mirrors
+    vector_runner.py's lint driver, which applies the same policy."""
     return {
         "ok": payload["ok"],
         "findings": [
-            {k: f[k] for k in ("code", "severity", "location")}
+            {k: f[k] for k in ("severity", "location")}
             for f in payload["findings"]
         ],
     }
