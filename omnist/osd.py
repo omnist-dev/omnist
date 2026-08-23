@@ -119,6 +119,11 @@ class _Parser:
                 self._define(env, name, rec, name_pos)
             elif t.kind == "name" and t.text == "root":
                 self._next()
+                if root is not None:
+                    raise SchemaError(
+                        "a schema must declare exactly one root; a second "
+                        "'root' declaration is an error",
+                        code="schema.duplicate-root", path="$")
                 root = self._expect("name").text
             else:
                 raise SchemaError(f"expected 'record' or 'root' at {t.pos}, "
