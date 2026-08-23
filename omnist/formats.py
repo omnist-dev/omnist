@@ -77,7 +77,7 @@ def _has_interleaving_loss(node: Any, depth: int = 0) -> bool:
     if not isinstance(node, list):
         return False
     _check_write_depth(depth)
-    finished: set = set()
+    finished: set[Any] = set()
     prev = None
     for label, child in node:
         if label != prev:
@@ -570,8 +570,9 @@ def _xml_sanitize(text: str) -> str:
 
 
 def _local(tag: str) -> str:
-    if tag.startswith("{"):
-        return tag.split("}", 1)[1]
+    # _xml_fromstring builds every tag with a non-namespace-aware expat
+    # parser, so a Clark-notation "{uri}local" tag can never reach here --
+    # only ever a literal tag, "b" or a prefixed "ns:b".
     if ":" in tag:
         return tag.split(":", 1)[1]
     return tag
@@ -580,7 +581,7 @@ def _local(tag: str) -> str:
 _XMLNS_ATTR = _re.compile(r"^xmlns(:|$)")
 
 
-def _check_xml_drops(elem: Any, path: str, report: Optional[WriteReport]) -> None:
+def _check_xml_drops(elem: Any, path: Optional[str], report: Optional[WriteReport]) -> None:
     """format.attribute-dropped / format.namespace-dropped (Sec8.3.8): fired
     at the element the loss happened on, the same convention format.float-
     special uses for the value it substituted. ElementTree gives every
@@ -593,6 +594,10 @@ def _check_xml_drops(elem: Any, path: str, report: Optional[WriteReport]) -> Non
     format.namespace-dropped)."""
     if report is None:
         return
+    # path is only ever None if epath was None at the call site, which never
+    # happens: read_xml's root call always builds a real "$.<local>" string,
+    # and _xml_to_node's recursive calls only ever narrow it further.
+    assert path is not None
     if ":" in elem.tag:
         report.add(path, "format.namespace-dropped",
                     "XML namespace prefix discarded on read (element reads "
@@ -664,21 +669,30 @@ def _xml_fromstring(text: str) -> Any:
     def _start_doctype(name: str, sysid: Any, pubid: Any, has_internal_subset: bool) -> None:
         raise DTDForbidden(name, sysid, pubid)
 
+    # Entities and external references are declared inside a DTD's subset,
+    # which expat only reaches once StartDoctypeDeclHandler has already
+    # accepted the DOCTYPE -- since _start_doctype above unconditionally
+    # raises instead, these three handlers can never actually fire. Kept
+    # anyway (rather than omitted) as defense in depth: if that
+    # unconditional raise is ever weakened, these still stand between a
+    # DTD and the classic XXE/entity-expansion vectors it enables.
     def _entity_decl(name: str, is_parameter_entity: bool, value: Any, base: Any,
                      sysid: Any, pubid: Any, notation_name: Any) -> None:
-        raise EntitiesForbidden(name, value, base, sysid, pubid, notation_name)
+        raise EntitiesForbidden(  # pragma: no cover
+            name, value, base, sysid, pubid, notation_name)
 
     def _unparsed_entity_decl(name: str, base: Any, sysid: Any, pubid: Any,
                               notation_name: Any) -> None:
-        raise EntitiesForbidden(name, None, base, sysid, pubid, notation_name)
+        raise EntitiesForbidden(  # pragma: no cover
+            name, None, base, sysid, pubid, notation_name)
 
     def _external_entity_ref(context: Any, base: Any, sysid: Any, pubid: Any) -> None:
-        raise ExternalReferenceForbidden(context, base, sysid, pubid)
+        raise ExternalReferenceForbidden(context, base, sysid, pubid)  # pragma: no cover
 
     parser.StartDoctypeDeclHandler = _start_doctype
     parser.EntityDeclHandler = _entity_decl
     parser.UnparsedEntityDeclHandler = _unparsed_entity_decl
-    parser.ExternalEntityRefHandler = _external_entity_ref
+    parser.ExternalEntityRefHandler = _external_entity_ref  # type: ignore[assignment]
     parser.Parse(text, True)
     return builder.close()
 

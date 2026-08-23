@@ -2814,6 +2814,27 @@ class TestFormatAdjustmentDiagnostics:
             ("$.a.b", "format.namespace-dropped"),
         ]
 
+    def test_xml_doctype_is_rejected(self):
+        # _xml_fromstring's custom expat parser reimplements defusedxml's
+        # own DTD/entity/external-reference forbidding (its default parser
+        # can't be reused as-is because it's namespace-aware, which rejects
+        # an unbound prefix like <ns:b> before omnist can report it as
+        # dropped). A DOCTYPE is rejected outright, the same way the
+        # billion-laughs/XXE vectors it enables are: no distinction between
+        # "just a DOCTYPE" and "a DOCTYPE with malicious entities" is drawn,
+        # since expat only reaches entity declarations after already
+        # accepting the DOCTYPE that would contain them.
+        with pytest.raises(ParseError, match="invalid XML"):
+            read_xml("<!DOCTYPE a><a/>")
+
+    def test_xml_doctype_with_entity_is_rejected_the_same_way(self):
+        # The DOCTYPE itself is rejected before expat ever parses the
+        # entity declaration inside it -- this is what makes the classic
+        # XML entity-expansion ("billion laughs") attack unreachable here,
+        # not a separate entity-specific check.
+        with pytest.raises(ParseError, match="invalid XML"):
+            read_xml('<!DOCTYPE a [<!ENTITY x "y">]><a>&x;</a>')
+
     @pytest.mark.parametrize("writer", [write_json, write_yaml, write_toml])
     def test_cross_label_interleaving_lost_is_reported_once_at_root(self, writer):
         node = [("m", "A"), ("x", "X"), ("m", "B")]
