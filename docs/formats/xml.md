@@ -182,7 +182,12 @@ read_xml("<p>\n  <b>world</b>\n</p>")   # [('p', [('b', 'world')])]
 ## Notes
 
 - **Not supported** (outside the data-XML profile): attributes and CDATA. A
-  namespace prefix is stripped (`<n:a>` reads as `a`).
+  namespace prefix is stripped (`<n:a>` reads as `a`). Both drops are
+  reported on `read_xml(text, report=a_WriteReport)` -- `format.attribute-
+  dropped` at the element the attribute was on, `format.namespace-dropped`
+  at the element whose prefix was discarded -- the same
+  [adjustment-report](../api.md#adjustment-reports-lossy-writes) mechanism
+  the writers already use, just on the read side.
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how XML's attribute- and namespace-dropping stack up against the other
   formats.

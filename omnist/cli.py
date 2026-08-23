@@ -153,11 +153,17 @@ def _cmd_convert(args: argparse.Namespace) -> int:
             "--from oml --to oml is not supported here; use `omnist format` instead",
             2)
     schema = parse_schema(_read_input(args.schema)) if args.schema else None
-    node = _READERS[args.from_](_read_input(args.input), schema=schema)
-    report = WriteReport() if args.report else None
+    read_report = WriteReport() if args.report else None
+    if args.from_ == "xml":
+        # xml is currently the only reader with anything to report
+        # (format.attribute-dropped / format.namespace-dropped, Sec8.3.8)
+        node = read_xml(_read_input(args.input), schema=schema, report=read_report)
+    else:
+        node = _READERS[args.from_](_read_input(args.input), schema=schema)
+    write_report = WriteReport() if args.report else None
     try:
         text = _write_to_format(
-            args.to, node, strict=args.strict, report=report, compact=args.compact,
+            args.to, node, strict=args.strict, report=write_report, compact=args.compact,
             arrays=args.arrays)
     except WriteError as exc:
         if exc.report is not None:
@@ -168,8 +174,11 @@ def _cmd_convert(args: argparse.Namespace) -> int:
         raise  # a structural failure (e.g. multi-root XML) -- exit 2 via main()
     _write_output(args.output, text)
     if args.report:
-        assert report is not None
-        print(_encode_write_report(report, args.result_format), file=sys.stderr)
+        assert read_report is not None and write_report is not None
+        combined = WriteReport()
+        combined.adjustments.extend(read_report.adjustments)
+        combined.adjustments.extend(write_report.adjustments)
+        print(_encode_write_report(combined, args.result_format), file=sys.stderr)
     return 0
 
 

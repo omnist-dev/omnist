@@ -68,6 +68,42 @@ def _leaves(node: Any, path: str = "$", depth: int = 0) -> Any:
         yield path, node
 
 
+def _has_interleaving_loss(node: Any, depth: int = 0) -> bool:
+    """True if any list node in the tree has a label reappearing after a
+    *different* label's run already ended -- i.e. the JSON-shaped grouping
+    rule (`_grouped`, document.py) would reorder same-label edges together,
+    losing the original interleaving. A label repeated only contiguously
+    (`[(m,A),(m,B),(x,X)]`) groups losslessly and does NOT count."""
+    if not isinstance(node, list):
+        return False
+    _check_write_depth(depth)
+    finished: set = set()
+    prev = None
+    for label, child in node:
+        if label != prev:
+            if label in finished:
+                return True
+            if prev is not None:
+                finished.add(prev)
+            prev = label
+        if _has_interleaving_loss(child, depth + 1):
+            return True
+    return False
+
+
+def _check_interleaving(node: Any, rep: WriteReport) -> None:
+    """format.interleaving-lost (Sec8.3.8): JSON/YAML/TOML have no way to
+    represent cross-label interleaving -- `_grouped` always groups same-label
+    edges together regardless of their original position. Reported once at
+    "$", the whole document, since the loss isn't localized to any one
+    label's edges."""
+    if _has_interleaving_loss(node):
+        rep.add("$", "format.interleaving-lost",
+                "cross-label interleaving is lost: same-label edges are "
+                "grouped together regardless of their original position",
+                "warning")
+
+
 def _check_json_text_depth(text: str) -> None:
     """Reject deeply-nested JSON *before* handing it to ``json.loads`` (#307):
     the standard library parser has no depth limit of its own, so a
@@ -136,6 +172,7 @@ def _scan_json(node: Any) -> WriteReport:
                     "temporal value written as an ISO-8601 string", "warning")
         elif isinstance(v, float) and (_math.isnan(v) or _math.isinf(v)):
             rep.add(path, "float.special", f"{v} is not valid JSON; wrote null", "error")
+    _check_interleaving(node, rep)
     return rep
 
 
@@ -198,6 +235,7 @@ def check_yaml(node: Any) -> WriteReport:
                     "time-of-day written as a string (YAML has no standalone time)",
                     "warning")
     _scan_yaml_labels(node, "$", rep)
+    _check_interleaving(node, rep)
     return rep
 
 
@@ -279,6 +317,7 @@ def write_toml(node: Any, *, strict: bool = False,
     tomli_w = _need("tomli_w", "pip install tomli_w")
     rep = WriteReport()
     stripped = _strip_nulls(node, "$", rep)        # TOML has no null
+    _check_interleaving(node, rep)
     grouped = _grouped(stripped)
     if not isinstance(grouped, dict):
         raise WriteError("TOML needs a top-level table (the root must be an object)")
@@ -289,6 +328,7 @@ def write_toml(node: Any, *, strict: bool = False,
 def check_toml(node: Any) -> WriteReport:
     rep = WriteReport()
     _strip_nulls(node, "$", rep)
+    _check_interleaving(node, rep)
     return rep
 
 
@@ -326,13 +366,22 @@ _XML_ILLEGAL_CHAR = _re.compile(
     chr(0x5B) + "".join(chr(lo) + "-" + chr(hi) for lo, hi in _XML_ILLEGAL_RANGES) + chr(0x5D))
 
 
-def read_xml(text: str, *, schema: Optional["Schema"] = None) -> Any:
-    ET = _xml_parser()
+def read_xml(text: str, *, schema: Optional["Schema"] = None,
+            report: Optional[WriteReport] = None) -> Any:
     try:
-        root = ET.fromstring(text)
+        root = _xml_fromstring(text)
+    except ImportError:
+        raise  # missing defusedxml -- a setup problem, not a syntax one
     except Exception as exc:
         raise ParseError(f"invalid XML: {exc}", code="parse.syntax") from exc
-    node = [(_local(root.tag), _xml_to_node(root, "$", 0, [0]))]
+    root_local = _local(root.tag)
+    # `epath` is the proper full dotted Document path (Sec8.4 convention),
+    # used only for format.attribute-dropped/format.namespace-dropped --
+    # kept separate from `path` below, which is the pre-existing (shallower)
+    # scheme mixed-content errors already use and report on.
+    root_epath = f"$.{root_local}"
+    _check_xml_drops(root, root_epath, report)
+    node = [(root_local, _xml_to_node(root, "$", 0, [0], report, root_epath))]
     if schema is not None:
         # #288: recover boolean/integer/number from XML's untyped text
         # before the shared materialize() sees it. This is XML-specific,
@@ -372,7 +421,8 @@ def _xml_pretype_scalar(value: Any, s: "Scalar") -> Any:
     return value
 
 
-def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int]) -> Any:
+def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
+                 report: Optional[WriteReport] = None, epath: Optional[str] = None) -> Any:
     # budget is a shared running node count across the whole call tree, the
     # same mechanism build_node uses (document.py) -- unlike build_node's
     # readers, XML's ElementTree parse has no aliasing mechanism to create a
@@ -399,8 +449,14 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int]) -> Any:
                     f"{p}: mixed content (text alongside "
                     "child elements) is outside the data-XML profile",
                     code="parse.syntax", path=p)
-        return [(_local(c.tag), _xml_to_node(c, f"{path}.{_local(c.tag)}", depth + 1, budget))
-                for c in children]
+        out = []
+        for c in children:
+            c_local = _local(c.tag)
+            p = f"{path}.{c_local}"
+            cepath = f"{epath}.{c_local}" if epath is not None else None
+            _check_xml_drops(c, cepath, report)
+            out.append((c_local, _xml_to_node(c, p, depth + 1, budget, report, cepath)))
+        return out
     return elem.text or ""
 
 
@@ -514,7 +570,37 @@ def _xml_sanitize(text: str) -> str:
 
 
 def _local(tag: str) -> str:
-    return tag.split("}", 1)[1] if tag.startswith("{") else tag
+    if tag.startswith("{"):
+        return tag.split("}", 1)[1]
+    if ":" in tag:
+        return tag.split(":", 1)[1]
+    return tag
+
+
+_XMLNS_ATTR = _re.compile(r"^xmlns(:|$)")
+
+
+def _check_xml_drops(elem: Any, path: str, report: Optional[WriteReport]) -> None:
+    """format.attribute-dropped / format.namespace-dropped (Sec8.3.8): fired
+    at the element the loss happened on, the same convention format.float-
+    special uses for the value it substituted. ElementTree gives every
+    element a plain (non-namespace-aware) tag/attrib here -- see
+    `_xml_fromstring` -- so a namespace prefix survives as a literal
+    `prefix:local` tag, and an `xmlns`/`xmlns:prefix` declaration survives
+    as a literal attribute rather than being consumed by namespace
+    processing; the latter is filtered out below so it isn't double-counted
+    as a dropped *data* attribute (it's already covered by
+    format.namespace-dropped)."""
+    if report is None:
+        return
+    if ":" in elem.tag:
+        report.add(path, "format.namespace-dropped",
+                    "XML namespace prefix discarded on read (element reads "
+                    "as its local name only)", "warning")
+    if any(not _XMLNS_ATTR.match(k) for k in elem.attrib):
+        report.add(path, "format.attribute-dropped",
+                    "XML attribute(s) discarded on read (there is no path "
+                    "from a Document edge back to an attribute)", "warning")
 
 
 def _indent(elem: Any, level: int = 0) -> None:
@@ -536,6 +622,65 @@ def _xml_parser() -> Any:
     except ImportError as exc:
         raise ImportError("defusedxml is required: pip install defusedxml") from exc
     return ET
+
+
+def _xml_fromstring(text: str) -> Any:
+    """Parse with a defused *non-namespace-aware* expat parser.
+
+    `xml.etree.ElementTree`'s default parser turns on expat's namespace
+    processing unconditionally, which requires every prefix to be bound --
+    so `<ns:b>` with no `xmlns:ns` declaration raises "unbound prefix"
+    before omnist ever gets a chance to read it. omnist doesn't resolve
+    namespaces at all (Sec8.3.8/docs/formats/xml.md: the prefix is always
+    dropped, reported, and the local name kept), so requiring the prefix to
+    be *bound* first is stricter than the format actually needs. Building
+    the tree with a plain (non-namespace) expat parser instead means a
+    prefixed tag simply becomes the literal string "ns:b", same as any
+    other tag -- `_local` strips the prefix back off, and `_check_xml_drops`
+    reports it as dropped either way, bound or not.
+
+    The DTD/entity/external-reference protections are the same ones
+    `defusedxml.ElementTree.DefusedXMLParser` installs -- reimplemented
+    here (rather than subclassing it) only because `DefusedXMLParser`
+    always requests a namespace-aware expat parser itself.
+    """
+    import xml.parsers.expat as expat
+    from xml.etree.ElementTree import TreeBuilder
+    try:
+        from defusedxml.common import (  # type: ignore[import-untyped]
+            DTDForbidden,
+            EntitiesForbidden,
+            ExternalReferenceForbidden,
+        )
+    except ImportError as exc:
+        raise ImportError("defusedxml is required: pip install defusedxml") from exc
+
+    parser = expat.ParserCreate()  # no namespace_separator -> literal tag/attr names
+    builder = TreeBuilder()
+    parser.StartElementHandler = builder.start
+    parser.EndElementHandler = builder.end
+    parser.CharacterDataHandler = builder.data
+
+    def _start_doctype(name: str, sysid: Any, pubid: Any, has_internal_subset: bool) -> None:
+        raise DTDForbidden(name, sysid, pubid)
+
+    def _entity_decl(name: str, is_parameter_entity: bool, value: Any, base: Any,
+                     sysid: Any, pubid: Any, notation_name: Any) -> None:
+        raise EntitiesForbidden(name, value, base, sysid, pubid, notation_name)
+
+    def _unparsed_entity_decl(name: str, base: Any, sysid: Any, pubid: Any,
+                              notation_name: Any) -> None:
+        raise EntitiesForbidden(name, None, base, sysid, pubid, notation_name)
+
+    def _external_entity_ref(context: Any, base: Any, sysid: Any, pubid: Any) -> None:
+        raise ExternalReferenceForbidden(context, base, sysid, pubid)
+
+    parser.StartDoctypeDeclHandler = _start_doctype
+    parser.EntityDeclHandler = _entity_decl
+    parser.UnparsedEntityDeclHandler = _unparsed_entity_decl
+    parser.ExternalEntityRefHandler = _external_entity_ref
+    parser.Parse(text, True)
+    return builder.close()
 
 
 def _need(module: str, how: str) -> Any:

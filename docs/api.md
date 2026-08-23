@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.8.11"
+omnist.__version__        # "0.9.0"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -254,7 +254,7 @@ Low-level codecs over the canonical node form (a scalar, or a list of
 
 | | |
 |---|---|
-| `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node |
+| `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node (`read_xml` also takes `report=a_WriteReport`, see below) |
 | `write_oml(node, *, indent=2, arrays=False)` | a node → **OML**, losslessly — no `strict`/`report` needed (see below); `indent=None` for a single-line, compact form; `arrays=True` collapses any maximal run of ≥ 2 consecutive same-label edges into `label: [v1, v2, ...]` array syntax (a run of 1 stays a plain scalar edge, pretty mode never wraps an array onto multiple lines); default `arrays=False` is byte-identical to `write_oml` without the parameter at all |
 | `write_json(node, *, strict=False, report=None, indent=None)` | a node → JSON (groups same-label edges) |
 | `write_yaml(node, *, strict=False, report=None)` | a node → YAML |

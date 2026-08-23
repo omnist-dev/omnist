@@ -107,6 +107,14 @@ Doc.of({"id": "A1"}).to_toml()          # 'id = "A1"\n'
 > **Top-level must be a table.** A bare scalar or array at the root isn't valid
 > TOML; a single-rooted Document (one top-level key) writes cleanly.
 
+> **Cross-label interleaving is also lost.** Grouping same-label edges
+> together can lose their original relative position against *other*
+> labels -- `[(m,A),(x,X),(m,B)]` groups to `m = ["A", "B"]` / `x = "X"`,
+> and there is no way back to the interleaved order. Reported as
+> `format.interleaving-lost` at `$` (the whole document) whenever this
+> actually happens -- a label repeated only contiguously
+> (`[(m,A),(m,B),(x,X)]`) groups losslessly and is not flagged.
+
 `write_toml`/`check_toml` raise `WriteError` (naming the limit) if a
 Document nests past 200 levels — the same limit `read_toml` already
 enforces on parse. See [the API reference](../api.md#reading--writing-formats).

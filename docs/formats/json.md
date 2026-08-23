@@ -79,6 +79,15 @@ writer) never takes a schema — a writer serializes the Document exactly as it
 is, with no schema-driven override of this rule. Schema awareness is read-side
 only.
 
+> Grouping same-label edges together can lose their original relative
+> position against *other* labels -- `[(m,A),(x,X),(m,B)]` groups to
+> `{"m":[A,B],"x":X}`, and there is no way back to the interleaved
+> order. Reported as `format.interleaving-lost` at `$` (the whole
+> document) whenever this actually happens -- a label repeated only
+> contiguously (`[(m,A),(m,B),(x,X)]`) groups losslessly and is not
+> flagged. See [adjustment reports](../api.md#adjustment-reports-lossy-writes).
+
+
 ```python
 from omnist import write_json, Doc
 
