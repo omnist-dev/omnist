@@ -93,14 +93,18 @@ def test_unmatched_close_bracket_is_a_parse_error():
         read_oml("a: ]")
 
 
-@pytest.mark.parametrize("src,match", [
-    ("a: 2024-13-01", "invalid date"),
-    ("a: 25:00:00", "invalid time"),
-    ("a: 2024-13-01T00:00:00", "invalid datetime"),
+@pytest.mark.parametrize("src,match,code", [
+    ("a: 2024-13-01", "invalid date", "parse.invalid-date"),
+    ("a: 25:00:00", "invalid time", "parse.invalid-time"),
+    # Issue #329: a DATETIME's date-portion failure is coded/messaged as a
+    # date problem specifically (not a generic "invalid datetime"), since
+    # its date and time portions are now validated -- and coded -- independently.
+    ("a: 2024-13-01T00:00:00", "invalid date", "parse.invalid-date"),
 ])
-def test_invalid_temporal_literals_are_parse_errors(src, match):
-    with pytest.raises(ParseError, match=match):
+def test_invalid_temporal_literals_are_parse_errors(src, match, code):
+    with pytest.raises(ParseError, match=match) as exc:
         read_oml(src)
+    assert exc.value.code == code
 
 
 def test_repeated_labels_and_interleaving():
@@ -502,6 +506,93 @@ def test_single_zero_and_negative_forms_remain_valid():
     # -are-valid.
     node = read_oml("a: 0\nb: -0\nc: 0.5\nd: -12\n")
     assert node == [("a", 0), ("b", 0), ("c", 0.5), ("d", -12)]
+
+
+# ---------------------------------------------------------------------------
+# Issue #329: DATE/TIME/DATETIME value-range validation, tz-offset bug fix
+# ---------------------------------------------------------------------------
+
+def test_date_with_out_of_range_month_is_rejected():
+    # Matches oml-grammar/temporals/date-with-out-of-range-month-is-an-error.
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 2024-13-01\n")
+    assert exc.value.code == "parse.invalid-date"
+    assert exc.value.path == "1:4"
+
+
+def test_date_with_day_invalid_for_month_is_rejected():
+    # February never has a 30th day regardless of leap year -- matches
+    # oml-grammar/temporals/date-with-day-invalid-for-month-is-an-error.
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 2024-02-30\n")
+    assert exc.value.code == "parse.invalid-date"
+    assert exc.value.path == "1:4"
+
+
+def test_february_29_in_a_non_leap_year_is_rejected():
+    # 1900 is divisible by 100 but not 400 -- not a leap year in the
+    # proleptic Gregorian calendar. Matches oml-grammar/temporals/february
+    # -29-in-a-non-leap-year-is-an-error.
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 1900-02-29\n")
+    assert exc.value.code == "parse.invalid-date"
+    assert exc.value.path == "1:4"
+
+
+def test_february_29_in_a_leap_year_is_valid():
+    # 2000 is divisible by 400 -- the one case the div-by-100 exception
+    # itself has an exception for. Matches oml-grammar/temporals/february
+    # -29-in-a-leap-year-is-valid.
+    import datetime
+    node = read_oml("n: 2000-02-29\n")
+    assert node == [("n", datetime.date(2000, 2, 29))]
+
+
+def test_leap_second_is_rejected():
+    # OML has no leap-second spelling -- second is 00-59 with no exception,
+    # unlike ISO 8601. Matches oml-grammar/temporals/leap-second-is-an-error.
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 23:59:60\n")
+    assert exc.value.code == "parse.invalid-time"
+    assert exc.value.path == "1:4"
+
+
+def test_tz_offset_minute_out_of_range_is_rejected():
+    # The bug case: tz-offset MUST share TIME's exact minute range (00-59),
+    # not a wider one -- an implementation validating it via a separate
+    # code path (e.g. deferring entirely to datetime.fromisoformat, as
+    # this port used to) can end up silently normalizing "+00:60" into a
+    # 1-hour offset instead of rejecting it, confirmed live pre-fix.
+    # Matches oml-grammar/temporals/tz-offset-minute-out-of-range-is-an
+    # -error.
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 2024-01-01T10:30+00:60\n")
+    assert exc.value.code == "parse.invalid-time"
+    assert exc.value.path == "1:4"
+
+
+def test_tz_offset_within_range_is_valid():
+    # A legitimate, in-range offset (India Standard Time) parses normally --
+    # confirms the fix above doesn't reject valid input, only out-of-range
+    # minutes. Matches oml-grammar/temporals/tz-offset-within-range-is-valid.
+    import datetime
+    node = read_oml("n: 2024-01-01T10:30+05:30\n")
+    assert node == [("n", datetime.datetime(
+        2024, 1, 1, 10, 30, tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30))))]
+
+
+def test_datetime_date_portion_and_time_portion_fail_with_distinct_codes():
+    # Sec4.2.4's per-component code table: a DATETIME's date-portion
+    # failure is parse.invalid-date, its time-portion (or tz-offset)
+    # failure is parse.invalid-time -- not one blanket code for the whole
+    # token.
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 2024-13-01T10:30:00\n")
+    assert exc.value.code == "parse.invalid-date"
+
+    with pytest.raises(ParseError) as exc2:
+        read_oml("n: 2024-01-01T25:30:00\n")
+    assert exc2.value.code == "parse.invalid-time"
 
 
 def test_integer_digit_limit_enforced():

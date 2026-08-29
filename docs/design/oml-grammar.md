@@ -115,12 +115,26 @@ exponent    = ("e" / "E") ["+" / "-"] 1*DIGIT
 DATE        = 4DIGIT "-" 2DIGIT "-" 2DIGIT
               ; matched only when NOT immediately followed by "T" + a
               ; TIME-shaped lookahead -- see §1.1.
+              ; issue #329/omnist-spec §4.2.4: 2DIGIT alone permits 00-99 for
+              ; month/day, but only a valid proleptic-Gregorian calendar date
+              ; is accepted (month 01-12, day valid for month/year including
+              ; leap years) -- ABNF can't express that range constraint, so
+              ; it's enforced by the parser, not this grammar, and violating
+              ; it is parse.invalid-date, not a lexical failure.
 
 TIME        = 2DIGIT ":" 2DIGIT [":" 2DIGIT ["." 1*6DIGIT]] [tz-offset]
 tz-offset   = ("+" / "-") 2DIGIT ":" 2DIGIT
+              ; issue #329/omnist-spec §4.2.4: hour 00-23, minute/second
+              ; 00-59 (no leap-second spelling -- 23:59:60 is an error), and
+              ; tz-offset's hour/minute share this *exact* rule, not a
+              ; separately implemented (and potentially looser) one --
+              ; enforced by the parser as parse.invalid-time.
 
 DATETIME    = DATE "T" 2DIGIT ":" 2DIGIT
               [":" 2DIGIT ["." 1*6DIGIT]] [tz-offset]
+              ; its date portion and time portion (or tz-offset) are
+              ; range-checked -- and, on failure, coded -- independently:
+              ; parse.invalid-date vs parse.invalid-time respectively.
 
 ; -- strings ---------------------------------------------------------------
 
