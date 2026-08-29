@@ -6,7 +6,7 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
-## [v0.9.1] — "fail, don't invent": three write adjustments now fail unconditionally
+## [v0.9.1] — write refusals for unrepresentable values, plus a lossless XML CR fix
 
 - Closed [#323](https://github.com/omnist-dev/omnist/issues/323),
   [#324](https://github.com/omnist-dev/omnist/issues/324), and
@@ -38,8 +38,20 @@ deprecation cycle, not silently between releases.
     exits `1` (not its usual unconditional `0`) for this specific case,
     matching `convert`'s refusal.
   - The vendored `omnist-spec` submodule is bumped to `5e4b2fc` (covers all
-    nine 2026-08-29 spec-correctness commits; the six issues beyond this
-    one -- #322, #326, #327, #328, #329, #330 -- land in separate PRs).
+    nine 2026-08-29 spec-correctness commits; the five issues beyond this
+    one -- #322, #327, #328, #329, #330 -- land in separate PRs).
+- Closed [#326](https://github.com/omnist-dev/omnist/issues/326): per
+  omnist-spec Sec8.3.8 (commit `802566f`), `write_xml` now escapes a literal
+  `\r` in a string as the numeric character reference `&#13;` (and `\r\n`
+  as `&#13;\n`) instead of writing it raw. A character reference is exempt
+  from XML's mandated line-ending normalization on parse, so this is
+  genuinely lossless -- confirmed a round-trip through it preserves the
+  exact original bytes, including CRLF. `format.string-cr-normalized` is
+  removed from the codec-adjustments table: there's nothing left to report.
+  This is a real output-bytes change for any string containing `\r`
+  (bundled into this PR alongside #323/#324/#325 since it shares the
+  submodule bump and the vendored `omnist-spec` freeze applies to all nine
+  issues together), not a rename.
 
 ## [v0.9.0] — three format-adjustments MUST now be reported (D-3)
 

@@ -1531,6 +1531,7 @@ class TestReports:
         node = doc({"d": datetime.date(2024, 1, 1)}).to_data()
         rep = check_json(node)
         assert [a.code for a in rep] == ["temporal.stringified"]
+        assert rep.warnings and not rep.errors   # .warnings is still a live public accessor
         assert write_json(node) == '{"d": "2024-01-01"}'   # actually adjusted, not just reported
         node2 = [("x", float("nan"))]
         with pytest.raises(WriteError) as ei:
@@ -2757,20 +2758,30 @@ class TestXmlAdjustmentCodes:
         with pytest.raises(WriteError):
             write_xml(node, strict=True)
 
-    def test_carriage_return_normalization_is_reported(self):
-        # CR is legal XML, but XML's mandated line-ending normalization on
-        # parse turns '\r' (and '\r\n') into '\n', so it's a documented,
-        # non-error lossiness rather than a crash -- see issue #67. (Issue
-        # #326 changes this to a lossless &#13; escape instead; unaffected
-        # by this series.)
+    def test_carriage_return_written_as_numeric_character_reference(self):
+        # Issue #326: a literal CR (and CRLF) is escaped as the numeric
+        # character reference `&#13;` on write, not left raw -- a numeric
+        # character reference is exempt from XML's mandated line-ending
+        # normalization on parse, so this is genuinely lossless, not a
+        # reported adjustment (previously format.string-cr-normalized,
+        # see issue #67 for the original bug this replaced).
         node = [("a", "x\ry")]
         rep = check_xml(node)
-        assert [a.code for a in rep] == ["string.cr_normalized"]
-        assert rep.warnings and not rep.errors
+        assert list(rep) == []
 
         text = write_xml(node)
-        assert "\r" in text                    # CR is left as-is on write
-        assert read_xml(text) == [("a", "x\ny")]   # but reads back as LF
+        assert "\r" not in text                # no raw CR byte in the output
+        assert "&#13;" in text
+        assert read_xml(text) == node           # round-trips exactly, byte-for-byte
+
+        crlf_node = [("a", "x\r\ny")]
+        crlf_text = write_xml(crlf_node)
+        assert "&#13;\n" in crlf_text
+        assert read_xml(crlf_text) == crlf_node   # CRLF round-trips exactly too --
+                                                    # the CR half survives as a
+                                                    # character reference, and the
+                                                    # trailing raw LF needs no
+                                                    # normalization of its own
 
     def test_label_with_trailing_newline_fails_unconditionally(self):
         # Issue #323: a label like 'A\n' isn't a valid XML name, but the old

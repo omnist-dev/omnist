@@ -473,6 +473,14 @@ def write_xml(node: Any, *, strict: bool = False,
     _node_to_xml(content, el)
     _indent(el)
     text = ET.tostring(el, encoding="unicode")
+    # Issue #326: a numeric character reference is exempt from XML's
+    # mandated line-ending normalization on parse, so escaping a literal CR
+    # (and CRLF) this way is genuinely lossless -- unlike every other
+    # `\r`-in-text-content byte, a real `&#13;` never occurs in
+    # ET.tostring's own output (its own formatting/indentation only ever
+    # inserts `\n`), so a plain string replace on the serialized text can't
+    # collide with anything else in it.
+    text = text.replace("\r\n", "&#13;\n").replace("\r", "&#13;")
     return finish_write(text, rep, strict=strict, report=report)
 
 
@@ -538,12 +546,11 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
                 f"{path}: string contains a character XML 1.0 cannot "
                 "represent (e.g. a C0 control other than tab/LF/CR)",
                 code="write.unsupported-value", path=path)
-        if "\r" in v:
-            rep.add(path, "string.cr_normalized",
-                    "string contains a carriage return ('\\r'); XML mandates "
-                    "line-ending normalization on parse, so '\\r' (and "
-                    "'\\r\\n') read back as '\\n'",
-                    "warning")
+        # Issue #326: a CR is now escaped as the numeric character reference
+        # `&#13;` on write (see write_xml), which survives a compliant
+        # parser's line-ending normalization intact -- genuinely lossless,
+        # so there's nothing left to report here (previously
+        # format.string-cr-normalized, a warning-severity adjustment).
 
 
 def _node_to_xml(content: Any, parent: Any) -> None:

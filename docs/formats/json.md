@@ -116,6 +116,7 @@ try:
 except WriteError as e:
     e.code                                      # 'write.unsupported-value'
 ```
+<!-- verified-by: tests/test_docs.py::test_formats_json_docs_special_float_write_fails -->
 
 `write_json`/`check_json` raise `WriteError` (naming the limit) if a
 Document nests past 200 levels — the same limit `read_json` already

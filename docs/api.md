@@ -345,11 +345,13 @@ A named tuple `Adjustment(path, code, message, severity)` — `severity` is
 case is an unconditional `WriteError` now, not a report entry, per above),
 `temporal.stringified`
 (JSON/YAML/XML), `value.stringified` (XML — a non-string scalar written as
-text), `string.cr_normalized` (XML — a
-string contains `\r`, which is legal XML but normalizes to `\n` on parse per
-the XML spec, so it doesn't round-trip byte-for-byte), and `string.line-break-char`
+text), and `string.line-break-char`
 (YAML — a label or value containing U+0085 NEL, which YAML's line-break rules would
 otherwise normalize to a space; written double-quoted to round-trip correctly).
+A string containing `\r` written to XML is no longer reported at all
+(previously `string.cr_normalized`) — issue #326 escapes it as the numeric
+character reference `&#13;`, which is genuinely lossless, not merely
+adjusted.
 
 ---
 
