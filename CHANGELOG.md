@@ -6,6 +6,27 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.9.3] — define NUMBER/INTEGER lexical grammar, reject leading zeros
+
+- Closed [#328](https://github.com/omnist-dev/omnist/issues/328): per
+  omnist-spec Sec4.2.3 (commit `4a2b4ed`), the OML tokenizer's NUMBER/
+  INTEGER lexical grammar is now formally defined and enforced: a leading
+  zero in the integer part of a numeric literal (`01`, `00.5`) is rejected
+  with `parse.leading-zero`, whether or not a fractional/exponent part
+  follows -- matching JSON's and TOML's own number grammars, which OML
+  already round-trips through. A bare `0` (or `-0`) is exactly one digit,
+  never a leading zero, and stays valid; a fraction less than 1 (`0.5`)
+  still legitimately starts with `0.`.
+  - A real behavior change for any input currently relying on `"01"`-style
+    literals being silently accepted (previously: `"01"`/`"00"` tokenized
+    as `1`/`0`) -- but this can't create new round-trip failures against
+    JSON/TOML, since neither of those formats could produce such a literal
+    themselves.
+  - `docs/design/oml-grammar.md`'s formal ABNF now defines `int-part`
+    explicitly, matching the spec's new production.
+- `vendor/omnist-spec` submodule stays pinned at `5e4b2fc` (already covers
+  this commit; unchanged from v0.9.2).
+
 ## [v0.9.2] — reject redundant [0,0] cardinality, empty labels, and bracket labels
 
 - Closed [#322](https://github.com/omnist-dev/omnist/issues/322): per
