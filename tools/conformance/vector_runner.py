@@ -48,15 +48,17 @@ either way (rule 1).
   the Document ``string`` kind. Resolved by issue #288 in the vector's
   favor -- ``read_xml`` no longer infers a scalar kind from text shape, so
   this vector now runs for real and passes, and the skip is gone.
-* ``prune/basic/drops-max-zero-field`` (issue #322) SKIPs as a genuine
-  contradiction within the vendored test-suite, not a divergence in this
-  port: its own input schema text authors a "dead field" via ``[0,0]``
-  cardinality, but the same spec change #322 implements makes ``[0,0]``
-  invalid OSD *text* (``schema.invalid-cardinality``) -- so this vector's
-  own fixture can never successfully parse under a correct implementation
-  of the rule its sibling vector (``osd-grammar/cardinality/zero-max-is-
-  invalid-redundant-with-absence``) requires. Flagged upstream; see
-  ``_KNOWN_CONTRADICTORY_VECTORS`` below.
+* ``prune/basic/drops-max-zero-field`` (issue #322) used to SKIP as a
+  genuine contradiction within the vendored test-suite: its own input
+  schema text authored a "dead field" via ``[0,0]`` cardinality, but the
+  same spec change #322 implements makes ``[0,0]`` invalid OSD *text*
+  (``schema.invalid-cardinality``). Flagged upstream as omnist-spec#50 and
+  resolved there (commit ``0ac1eac``): the vector was replaced with
+  ``prune/basic/drops-optional-field-with-unsatisfiable-type``, which
+  exercises the same observable behavior (a field pruned away entirely)
+  via a still-legal route -- an optional field, ``min == 0``, whose type is
+  an unsatisfiable record -- instead of the now-illegal ``[0,0]`` syntax.
+  No skip is needed any more; the vector runs and passes normally.
 
 Usage: python3 -m tools.conformance.vector_runner
 """
@@ -294,25 +296,7 @@ def run_normalize(v: Dict[str, Any], tmp: Path) -> Result:
     return _run_schema_producing(v, tmp, cli_runner.normalize)
 
 
-# Issue #322: this vendored vector's own input schema text uses "[0,0]"
-# as a way to author a "dead field" for prune() to drop -- but the spec's
-# own Sec5.5 change (the same commit this issue implements) now makes
-# "[0,0]" itself invalid OSD *text* (schema.invalid-cardinality), so the
-# vector's input can never successfully parse under a correct
-# implementation of that rule. The two vectors contradict each other as
-# currently vendored; flagged upstream (no reachable omnist-spec session at
-# the time, relayed to the dispatching session instead) rather than silently
-# passed or silently dropped. SKIP, not silently omitted from the total.
-_KNOWN_CONTRADICTORY_VECTORS = {
-    "prune/basic/drops-max-zero-field",
-}
-
-
 def run_prune(v: Dict[str, Any], tmp: Path) -> Result:
-    if v.get("name") in _KNOWN_CONTRADICTORY_VECTORS:
-        return ("skip", "vendored input uses now-invalid OSD text ([0,0] cardinality, "
-                "issue #322/schema.invalid-cardinality) -- contradicts this vector's "
-                "own fixture; flagged upstream, not a divergence in this port")
     return _run_schema_producing(v, tmp, cli_runner.prune)
 
 
