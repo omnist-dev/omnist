@@ -466,6 +466,44 @@ def test_negative_zero_float_is_sign_preserving():
     assert math.copysign(1.0, node[0][1]) == -1.0
 
 
+def test_leading_zero_integer_is_rejected():
+    # Issue #328/omnist-spec Sec4.2.3: int-part is "0" alone, or a nonzero
+    # digit then any digits -- never a 0 followed by more digits. Matches
+    # the vendored vector oml-grammar/numbers/leading-zero-integer-is-an
+    # -error exactly (path "1:4" -- the offset of the leading "0").
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 01\n")
+    assert exc.value.code == "parse.leading-zero"
+    assert exc.value.path == "1:4"
+
+
+def test_leading_zero_in_decimal_is_rejected():
+    # The fractional part does not exempt the integer part from the same
+    # rule -- matches oml-grammar/numbers/leading-zero-in-decimal-is-an
+    # -error.
+    with pytest.raises(ParseError) as exc:
+        read_oml("n: 00.5\n")
+    assert exc.value.code == "parse.leading-zero"
+    assert exc.value.path == "1:4"
+
+
+def test_leading_zero_negative_and_exponent_forms_are_rejected_too():
+    for text in ("n: -01\n", "n: 01e5\n", "n: -00.5e2\n"):
+        with pytest.raises(ParseError) as exc:
+            read_oml(text)
+        assert exc.value.code == "parse.leading-zero", text
+
+
+def test_single_zero_and_negative_forms_remain_valid():
+    # A bare "0" is exactly one digit, so it's never a leading zero; a
+    # fraction less than 1 legitimately starts with "0."; a negative sign
+    # does not change int-part's own rule -- matches the vendored
+    # happy-path vector oml-grammar/numbers/single-zero-and-negative-forms
+    # -are-valid.
+    node = read_oml("a: 0\nb: -0\nc: 0.5\nd: -12\n")
+    assert node == [("a", 0), ("b", 0), ("c", 0.5), ("d", -12)]
+
+
 def test_integer_digit_limit_enforced():
     ok = "9" * 4300
     assert read_oml(f"a: {ok}")[0][1] == int(ok)

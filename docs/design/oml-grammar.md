@@ -96,12 +96,20 @@ reserved-number = %s"nan" / %s"inf" / "-" %s"inf"
 
 ; -- numeric and temporal literals ---------------------------------------
 
-INTEGER     = ["-"] 1*DIGIT
+; int-part forbids a leading zero followed by more digits (issue #328/
+; omnist-spec §4.2.3) -- "0" alone is fine (int-part = "0" is its own
+; alternative), "01"/"00.5" are not: a 0 followed by more digits is
+; rejected with parse.leading-zero, whether or not a fractional/exponent
+; part follows. This matches JSON's and TOML's own number grammars, which
+; OML already round-trips through.
+int-part    = "0" / (%x31-39 *DIGIT)       ; "0", or a nonzero digit then any digits
+
+INTEGER     = ["-"] int-part
               ; digit count (sign excluded) is capped at 4300 -- see §6.
 
 NUMBER      = decimal-num / exponent-num / reserved-number
-decimal-num = ["-"] 1*DIGIT "." 1*DIGIT [exponent]
-exponent-num = ["-"] 1*DIGIT exponent
+decimal-num = ["-"] int-part "." 1*DIGIT [exponent]
+exponent-num = ["-"] int-part exponent
 exponent    = ("e" / "E") ["+" / "-"] 1*DIGIT
 
 DATE        = 4DIGIT "-" 2DIGIT "-" 2DIGIT
@@ -149,6 +157,7 @@ multiline-string = DQUOTE DQUOTE DQUOTE [newline]
 mlchar      = %x09 / %x0A / %x20-10FFFF     ; tab, LF, or >= U+0020
               ; (control chars other than tab/LF are rejected)
 ```
+<!-- doc-illustrative -->
 
 ### 1.1 DATE vs. DATETIME disambiguation
 

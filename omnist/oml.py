@@ -75,6 +75,14 @@ NEGINF = "NEGINF"
 NANLIT = "NANLIT"
 POSINF = "POSINF"
 INTEGER = "INTEGER"
+LEADINGZERO = "LEADINGZERO"  # issue #328: int-part with a leading 0 followed
+                              # by more digits ("01", "00.5") -- Sec4.2.3
+                              # forbids this; matched as its own token
+                              # (ahead of NUMDEC/NUMEXP/INTEGER, which are
+                              # otherwise happy to consume it) purely so the
+                              # parser can raise a targeted parse.leading-zero
+                              # diagnostic instead of falling through to a
+                              # generic unexpected-token error.
 IDENT = "IDENT"
 
 _RESERVED = {"null", "true", "false"}
@@ -161,6 +169,8 @@ _MASTER_SRC = rf"""
 (?P<{DATE}> {_DATE_SRC} )
 |
 (?P<{TIME}> {_TIME_SRC} )
+|
+(?P<{LEADINGZERO}> -?0\d[\d]*(?:\.\d+)?(?:[eE][+\-]?\d+)? )
 |
 (?P<{NUMDEC}> -?\d+\.\d+(?:[eE][+\-]?\d+)? )
 |
@@ -651,6 +661,15 @@ class _Parser:
         kind, start, end = self._advance()
         if kind == "STRING":
             return self._string_value(start, end)
+        if kind == LEADINGZERO:
+            # Issue #328/omnist-spec Sec4.2.3: int-part is "0" alone, or a
+            # nonzero digit followed by more digits -- never a 0 followed by
+            # more digits, whether or not a fractional/exponent part
+            # follows. A bare "0" (or "-0") never reaches here -- it's
+            # exactly one digit, so it matches INTEGER/NUMDEC instead.
+            raise self.sc.error_at(start, "leading zero in numeric literal "
+                                    f"{self.sc.s[start:end]!r}",
+                                    code="parse.leading-zero")
         if kind == INTEGER:
             text = self.sc.s[start:end]
             digits = text[1:] if text[0] == "-" else text
