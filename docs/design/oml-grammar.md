@@ -157,6 +157,7 @@ multiline-string = DQUOTE DQUOTE DQUOTE [newline]
 mlchar      = %x09 / %x0A / %x20-10FFFF     ; tab, LF, or >= U+0020
               ; (control chars other than tab/LF are rejected)
 ```
+<!-- doc-illustrative -->
 
 ### 1.1 DATE vs. DATETIME disambiguation
 
