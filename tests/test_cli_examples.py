@@ -300,9 +300,14 @@ class TestSchemaFormatExample:
 
 class TestSchemaPruneExample:
     def test_prune_stdin_example(self, capsys, monkeypatch):
+        # Issue #322: [0,0] is no longer legal OSD text -- see
+        # TestSchemaPrune.test_prune_drops_unreachable_and_dead in
+        # test_cli.py for why "ghost" is dead via an unsatisfiable
+        # reference instead.
         code, out, err = run(
             ["schema", "prune", "-"], capsys,
-            stdin_text='record R { "x": integer, "ghost" [0,0]: string }\n'
+            stdin_text='record R { "x": integer, "ghost" [0,1]: Dead }\n'
+                       'record Dead { "d": Dead }\n'
                        'record Orphan { "y": string }\nroot R\n',
             monkeypatch=monkeypatch)
         assert code == 0

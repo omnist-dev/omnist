@@ -159,7 +159,7 @@ class _Parser:
         self._expect("punct", "{")
         fields: List[Field] = []
         while self._peek().text != "}":
-            fields.append(self._field())
+            fields.append(self._field(name))
             if self._peek().text == ",":
                 self._next()
             else:
@@ -167,17 +167,60 @@ class _Parser:
         self._expect("punct", "}")
         return name, Record(fields), name_tok.pos
 
-    def _field(self) -> Field:
+    def _field(self, record_name: str) -> Field:
         label_tok = self._next()
         if label_tok.kind != "string":
+            # Issue #327's comment on the empty-label vector, and #330's on
+            # the bracket-in-label vector, both note this is the same
+            # "the label itself is the problem" convention: path is the
+            # enclosing record, not a text offset -- there's no usable
+            # label to append as record.label yet.
             raise SchemaError(f"expected a quoted field name at {label_tok.pos}, "
                               f"got {label_tok.text!r}",
-                              code="schema.unquoted-label", path=str(label_tok.pos))
+                              code="schema.unquoted-label", path=record_name)
         label = _unquote(label_tok.text)
+        if label == "":
+            # Issue #327/omnist-spec Sec5.4: "" is a legal *value* for an
+            # OSD string generally, but a label is an identifier, not a
+            # value -- an empty label names nothing a caller could ever
+            # reference.
+            raise SchemaError(f"empty field label at {label_tok.pos}",
+                              code="schema.empty-label", path=record_name)
+        if "[" in label or "]" in label:
+            # Issue #330/omnist-spec Sec5.4: Sec3.6.1's diagnostic-path
+            # convention appends "[i]" to a repeated label's second and
+            # later occurrences -- a repeatable field "a" and a separately
+            # declared field literally named "a[1]" would both stringify to
+            # the same path ($.a[1]) for genuinely different problems.
+            # Rejecting the bracket character vocabulary in labels closes
+            # that collision at the source, narrower than redesigning the
+            # path-escaping convention itself.
+            raise SchemaError(
+                f"field label {label!r} contains a bracket character ('[' "
+                f"or ']') at {label_tok.pos} -- this would collide with the "
+                "diagnostic path convention that appends '[i]' to a "
+                "repeated label's later occurrences",
+                code="schema.bracket-in-label", path=record_name)
         lo: int = 1
         hi: Optional[int] = 1
         if self._peek().text == "[":
+            card_pos = self._peek().pos
             lo, hi = self._cardinality()
+            if lo < 0 or (hi is not None and hi < lo) or (lo, hi) == (0, 0):
+                # Issue #322/omnist-spec Sec5.5: covers all three
+                # normatively-invalid shapes with the one code -- a negative
+                # bound, an inverted range, and [0,0] (a field that must
+                # occur exactly zero times is indistinguishable from one
+                # never declared -- records are closed by default, so an
+                # undeclared label is already validate.unexpected-field).
+                # Checked here, ahead of Field()'s own bare (code-less)
+                # guard, so the OSD-parsing path always carries the
+                # structured code/path; Field()'s guard stays as a
+                # defense-in-depth backstop for direct construction.
+                raise SchemaError(
+                    f"field {label!r} has an invalid cardinality [{lo},{hi}] "
+                    f"at {card_pos}",
+                    code="schema.invalid-cardinality", path=f"{record_name}.{label}")
         self._expect("punct", ":")
         typ = self._type()
         return Field(label, typ, lo, hi)

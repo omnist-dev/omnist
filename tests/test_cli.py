@@ -1036,8 +1036,14 @@ class TestSchemaCompatibleWith:
 
 class TestSchemaPrune:
     def test_prune_drops_unreachable_and_dead(self, tmp_path, capsys):
+        # Issue #322: [0,0] is no longer legal OSD text (schema.invalid
+        # -cardinality); "ghost" is dead here instead because it can only
+        # ever reference the unsatisfiable record Dead (a mandatory self
+        # -cycle), same idiom as test_prune_drops_optional_unsatisfiable
+        # _fields in test_canonical.py.
         p = tmp_path / "in.osd"
-        p.write_text('record R { "x": integer, "ghost" [0,0]: string }\n'
+        p.write_text('record R { "x": integer, "ghost" [0,1]: Dead }\n'
+                     'record Dead { "d": Dead }\n'
                      'record Orphan { "y": string }\nroot R\n')
         code, out, err = run(
             ["schema", "prune", str(p)], capsys=capsys, monkeypatch=None)
