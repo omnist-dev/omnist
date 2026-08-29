@@ -96,6 +96,65 @@ _RESERVED_NUMBER = {"nan", "inf", "-inf"}
 # regex below rather than re-deriving them, so the two can never drift.
 _DATE_SRC = _DATE_RE.pattern
 _TIME_SRC = _TIME_RE.pattern
+
+# ---------------------------------------------------------------------------
+# Issue #329/omnist-spec Sec4.2.4: DATE/TIME/DATETIME value-range validation.
+#
+# _DATE_RE/_TIME_RE/_DATETIME_RE (schema.py, spliced in above) only constrain
+# *digit counts* -- ABNF has no way to express "month must be 01-12" -- so a
+# string reaching DATE/TIME/DATETIME token kind below is already known to be
+# shape-valid; the only way constructing a real value from it can still fail
+# is a genuine calendar/clock range violation. The two helpers below parse
+# and validate against that range explicitly, rather than deferring to
+# datetime.fromisoformat() as this module used to: fromisoformat validates
+# month/day/hour/minute/second correctly (confirmed live), but *not* a
+# tz-offset's own minute component -- "+00:60" silently normalizes to a
+# 1-hour offset instead of raising, confirmed live against the pre-fix
+# behavior. tz-offset shares TIME's exact hour/minute rule (00-23/00-59),
+# checked explicitly here rather than trusting timedelta's own overflow
+# -folding arithmetic to catch it (it won't -- the same silent-normalization
+# shape as the bug this replaces).
+_DATE_PARTS_RE = _re.compile(r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})")
+_TIME_PARTS_RE = _re.compile(
+    r"(?P<hour>\d{2}):(?P<minute>\d{2})"
+    r"(?::(?P<second>\d{2})(?:\.(?P<micro>\d{1,6}))?)?"
+    r"(?P<tzoffset>[+\-]\d{2}:\d{2})?"
+)
+
+
+def _validate_date_text(text: str) -> _dt.date:
+    """Parse+validate an already shape-matched DATE token's text. Delegates
+    range-checking to date()'s own constructor -- it already validates month
+    01-12 and day-valid-for-month/year (leap years included) per the
+    proleptic Gregorian calendar, exactly matching Sec4.2.4's rule."""
+    m = _DATE_PARTS_RE.fullmatch(text)
+    assert m is not None  # caller already shape-matched via _DATE_RE
+    return _dt.date(int(m["year"]), int(m["month"]), int(m["day"]))
+
+
+def _validate_time_text(text: str) -> _dt.time:
+    """Parse+validate an already shape-matched TIME token's text (or the
+    time portion of a DATETIME token). hour/minute/second range-checking
+    delegates to time()'s own constructor (00-23/00-59/00-59, no leap
+    -second spelling); a trailing tz-offset's hour/minute is checked
+    explicitly against that same 00-23/00-59 rule -- see the module note
+    above for why this can't be left to fromisoformat/timedelta."""
+    m = _TIME_PARTS_RE.fullmatch(text)
+    assert m is not None  # caller already shape-matched via _TIME_RE
+    hour = int(m["hour"])
+    minute = int(m["minute"])
+    second = int(m["second"] or 0)
+    micro = int((m["micro"] or "0").ljust(6, "0"))
+    tzinfo = None
+    if m["tzoffset"]:
+        offset = m["tzoffset"]
+        tz_hour, tz_minute = int(offset[1:3]), int(offset[4:6])
+        if tz_hour > 23 or tz_minute > 59:
+            raise ValueError(f"tz-offset {offset!r} out of range "
+                              "(hour must be 00-23, minute 00-59)")
+        sign = 1 if offset[0] == "+" else -1
+        tzinfo = _dt.timezone(sign * _dt.timedelta(hours=tz_hour, minutes=tz_minute))
+    return _dt.time(hour, minute, second, micro, tzinfo)
 _DATETIME_SRC = _DATETIME_RE.pattern
 
 # ---------------------------------------------------------------------------
@@ -691,25 +750,40 @@ class _Parser:
         if kind == DATE:
             text = self.sc.s[start:end]
             try:
-                return _dt.date.fromisoformat(text)
+                return _validate_date_text(text)
             except ValueError as exc:
-                # Position quirk preserved from the original scanner: it
-                # advanced its line/col past the token *before* attempting
-                # fromisoformat(), so an invalid-date error reports the
-                # position right after the token, not its start.
-                raise self.sc.error_at(end, f"invalid date {text!r}: {exc}") from exc
+                raise self.sc.error_at(
+                    start, f"invalid date {text!r}: {exc}",
+                    code="parse.invalid-date") from exc
         if kind == TIME:
             text = self.sc.s[start:end]
             try:
-                return _dt.time.fromisoformat(text)
+                return _validate_time_text(text)
             except ValueError as exc:
-                raise self.sc.error_at(end, f"invalid time {text!r}: {exc}") from exc
+                raise self.sc.error_at(
+                    start, f"invalid time {text!r}: {exc}",
+                    code="parse.invalid-time") from exc
         if kind == DATETIME:
+            # Sec4.2.4/issue #329: the date and time portions are validated
+            # (and, on failure, coded) independently -- a DATETIME's date
+            # -portion failure is parse.invalid-date, its time-portion (or
+            # tz-offset) failure is parse.invalid-time, per the spec's
+            # per-component code table.
             text = self.sc.s[start:end]
+            date_part, time_part = text[:10], text[11:]
             try:
-                return _dt.datetime.fromisoformat(text)
+                date_val = _validate_date_text(date_part)
             except ValueError as exc:
-                raise self.sc.error_at(end, f"invalid datetime {text!r}: {exc}") from exc
+                raise self.sc.error_at(
+                    start, f"invalid date {date_part!r}: {exc}",
+                    code="parse.invalid-date") from exc
+            try:
+                time_val = _validate_time_text(time_part)
+            except ValueError as exc:
+                raise self.sc.error_at(
+                    start, f"invalid time {time_part!r}: {exc}",
+                    code="parse.invalid-time") from exc
+            return _dt.datetime.combine(date_val, time_val)
         if kind == IDENT:
             text = self.sc.s[start:end]
             if text == "null":

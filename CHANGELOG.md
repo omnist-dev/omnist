@@ -6,6 +6,36 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.9.4] — DATE/TIME/DATETIME value-range validation, tz-offset bug fix
+
+- Closed [#329](https://github.com/omnist-dev/omnist/issues/329): per
+  omnist-spec Sec4.2.4 (commit `a8a878a`), DATE/TIME/DATETIME value-range
+  validation is now formally normative and fully enforced by the OML
+  tokenizer:
+  - DATE: month 01-12, day valid for month/year including leap years
+    (`2000-02-29` valid, `1900-02-29` not) -- `parse.invalid-date`.
+  - TIME / DATETIME's time portion: hour 00-23, minute 00-59, second 00-59
+    -- no leap-second spelling, `23:59:60` is an error -- `parse.invalid
+    -time`.
+  - tz-offset: the *same* hour/minute rule as TIME, not a separately
+    implemented one.
+  - A DATETIME's date-portion and time-portion (or tz-offset) failures are
+    now coded independently (`parse.invalid-date` vs `parse.invalid-time`
+    respectively), matching the spec's per-component code table.
+  - **A real bug fix, not just a documentation gap:** this port previously
+    deferred entirely to `datetime.fromisoformat()`, which validates
+    month/day/hour/minute/second correctly but *not* a tz-offset's own
+    minute component -- confirmed live that `"2024-01-01T10:30+00:60"` (a
+    tz-offset with 60 minutes, itself out of range) was silently
+    **accepted** and normalized to a 1-hour offset, even though a bare
+    `"00:60:00"` TIME literal was correctly rejected. An author who
+    mistakenly wrote `+00:60` and one who correctly wrote `+01:00` produced
+    indistinguishable results after parsing. The tz-offset's hour/minute
+    are now validated explicitly against TIME's own rule, not left to
+    `timedelta`'s overflow-folding arithmetic to (fail to) catch.
+- `vendor/omnist-spec` submodule stays pinned at `5e4b2fc` (already covers
+  this commit; unchanged from v0.9.3).
+
 ## [v0.9.3] — define NUMBER/INTEGER lexical grammar, reject leading zeros
 
 - Closed [#328](https://github.com/omnist-dev/omnist/issues/328): per
