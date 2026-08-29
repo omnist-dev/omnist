@@ -1,0 +1,1941 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="One canonical data model for JSON, YAML, TOML, XML, and OML.">
+      
+      
+      
+        <link rel="canonical" href="https://py.omnist.dev/examples/pyproject/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../package-json/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>pyproject.toml - Omnist</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#worked-example-modeling-pyprojecttoml" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Omnist" class="md-header__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Omnist
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              pyproject.toml
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Omnist" class="md-nav__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Omnist
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../presentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction deck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../why-omnist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Omnist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stability policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../limitations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known limitations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema model & OSD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real-life example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-world examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Real-world examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pyproject.toml
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pyproject.toml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#run-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-fixtures-and-why-each-one-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fixtures, and why each one exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-osd-can-model-exactly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What OSD can model exactly
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-cant-and-why--three-structural-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it can't, and why — three structural gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-any-doesnt-close-every-gap-false-rejects-not-just-false-accepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why any doesn't close every gap: false-rejects, not just false-accepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-manifest-use-case-validate-before-the-expensive-tooling-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The manifest use case: validate before the expensive tooling runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#osd-vs-hand-written-json-schema-on-the-same-three-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OSD vs. hand-written JSON Schema, on the same three gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    package.json
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Actions workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sitemap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sitemap.xml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deserialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema-directed deserialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formats
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Formats
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/yaml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/toml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TOML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/xml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    XML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document & Schema model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/oml-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML-Core grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/schema-osd-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OSD grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/any-type-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    any type spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/openness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Openness decision record
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/cli-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo layout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#run-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-fixtures-and-why-each-one-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fixtures, and why each one exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-osd-can-model-exactly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What OSD can model exactly
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-cant-and-why--three-structural-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it can't, and why — three structural gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-any-doesnt-close-every-gap-false-rejects-not-just-false-accepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why any doesn't close every gap: false-rejects, not just false-accepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-manifest-use-case-validate-before-the-expensive-tooling-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The manifest use case: validate before the expensive tooling runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#osd-vs-hand-written-json-schema-on-the-same-three-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OSD vs. hand-written JSON Schema, on the same three gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="worked-example-modeling-pyprojecttoml">Worked example: modeling <code>pyproject.toml</code><a class="headerlink" href="#worked-example-modeling-pyprojecttoml" title="Permanent link">&para;</a></h1>
+<p>The first of <a href="../">four real-world worked examples</a> — a real,
+external format, not built for Omnist, run through the whole pipeline:
+OSD schema, TOML fixtures, validation, OML output. It's also a stress
+test: <code>read_toml</code>/<code>write_oml</code> against real-world TOML syntax, and a
+candid look at what OSD's algebra can and can't express.</p>
+<p>Worth being upfront about the ceiling here: <code>pyproject.toml</code>'s real
+"schema" is a prose specification plus the Python code of whichever build
+backend actually reads it — not bound by any decidability constraint.
+No static schema language, OSD included, can fully match that: the real
+validator can run arbitrary conditional logic (resolve an entry-point
+reference, parse an SPDX expression, cross-check one field against
+another). JSON Schema gets further than OSD (it has <code>oneOf</code>,
+<code>dependentRequired</code>) but hits the same ceiling on anything truly dynamic.
+OSD's ceiling is lower still, by design — it trades expressiveness for
+guarantees (<code>compatible_with</code>, <code>equivalent</code>, <code>normalize</code> being
+well-defined at all require a closed, finite label alphabet). What
+follows is where that tradeoff actually bites, on a real file.</p>
+<p>Source, code, and fixtures:
+<a href="https://github.com/omnist-dev/omnist/tree/master/examples/pyproject"><code>examples/pyproject/</code></a>.
+Schema: <a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/pyproject.osd"><code>pyproject.osd</code></a>.
+Script: <a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/convert.py"><code>convert.py</code></a>.</p>
+<p>Modeled against the
+<a href="https://packaging.python.org/en/latest/specifications/pyproject-toml/">pyproject.toml specification</a>,
+retrieved 2026-07-11 — PEP 517 (<code>[build-system]</code>), PEP 621 (core <code>[project]</code>
+metadata), PEP 639 (<code>license</code>/<code>license-files</code>), PEP 794 (<code>import-names</code>/
+<code>import-namespaces</code>, Accepted, added October 2025).</p>
+<h2 id="run-it">Run it<a class="headerlink" href="#run-it" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>python3 examples/pyproject/convert.py
+</code></pre></div>
+<p><code>read_toml</code> is called with <code>schema=</code> — the idiomatic call once the
+schema is already in hand, which upgrades value-exact leaves (ISO
+strings to real <code>date</code>/<code>time</code>/<code>datetime</code>, ints to <code>number</code>) to match it.
+It's a <strong>no-op here</strong>: <code>pyproject.osd</code> has no <code>date</code>/<code>time</code>/<code>datetime</code>/
+<code>number</code> field, only <code>string</code>, <code>boolean</code>, <code>any</code>, and <code>Ref</code> — most
+real-world TOML/JSON metadata files are string/bool-heavy at the top
+level, so there's nothing for schema-directed reading to upgrade in
+practice. See <a href="../../deserialization/">schema-directed deserialization</a>
+for where it does matter.</p>
+<p>For each fixture it prints <code>valid: True</code>/<code>False</code> and, on success, the
+document as OML. All three fixtures currently validate. Each fixture's
+OML is also committed alongside it as <code>&lt;name&gt;.oml</code> — generated by this
+same <code>write_oml</code> call, not hand-written — so you can read the mapping
+without running anything:
+<a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.oml"><code>omnist.oml</code></a>,
+<a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.oml"><code>spam-eggs.oml</code></a>,
+<a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.oml"><code>invented-dynamic-version.oml</code></a>.
+<code>tests/test_examples_pyproject.py</code> recomputes each and asserts an exact
+match, so these can't silently drift from what <code>convert.py</code> actually
+produces.</p>
+<h2 id="the-fixtures-and-why-each-one-exists">The fixtures, and why each one exists<a class="headerlink" href="#the-fixtures-and-why-each-one-exists" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>OML</th>
+<th>Arrays OML</th>
+<th>What it is</th>
+<th>What it exercises</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.toml"><code>omnist.toml</code></a></td>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.oml"><code>.oml</code></a></td>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/omnist.arrays.oml"><code>.arrays.oml</code></a></td>
+<td>This repo's own <code>pyproject.toml</code>, copied verbatim</td>
+<td>The legacy <code>license = {text=...}</code> table form; two real <code>[tool.*]</code> sections (<code>[tool.setuptools]</code>, <code>[tool.ruff]</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.toml"><code>spam-eggs.toml</code></a></td>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.oml"><code>.oml</code></a></td>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/spam-eggs.arrays.oml"><code>.arrays.oml</code></a></td>
+<td>The official <a href="https://packaging.python.org/en/latest/guides/writing-pyproject-toml/">"full example"</a> from the Python Packaging User Guide, verbatim</td>
+<td>Partial author entries (name-only, email-only); current SPDX-string <code>license</code>; two <code>optional-dependencies</code> extras; a quoted-label <code>urls</code> key; <code>scripts</code>, <code>gui-scripts</code>, and a custom <code>entry-points</code> group</td>
+</tr>
+<tr>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.toml"><code>invented-dynamic-version.toml</code></a></td>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.oml"><code>.oml</code></a></td>
+<td><a href="https://github.com/omnist-dev/omnist/blob/master/examples/pyproject/fixtures/invented-dynamic-version.arrays.oml"><code>.arrays.oml</code></a></td>
+<td>Synthetic, written for this example — <strong>not</strong> sourced from any real project</td>
+<td><code>dynamic = ["version"]</code>, the one field the other two fixtures don't touch</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>.arrays.oml</code> siblings are <code>write_oml(node, arrays=True)</code> — the same Document, with <code>keywords</code>/<code>classifiers</code>/<code>dependencies</code> (and similar repeated fields) collapsed into <code>[...]</code> array syntax instead of repeated edges. See <a href="../../formats/oml/#arrays">OML arrays</a>.</p>
+<p>No fixture was hand-edited to force a pass. External projects' own files
+weren't used as fixtures at all, to avoid any copyright ambiguity around
+redistributing a third party's file verbatim — everything here is either
+first-party, an official PSF teaching example explicitly meant to be
+copied, or synthetic.</p>
+<h2 id="what-osd-can-model-exactly">What OSD can model exactly<a class="headerlink" href="#what-osd-can-model-exactly" title="Permanent link">&para;</a></h2>
+<p>Of <code>Project</code>'s 20 fields, <strong>13 are fully closed and checked</strong>: a wrong
+type, an extra label, or a missing required field fails validation with
+an exact path. That includes <code>authors</code>/<code>maintainers</code> as a <code>Ref</code> to a
+proper <code>Author</code> record (not <code>any</code>): the fields are checked, the record is
+closed, the array cardinality (<code>[0,]</code>) is enforced.</p>
+<h2 id="what-it-cant-and-why--three-structural-gaps">What it can't, and why — three structural gaps<a class="headerlink" href="#what-it-cant-and-why--three-structural-gaps" title="Permanent link">&para;</a></h2>
+<p><strong>1. Unions.</strong> <code>readme</code> can be a plain string (a path) <em>or</em> a table
+(<code>{file=..., text=..., content-type=...}</code>). Pre-PEP 639, <code>license</code> had the
+same shape: a string or a <code>{text=...}</code>/<code>{file=...}</code> table — <code>omnist.toml</code>
+itself still uses the table form today. OSD's own model is explicit that a
+field's type is "always exactly one" scalar or <code>Ref</code>, never a union
+(<code>docs/schema.md</code>). There's no way to say "string or this record." Both
+fields are typed <code>any</code> here, which means: present, but its shape is
+completely unchecked. A <code>license</code> table with a typo'd key (<code>{txt =
+"MIT"}</code>) would validate as cleanly as a correct one.</p>
+<p><strong>2. Open key sets.</strong> <code>urls</code>, <code>scripts</code>, <code>gui-scripts</code>,
+<code>optional-dependencies</code>, and <code>entry-points</code> are all <code>label -&gt; value</code> maps
+where the label set is chosen by whoever writes the file — an extra name,
+a URL label, a script name. OSD records are closed by design: "an
+unexpected label is a validation error, not silently ignored"
+(<code>docs/schema.md</code>). There's no map type. <code>[tool]</code> is the purest case:
+its entire purpose, per PEP 518 §3, is giving every tool its own
+unbounded namespace — <code>any</code> isn't a workaround here, it's the only
+honest way to model something deliberately open-ended.</p>
+<p><strong>3. Cross-field constraints.</strong> Three real ones in this one file: an
+<code>Author</code> needs <em>at least one</em> of <code>name</code>/<code>email</code>; <code>version</code> is required
+<em>unless</em> <code>"version"</code> appears in <code>dynamic</code>; a key can't be listed in
+<code>dynamic</code> and given a static value at the same time. OSD's cardinality is
+per-field only — there's no "at least one of A, B" or "A implies not B"
+across sibling fields.</p>
+<p><strong>The honest number</strong>: 7 of 20 <code>Project</code> fields are <code>any</code>
+(<code>readme</code>, <code>license</code>, <code>optional-dependencies</code>, <code>urls</code>, <code>scripts</code>,
+<code>gui-scripts</code>, <code>entry-points</code>), plus <code>[tool]</code> entirely. Roughly a third
+of what a <code>pyproject.toml</code> actually contains, field-by-field, gets
+presence-and-cardinality checking only, not shape checking.</p>
+<h2 id="why-any-doesnt-close-every-gap-false-rejects-not-just-false-accepts">Why <code>any</code> doesn't close every gap: false-rejects, not just false-accepts<a class="headerlink" href="#why-any-doesnt-close-every-gap-false-rejects-not-just-false-accepts" title="Permanent link">&para;</a></h2>
+<p>Everything above is about <strong>false-accepts</strong> — a malformed value slipping
+through an <code>any</code> field unchecked. There's a separate failure direction,
+<strong>false-rejects</strong>: a genuinely valid <code>pyproject.toml</code> that OSD wrongly
+refuses. <code>any</code> widens a <em>known field's value type</em>; it does nothing for
+a record's <strong>label set</strong>. <code>import-names</code>/<code>import-namespaces</code> (PEP 794,
+Accepted, added October 2025) are a real example: until they were added
+to this schema, any file using them would have been rejected as an
+"unexpected label," even though every other field validated cleanly —
+because OSD records are closed by design (<code>docs/schema.md</code>: <em>"an
+unexpected label is a validation error, not silently ignored"</em>), and
+that closure applies regardless of what type any other field carries.</p>
+<p>This isn't an oversight in OSD — it's the same tradeoff <code>any</code> already
+makes, just refused at the record level too. <code>docs/schema.md</code> states it
+directly: <em>"Open keys remain refused (no map type, no open records) —
+that would open the label alphabet the whole algebra reasons over."</em>
+<code>compatible_with</code>/<code>equivalent</code>/<code>normalize</code> need a closed, finite label
+set per record to be well-defined; an "open record" (declared labels
+plus an arbitrary catch-all) would break that closure the same way <code>any</code>
+already makes those operations vacuous wherever it's used. The schema
+fix here was mechanical (declare the two fields) — but the <em>general</em>
+version of this problem, any future field the schema author didn't
+anticipate, has no fix short of adding it, because OSD has deliberately
+never grown a catch-all/open-record concept.</p>
+<p>A second, milder case: <code>build-system.requires</code>'s minimum length. The
+spec never states whether <code>requires = []</code> is legal — genuinely
+ambiguous, not a modeling limitation at all. Resolved permissively here
+(<code>[0,]</code>), on the same principle as below: for a pre-flight gate, a
+false-reject blocks legitimate work outright, while a false-accept just
+gets caught by the real backend downstream — so when a constraint is
+unenforceable or unclear, leaning permissive is usually the right
+default.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>What's missing</th>
+<th>Failure direction</th>
+<th>Fixed by <code>any</code>?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>import-names</code>/<code>import-namespaces</code></td>
+<td>Open record (label-set)</td>
+<td>False-reject</td>
+<td>No — different axis than value typing</td>
+</tr>
+<tr>
+<td><code>requires = []</code></td>
+<td>Nothing — spec is silent, not an OSD limit</td>
+<td>Would-be false-reject</td>
+<td>N/A, resolved by cardinality choice</td>
+</tr>
+<tr>
+<td><code>readme</code>/<code>license</code> union</td>
+<td>Union type</td>
+<td>Either, depending on resolution</td>
+<td>Shifts risk, doesn't remove it</td>
+</tr>
+<tr>
+<td><code>dynamic</code> ⟹ <code>version</code> absent</td>
+<td>Cross-field constraint</td>
+<td>False-accept (given the permissive choice made here)</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-manifest-use-case-validate-before-the-expensive-tooling-runs">The manifest use case: validate before the expensive tooling runs<a class="headerlink" href="#the-manifest-use-case-validate-before-the-expensive-tooling-runs" title="Permanent link">&para;</a></h2>
+<p>The practical pitch for a schema like this: run it as a cheap, dependency-free
+<strong>pre-flight gate</strong>, before any Python-specific tooling — <code>pip</code>, <code>build</code>,
+<code>hatchling</code>, a linter, CI — ever parses the file for real. A misspelled
+key (<code>authohrs</code>), a <code>dependencies</code> table where an array was required, or
+a <code>[project]</code> section with an unrecognized field fails fast, at an exact
+path, before the real build backend gets involved with its own (often
+less specific) error messages.</p>
+<p><strong>The limit sits right next to the pitch, not hidden in a table further
+down</strong>: because 7 fields degrade to <code>any</code>, this gate <em>cannot</em> catch a
+malformed <code>license</code> table, an <code>entry-points</code> group pointing at a
+nonexistent object, or a <code>urls</code> value that isn't actually a string — the
+exact cases a human is most likely to typo. It's a fast structural
+smoke test, not a replacement for the tools that actually consume the
+file.</p>
+<h2 id="osd-vs-hand-written-json-schema-on-the-same-three-gaps">OSD vs. hand-written JSON Schema, on the same three gaps<a class="headerlink" href="#osd-vs-hand-written-json-schema-on-the-same-three-gaps" title="Permanent link">&para;</a></h2>
+<p>TOML itself has no native schema language — tools that validate TOML
+(<code>taplo</code>, <code>tombi</code>, the "Even Better TOML" VS Code extension) convert it to
+a JSON-equivalent tree and run <strong>JSON Schema</strong> against that. So the real
+comparison is OSD vs. JSON Schema, not OSD vs. some TOML-native
+competitor.</p>
+<p>JSON Schema <em>can</em> express two of the three gaps above: <code>oneOf</code> for the
+<code>readme</code>/<code>license</code> union, <code>additionalProperties</code> (typed, or <code>true</code>) for
+the open maps. What it can't express any better than OSD: the
+<code>name</code>-or-<code>email</code>/<code>dynamic</code>-implies-<code>version</code> cross-field rules still need
+<code>anyOf</code>/<code>dependentRequired</code> gymnastics that are easy to get subtly wrong.
+In exchange, OSD gets closed-by-default and per-field min/max cardinality
+for free — in JSON Schema those require explicit
+<code>additionalProperties: false</code> plus <code>minItems</code>/<code>maxItems</code> on every array,
+easy to forget on any given field. Neither is strictly more expressive;
+they trade which mistakes are easy to make.</p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<p>This is one of four real-world worked examples — see
+<a href="../">the overview</a> for the full comparison table, the four gap
+categories found across all of them, and the consolidated "designing a
+format for OSD" lessons list. Also: <a href="../../schema/#the-any-type">the <code>any</code> type</a>,
+<a href="../../design/openness/">the openness design record</a>, and the
+order/address/line-item walkthrough in <a href="../../example/">example.md</a> for
+the other, fully-closed worked example.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../assets/mermaid.min.js"></script>
+      
+        <script src="../../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

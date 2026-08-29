@@ -1,0 +1,2718 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="One canonical data model for JSON, YAML, TOML, XML, and OML.">
+      
+      
+      
+        <link rel="canonical" href="https://py.omnist.dev/design/any-type-spec/">
+      
+      
+        <link rel="prev" href="../schema-osd-grammar/">
+      
+      
+        <link rel="next" href="../openness/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>any type spec - Omnist</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#any-technical-design-specification" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Omnist" class="md-header__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Omnist
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              any type spec
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Omnist" class="md-nav__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Omnist
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../presentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction deck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../why-omnist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Omnist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stability policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../limitations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known limitations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema model & OSD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real-life example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-world examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Real-world examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/pyproject/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pyproject.toml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/package-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    package.json
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Actions workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/sitemap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sitemap.xml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deserialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema-directed deserialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formats
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Formats
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/yaml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/toml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TOML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/xml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    XML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document & Schema model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oml-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML-Core grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema-osd-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OSD grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    any type spec
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    any type spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope and non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-model-grammar-and-semantics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Model, grammar, and semantics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Model, grammar, and semantics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-document-model-is-untouched--invariant-d-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The Document model is untouched — invariant D-1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-the-type-lattice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 The type lattice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-the-python-model-object--normative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 The Python model object — normative
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-grammar--normative-osd-delta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Grammar — normative OSD delta
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-operation-semantics-and-the-dichotomy-site-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Operation semantics and the dichotomy-site inventory
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Operation semantics and the dichotomy-site inventory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-validate--descent-stops-at-any" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 validate — descent stops at any
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-compatible_with--the-two-new-clauses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 compatible_with — the two new clauses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-materialize-schema-directed-deserialization--upgradedegrade-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 materialize (schema-directed deserialization) — upgrade/degrade rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-soundness-any-is-unambiguous-and-every-operation-stays-decidable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Soundness: any is unambiguous and every operation stays decidable
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-testing-and-correctness-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Testing and correctness strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-impact-on-the-models-philosophy--and-the-claims-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Impact on the model's philosophy — and the claims audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-remaining-perspectives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Remaining perspectives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-decision-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Decision record
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Openness decision record
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo layout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope and non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-model-grammar-and-semantics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Model, grammar, and semantics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Model, grammar, and semantics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-the-document-model-is-untouched--invariant-d-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 The Document model is untouched — invariant D-1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-the-type-lattice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 The type lattice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-the-python-model-object--normative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 The Python model object — normative
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-grammar--normative-osd-delta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Grammar — normative OSD delta
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-operation-semantics-and-the-dichotomy-site-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Operation semantics and the dichotomy-site inventory
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Operation semantics and the dichotomy-site inventory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-validate--descent-stops-at-any" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 validate — descent stops at any
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-compatible_with--the-two-new-clauses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 compatible_with — the two new clauses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-materialize-schema-directed-deserialization--upgradedegrade-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 materialize (schema-directed deserialization) — upgrade/degrade rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-soundness-any-is-unambiguous-and-every-operation-stays-decidable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Soundness: any is unambiguous and every operation stays decidable
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-testing-and-correctness-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Testing and correctness strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-impact-on-the-models-philosophy--and-the-claims-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Impact on the model's philosophy — and the claims audit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-remaining-perspectives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Remaining perspectives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-decision-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Decision record
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="any-technical-design-specification"><code>any</code>: technical design specification<a class="headerlink" href="#any-technical-design-specification" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Status:</strong> normative design specification, 2026-07-06.
+<strong>Implementation approved by the maintainer, 2026-07-07</strong> — execution
+follows §8 exactly.
+<strong><code>Map</code> is refused, final</strong> (maintainer decision, 2026-07-06). The rationale
+lives in <a href="../openness/">openness.md</a>; this spec does not revisit it.
+Until <code>any</code> lands, <a href="../model/">model.md</a> remains the authoritative
+description of the shipped model.</p>
+<p><strong>Audience:</strong> implementing agents (sonnet/haiku tier) and their verifiers.
+Every design judgment is made <em>here</em>; an implementer following this spec
+should never have to decide anything — only translate. If a situation
+arises that this spec does not cover, the implementer must stop and
+report, not improvise.</p>
+</blockquote>
+<h2 id="1-scope-and-non-goals">1. Scope and non-goals<a class="headerlink" href="#1-scope-and-non-goals" title="Permanent link">&para;</a></h2>
+<p><strong>In scope:</strong> one new schema-side type, <code>any</code>, whose value is completely
+unconstrained, integrated into every schema operation with the exact rules
+of §3, proven sound in §4, tested per §5, and delivered per the plan in §8.</p>
+<p><strong>Non-goals, explicitly:</strong> no <code>Map</code> (refused, final); no unions, enums, or
+multi-shape nullability (settled during original design); no change of any
+kind to the Document model (§2.1 makes this an invariant, not an
+observation); no change to <code>root</code> grammar; no change to OML; no <em>default</em>
+inference of <code>any</code> (§3, row I-19) — the one documented exception is the
+explicit <code>--allow-any</code> opt-in (§3/§4.1), which falls back to <code>any</code> only at
+a genuine conflict point and reports each one; it never chooses <code>any</code> over
+a more specific candidate.</p>
+<h2 id="2-model-grammar-and-semantics">2. Model, grammar, and semantics<a class="headerlink" href="#2-model-grammar-and-semantics" title="Permanent link">&para;</a></h2>
+<h3 id="21-the-document-model-is-untouched--invariant-d-1">2.1 The Document model is untouched — invariant D-1<a class="headerlink" href="#21-the-document-model-is-untouched--invariant-d-1" title="Permanent link">&para;</a></h3>
+<p><code>any</code> is a <em>schema-side</em> construct only. The Document model — an ordered
+list of labeled edges, values drawn from the seven scalar kinds plus
+<code>null</code> plus nested edge-lists, <code>_MAX_DEPTH</code>-bounded, reader-enforced —
+does not change in any way. No Document is representable after this
+change that was not representable before, and vice versa. <strong>Every PR in
+§8 must leave <code>omnist/document.py</code> with a zero-line diff</strong>; a verifier
+finding any change there fails the PR.</p>
+<h3 id="22-the-type-lattice">2.2 The type lattice<a class="headerlink" href="#22-the-type-lattice" title="Permanent link">&para;</a></h3>
+<p>Today a field's type is exactly one <code>Scalar</code> (one of seven kinds,
+optionally nullable) or one <code>Ref</code> (naming a <code>Record</code>). <code>any</code> joins as the
+<strong>top element</strong> ⊤ of the value lattice: it denotes the set of <em>all</em> legal
+Document values.</p>
+<p><svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Type lattice with any at top">
+<br />
+<style>
+    .nd { fill:#f5f5f7; stroke:#999; rx:8; }
+    .top { fill:#ede9fe; stroke:#7c3aed; stroke-width:2; }
+    .bot { fill:#fde2e2; stroke:#c66; }
+    .lb { font: 13px sans-serif; fill:#1a1a1a; text-anchor:middle; }
+    .lbs { font: 11px sans-serif; fill:#555; text-anchor:middle; }
+    .edge { stroke:#bbb; stroke-width:1.5; }
+  </style></p>
+<p><rect class="top" x="270" y="15" width="100" height="34" rx="8"/>
+  <text class="lb" x="320" y="37">any  (⊤)</text>
+  <rect class="nd" x="30" y="110" width="90" height="30"/>
+  <text class="lb" x="75" y="130">string</text>
+  <rect class="nd" x="130" y="110" width="90" height="30"/>
+  <text class="lb" x="175" y="130">integer</text>
+  <rect class="nd" x="230" y="110" width="80" height="30"/>
+  <text class="lb" x="270" y="130">… ×7</text>
+  <rect class="nd" x="330" y="110" width="120" height="30"/>
+  <text class="lb" x="390" y="130">Record R₁</text>
+  <rect class="nd" x="460" y="110" width="120" height="30"/>
+  <text class="lb" x="520" y="130">Record R₂ …</text>
+  <rect class="bot" x="255" y="230" width="130" height="34" rx="8"/>
+  <text class="lb" x="320" y="252">empty schema (⊥)</text>
+  <line class="edge" x1="75"  y1="110" x2="300" y2="49"/>
+  <line class="edge" x1="175" y1="110" x2="308" y2="49"/>
+  <line class="edge" x1="270" y1="110" x2="316" y2="49"/>
+  <line class="edge" x1="390" y1="110" x2="330" y2="49"/>
+  <line class="edge" x1="520" y1="110" x2="345" y2="49"/>
+  <line class="edge" x1="75"  y1="140" x2="300" y2="230"/>
+  <line class="edge" x1="175" y1="140" x2="306" y2="230"/>
+  <line class="edge" x1="270" y1="140" x2="313" y2="230"/>
+  <line class="edge" x1="390" y1="140" x2="330" y2="230"/>
+  <line class="edge" x1="520" y1="140" x2="345" y2="230"/>
+  <text class="lbs" x="320" y="290">Every type T satisfies T ⊑ any. Containment between siblings is unchanged.</text>
+</svg></p>
+<p><strong>Denotational semantics.</strong> Let <code>V</code> be the set of all legal Document
+values (the seven scalar kinds' values, <code>null</code>, and every legal
+edge-list, recursively, depth-bounded by the Document model itself). The
+language function <code>L</code> extends by exactly one clause:</p>
+<ul>
+<li><code>L(Scalar s)</code> — unchanged (the kind's value set, plus <code>null</code> iff nullable).</li>
+<li><code>L(Ref R)</code> — unchanged (the record's accepted edge-lists).</li>
+<li><strong><code>L(any) = V</code></strong> — everything. In particular <code>null ∈ L(any)</code> and every
+  edge-list of any shape ∈ <code>L(any)</code>.</li>
+</ul>
+<p><strong>Field semantics unchanged.</strong> A field <code>(label, any, [m,n])</code> constrains
+the <em>count</em> of <code>label</code> occurrences to <code>[m,n]</code> exactly as today; each
+occurrence's value is unconstrained. Cardinality logic lives in the
+record layer, above the type dispatch — it is untouched.</p>
+<p><strong>Why <code>any</code> is safe where <code>Map</code> was not</strong> (rationale in openness.md §4;
+restated here because implementers must internalize it): <code>Map</code> opens the
+schema's <em>label alphabet</em>, which every algorithm reasons over. <code>any</code>
+opens only the <em>value domain</em> at a declared leaf whose label stays fixed,
+finite, and counted:</p>
+<p><svg viewBox="0 0 660 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Map opens labels, any opens a leaf value">
+<br />
+<style>
+    .pn { font: 600 13px sans-serif; fill:#1a1a1a; }
+    .lb2 { font: 12px sans-serif; fill:#1a1a1a; }
+    .bad { fill:#fde2e2; stroke:#c66; }
+    .ok { fill:#dcfce7; stroke:#3a9; }
+    .box { fill:#f5f5f7; stroke:#999; }
+    .cap { font: 11px sans-serif; fill:#555; }
+  </style></p>
+<p><text class="pn" x="40" y="26">Map (refused): open LABELS</text>
+  <rect class="box" x="40" y="40" width="240" height="150" rx="8"/>
+  <text class="lb2" x="55" y="65">record C {</text>
+  <rect class="bad" x="70" y="76" width="130" height="22" rx="4"/>
+  <text class="lb2" x="78" y="92">?anyKey?: string</text>
+  <rect class="bad" x="70" y="104" width="130" height="22" rx="4"/>
+  <text class="lb2" x="78" y="120">?anyKey?: string</text>
+  <text class="lb2" x="78" y="146">… infinite labels …</text>
+  <text class="lb2" x="55" y="172">}</text>
+  <text class="cap" x="40" y="215">Infinite label alphabet — every algorithm's</text>
+  <text class="cap" x="40" y="230">finite-alphabet assumption breaks.</text>
+  <text class="pn" x="380" y="26">any (this spec): open VALUE at a leaf</text>
+  <rect class="box" x="380" y="40" width="240" height="150" rx="8"/>
+  <text class="lb2" x="395" y="65">record E {</text>
+  <text class="lb2" x="410" y="90">"id": string</text>
+  <text class="lb2" x="410" y="115">"data":</text>
+  <rect class="ok" x="470" y="100" width="130" height="22" rx="4"/>
+  <text class="lb2" x="478" y="116">any  ← value only</text>
+  <text class="lb2" x="395" y="172">}</text>
+  <text class="cap" x="380" y="215">Label "data" is fixed, declared, counted.</text>
+  <text class="cap" x="380" y="230">Alphabet stays finite; algebra untouched.</text>
+</svg></p>
+<h3 id="23-the-python-model-object--normative">2.3 The Python model object — normative<a class="headerlink" href="#23-the-python-model-object--normative" title="Permanent link">&para;</a></h3>
+<p>A new class in <code>omnist/schema.py</code>, <strong><code>AnyType</code></strong>, with a module-level
+singleton. Exact requirements:</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">AnyType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The `any` type: accepts every legal Document value. Singleton;</span>
+<span class="sd">    use ``t.any``. Not a Scalar (it has no kind and no nullable flag —</span>
+<span class="sd">    null is already included) and not a Ref (it names nothing)."""</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">AnyType</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="n">AnyType</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="k">return</span> <span class="s2">"t.any"</span>
+
+<span class="n">ANY</span> <span class="o">=</span> <span class="n">AnyType</span><span class="p">()</span>
+</code></pre></div>
+<ul>
+<li>The <code>Type</code> alias in <code>schema.py</code> becomes <code>Union[Ref, Scalar, AnyType]</code>.</li>
+<li><code>Schema.resolve()</code> return type becomes <code>Union[Record, Scalar, AnyType]</code>;
+  an <code>AnyType</code> resolves to itself (like a bare <code>Scalar</code>).</li>
+<li>Builder surface: <code>t.any</code> (a property on the <code>_Types</code> namespace returning
+  <code>ANY</code>). <code>field("data", t.any)</code> and <code>field("x", t.any, min=0, max=None)</code>
+  are legal.</li>
+<li><code>nullable(t.any)</code> raises
+  <code>SchemaError("any already includes null; 'any?' is redundant")</code>.</li>
+<li>Public exports: add <code>AnyType</code> to <code>omnist/__init__.py</code>'s imports and
+  <code>__all__</code> (so users can <code>isinstance</code> against it). The singleton is
+  reached via <code>t.any</code>; the bare name <code>ANY</code> is <em>not</em> exported.</li>
+<li><code>AnyType</code> has <strong>no</strong> <code>.name</code> and <strong>no</strong> <code>.nullable</code> attribute — any code
+  path that reaches for either on an <code>any</code> is a bug this spec's inventory
+  (§3) exists to prevent.</li>
+</ul>
+<h3 id="24-grammar--normative-osd-delta">2.4 Grammar — normative OSD delta<a class="headerlink" href="#24-grammar--normative-osd-delta" title="Permanent link">&para;</a></h3>
+<p>The OSD grammar's type production (docs/design/schema-osd-grammar.md)
+changes from</p>
+<div class="highlight"><pre><span></span><code>type = scalar-name ["?"] / record-name
+</code></pre></div>
+<p>to</p>
+<div class="highlight"><pre><span></span><code>type = scalar-name ["?"] / "any" / record-name
+</code></pre></div>
+<p>with three hard rules:</p>
+<ol>
+<li><strong><code>any</code> is a reserved word.</strong> A record named <code>any</code> is rejected at
+   parse time with <code>SchemaError("'any' is a reserved type name and
+   cannot be used as a record name at &lt;pos&gt;")</code>. Implementation: the
+   existing record-name-vs-scalar-name check in <code>osd.py</code> (the
+   <code>name in SCALAR_NAMES</code> guard near line 107) extends to a
+   <code>RESERVED_TYPE_NAMES = SCALAR_NAMES | {"any"}</code> set. Rationale: field
+   types resolve NAME → scalar-keyword-else-Ref, so an <code>any</code>-named
+   record would be silently unreferenceable — reject loudly instead.</li>
+<li><strong><code>any?</code> is rejected</strong> with <code>SchemaError("'any' already includes
+   null; 'any?' is redundant at &lt;pos&gt;")</code>. Implementation: in the parser's
+   <code>_type()</code> (osd.py ~line 171), the <code>any</code> branch checks for a following
+   <code>?</code> token exactly the way scalar parsing does, and raises instead of
+   accepting.</li>
+<li><strong>The writer emits <code>any</code>.</strong> <code>to_osd</code> of a schema containing <code>ANY</code>
+   prints the bare keyword, pretty and compact modes alike. Round-trip
+   <code>parse_schema(to_osd(s))</code> must be <code>equivalent</code> for schemas containing
+   <code>any</code> (test obligation T-RT).</li>
+</ol>
+<p>The <code>root</code> production is unchanged (<code>root NAME</code>, a record reference).
+OML is unchanged (documents carry no types). The builder API and OSD are
+the only two ways to construct an <code>any</code>-typed field.</p>
+<h2 id="3-operation-semantics-and-the-dichotomy-site-inventory">3. Operation semantics and the dichotomy-site inventory<a class="headerlink" href="#3-operation-semantics-and-the-dichotomy-site-inventory" title="Permanent link">&para;</a></h2>
+<p>This is the spec's core. The current codebase dispatches on a
+Scalar/Record (and Ref/not-Ref) dichotomy at 25 sites; Python will not
+warn when a third kind slips through — it will misbehave silently.
+Implementers work through this table as a checklist; verifiers audit
+against it and additionally run
+<code>grep -rn "isinstance.*Scalar\|isinstance.*Record\|isinstance.*Ref" omnist/ tools/</code>
+to confirm no site exists outside the table.</p>
+<p>Line numbers are as of <code>master</code> = <code>d48453f</code> (v0.4.3); re-locate by
+pattern if drifted.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Site</th>
+<th>Current behavior</th>
+<th>Required change</th>
+<th>Test obligation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I-1</td>
+<td><code>schema.py</code> <code>Field.__init__</code> (~146): <code>isinstance(type, (Ref, Scalar))</code></td>
+<td>rejects other types</td>
+<td>accept <code>AnyType</code>: <code>(Ref, Scalar, AnyType)</code>; update the error message to mention <code>t.any</code></td>
+<td>T-1: <code>field("x", t.any)</code> constructs; <code>field("x", "junk")</code> still raises</td>
+</tr>
+<tr>
+<td>I-2</td>
+<td><code>schema.py</code> <code>Type</code> alias</td>
+<td><code>Union[Ref, Scalar]</code></td>
+<td>add <code>AnyType</code></td>
+<td>mypy --strict green (gate)</td>
+</tr>
+<tr>
+<td>I-3</td>
+<td><code>schema.py</code> <code>Schema.resolve</code> (~244)</td>
+<td>Scalar → itself; Ref → env lookup</td>
+<td><code>AnyType</code> → itself (new first branch); widen return annotation</td>
+<td>T-3: <code>s.resolve(ANY) is ANY</code></td>
+</tr>
+<tr>
+<td>I-4</td>
+<td><code>schema.py</code> <code>check_refs</code> (~257): walks field types, checks <code>isinstance(t, Ref)</code></td>
+<td>ignores non-Refs</td>
+<td><strong>no change</strong> — verify <code>AnyType</code> is skipped naturally</td>
+<td>T-4: schema with <code>any</code> field passes <code>check_refs</code></td>
+</tr>
+<tr>
+<td>I-5</td>
+<td><code>schema.py</code> <code>_conform</code> (~281): <code>if Scalar → _conform_scalar else _conform_record</code></td>
+<td>binary dispatch</td>
+<td>new <strong>first</strong> branch: <code>if isinstance(d, AnyType): return</code> — accept, no descent, no errors added</td>
+<td>T-5: <code>validate</code> accepts scalar/null/record/deep-nested at an <code>any</code> field; cardinality violations on the label still reported</td>
+</tr>
+<tr>
+<td>I-6</td>
+<td><code>schema.py</code> <code>nullable()</code> (~112)</td>
+<td>wraps a Scalar</td>
+<td>raise <code>SchemaError</code> on <code>AnyType</code> (message in §2.3)</td>
+<td>T-6: <code>nullable(t.any)</code> raises</td>
+</tr>
+<tr>
+<td>I-7</td>
+<td><code>schema.py</code> <code>_Types</code> (~89)</td>
+<td>seven scalar properties</td>
+<td>add <code>any</code> property returning <code>ANY</code></td>
+<td>T-7: <code>t.any is t.any</code> (singleton)</td>
+</tr>
+<tr>
+<td>I-8</td>
+<td><code>osd.py</code> parser <code>_type</code> (~171-183): <code>text in SCALAR_NAMES → Scalar else Ref</code></td>
+<td><code>any</code> would become <code>Ref("any")</code> → later "unknown type"</td>
+<td>new branch before the Ref fallback: <code>"any"</code> → return <code>ANY</code>; reject following <code>?</code> (§2.4 rule 2)</td>
+<td>T-8: parse <code>"data": any</code>; <code>any?</code> raises with specified message</td>
+</tr>
+<tr>
+<td>I-9</td>
+<td><code>osd.py</code> record-name guard (~107)</td>
+<td>rejects scalar-named records</td>
+<td>extend to <code>RESERVED_TYPE_NAMES</code> incl. <code>"any"</code> (§2.4 rule 1)</td>
+<td>T-9: <code>record any { ... }</code> raises with specified message</td>
+</tr>
+<tr>
+<td>I-10</td>
+<td><code>osd.py</code> writer <code>_type</code> (~242): <code>isinstance(t, Ref) → name else scalar+"?"</code></td>
+<td>would hit <code>.name</code>/<code>.nullable</code> on <code>AnyType</code> → AttributeError</td>
+<td>new branch: <code>AnyType</code> → <code>"any"</code></td>
+<td>T-10 / T-RT: write+reparse round-trip <code>equivalent</code></td>
+</tr>
+<tr>
+<td>I-11</td>
+<td><code>deserialize.py</code> <code>_materialize_type</code> (~58): Scalar → scalar path else record path</td>
+<td>binary dispatch</td>
+<td>new <strong>first</strong> branch: <code>if isinstance(d, AnyType): return node</code> — pass-through, no upgrades, no errors</td>
+<td>T-11: inside <code>any</code>, ISO date strings stay strings while sibling <code>datetime</code> fields upgrade; YAML-native dates pass through as dates</td>
+</tr>
+<tr>
+<td>I-12</td>
+<td><code>subschema.py</code> <code>_sub</code> (~48-53): Scalar/Scalar → <code>_scalar_sub</code>; Record/Record → <code>_record_sub</code>; else False</td>
+<td>mixed kinds → False</td>
+<td>two new clauses <strong>before</strong> the existing ones, in this order: <code>if isinstance(db, AnyType): result = True</code> ; <code>elif isinstance(da, AnyType): result = False</code></td>
+<td>T-12: <code>T ⊑ any</code> True for every T incl. records and nullable scalars; <code>any ⊑ T</code> False for every non-any T; <code>any ⊑ any</code> True</td>
+</tr>
+<tr>
+<td>I-13</td>
+<td><code>subschema.py</code> vacuous-A-side check (~40): <code>isinstance(ta, Ref) and not sat</code></td>
+<td>Ref-only</td>
+<td><strong>no change</strong> — <code>AnyType</code> is always satisfiable, never vacuous</td>
+<td>covered by T-12</td>
+</tr>
+<tr>
+<td>I-14</td>
+<td><code>signature.py</code> <code>local_signature</code> (~46): Ref → one tag shape, Scalar → kind/nullable tag</td>
+<td>binary</td>
+<td><code>AnyType</code> → its own distinct tag, e.g. <code>("any",)</code> — distinct from all seven scalar tags, from nullable variants, and from the Ref tag</td>
+<td>T-14: two records differing only string-vs-any have different signatures</td>
+</tr>
+<tr>
+<td>I-15</td>
+<td><code>minimize.py</code> refinement key (~106): <code>block_of[name] if Ref else None</code></td>
+<td>AnyType → falls to <code>None</code>, same key as scalars</td>
+<td><strong>no code change, but the correctness argument is subtle and must be tested</strong>: <code>None</code> is safe <em>only because</em> I-14 already separates any-fields from scalar-fields in the initial partition (partition refinement never merges blocks split at initialization)</td>
+<td>T-15: <code>normalize</code> never merges a record with <code>field: any</code> into one with <code>field: &lt;scalar&gt;</code>; records identical incl. <code>any</code> fields do merge</td>
+</tr>
+<tr>
+<td>I-16</td>
+<td><code>minimize.py</code> rebuild (~120): Ref → remap, else keep</td>
+<td>keeps type as-is</td>
+<td><strong>no change</strong> — verify <code>ANY</code> passes through by identity</td>
+<td>covered by T-15 round-trip</td>
+</tr>
+<tr>
+<td>I-17</td>
+<td><code>prune.py</code> satisfiability seed (~50): <code>isinstance(f.type, Scalar)</code> → satisfiable</td>
+<td><code>any</code> field would not seed satisfiability → record wrongly unsatisfiable</td>
+<td>extend: <code>isinstance(f.type, (Scalar, AnyType))</code></td>
+<td>T-17: <code>record R { "x": any }</code> is satisfiable; <code>is_empty</code> False; <code>prune</code> keeps it</td>
+</tr>
+<tr>
+<td>I-18</td>
+<td><code>prune.py</code> optional-dead-ref drops (~117, ~129) / <code>extract.py</code> Ref checks (~89, ~118)</td>
+<td>Ref-only logic</td>
+<td><strong>no change</strong> — <code>any</code> behaves as a leaf exactly like a scalar; verify</td>
+<td>T-18: <code>extract</code> keeps an <code>any</code> field when its label is requested, drops it when not (subject to existing min-cardinality rules)</td>
+</tr>
+<tr>
+<td>I-19</td>
+<td><code>infer.py</code></td>
+<td>never constructs <code>AnyType</code> (imports don't include it)</td>
+<td><strong>no change</strong>; add the guard as a <em>test</em>, not code</td>
+<td>T-19: property test — for arbitrary generated documents, the inferred schema contains no <code>AnyType</code> anywhere</td>
+</tr>
+<tr>
+<td>I-20</td>
+<td><code>isomorphic.py</code> <code>_walk</code> (~93): Ref → recurse, else leaf</td>
+<td>signature equality (I-14) already distinguishes</td>
+<td><strong>no change</strong> — verify</td>
+<td>T-20: iso oracle agrees with <code>equivalent</code> on schema pairs containing <code>any</code></td>
+</tr>
+<tr>
+<td>I-21</td>
+<td><code>tools/semantic_oracle.py</code> <code>_minimal_value</code> (~331): Scalar → leaf, Ref → record</td>
+<td>AttributeError on <code>AnyType</code></td>
+<td>new branch: <code>AnyType</code> → <code>None</code> (null is a legal minimal witness: <code>null ∈ L(any)</code>)</td>
+<td>T-21: oracle unit test</td>
+</tr>
+<tr>
+<td>I-22</td>
+<td><code>tools/semantic_oracle.py</code> universe/truth machinery</td>
+<td>enumerates finite truth</td>
+<td>see §5.3 — behavior analysis, plus generator extension</td>
+<td>T-22</td>
+</tr>
+<tr>
+<td>I-23</td>
+<td><code>omnist/__init__.py</code></td>
+<td>—</td>
+<td>export <code>AnyType</code> (imports + <code>__all__</code>). <strong>Lands in PR-2, not PR-1</strong> (release-safety: the public surface must not expose <code>any</code> before the parser can read it back — see §8)</td>
+<td>T-23: <code>from omnist import AnyType</code> works; api.md documents it</td>
+</tr>
+<tr>
+<td>I-24</td>
+<td><code>omnist/cli.py</code></td>
+<td>schema-transparent</td>
+<td><strong>no change</strong></td>
+<td>T-24: integration — <code>omnist validate --schema &lt;any-schema&gt;</code> and <code>omnist schema format/normalize</code> work end-to-end</td>
+</tr>
+<tr>
+<td>I-25</td>
+<td>writers / <code>check_*</code> (<code>formats.py</code>)</td>
+<td>operate on Documents only</td>
+<td><strong>no change</strong> — an <code>any</code> subtree is an ordinary Document subtree; existing writer adjustment rules apply unchanged</td>
+<td>covered by existing suites + T-11</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Placement rule for all new branches:</strong> the <code>AnyType</code> clause always goes
+<strong>first</strong> in each dispatch (before Scalar/Record checks). This is a
+consistency convention so verifiers can audit by pattern, and it
+guarantees no pre-existing branch can shadow the new kind.</p>
+<h3 id="31-validate--descent-stops-at-any">3.1 <code>validate</code> — descent stops at <code>any</code><a class="headerlink" href="#31-validate--descent-stops-at-any" title="Permanent link">&para;</a></h3>
+<p><svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="validate descends the tree and stops at any">
+<br />
+<style>
+    .n3 { fill:#f5f5f7; stroke:#999; }
+    .anyn { fill:#ede9fe; stroke:#7c3aed; stroke-width:2; }
+    .skip { fill:#fafafa; stroke:#ccc; stroke-dasharray:4 3; }
+    .t3 { font: 12px sans-serif; fill:#1a1a1a; text-anchor:middle; }
+    .t3m { font: 11px sans-serif; fill:#777; text-anchor:middle; }
+    .ar { stroke:#3a9; stroke-width:2; marker-end:url(#ah); }
+    .arx { stroke:#ccc; stroke-width:1.5; stroke-dasharray:4 3; }
+  </style></p>
+<p><defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3a9"/></marker></defs>
+  <rect class="n3" x="270" y="12" width="110" height="30" rx="6"/><text class="t3" x="325" y="32">Event (root)</text>
+  <rect class="n3" x="60" y="90" width="90" height="30" rx="6"/><text class="t3" x="105" y="110">id: string ✓</text>
+  <rect class="n3" x="170" y="90" width="100" height="30" rx="6"/><text class="t3" x="220" y="110">type: string ✓</text>
+  <rect class="n3" x="290" y="90" width="130" height="30" rx="6"/><text class="t3" x="355" y="110">created: datetime ✓</text>
+  <rect class="anyn" x="440" y="90" width="100" height="30" rx="6"/><text class="t3" x="490" y="110">data: any ✓</text>
+  <line class="ar" x1="300" y1="42" x2="115" y2="88"/>
+  <line class="ar" x1="315" y1="42" x2="225" y2="88"/>
+  <line class="ar" x1="335" y1="42" x2="355" y2="88"/>
+  <line class="ar" x1="360" y1="42" x2="480" y2="88"/>
+  <rect class="skip" x="400" y="170" width="200" height="60" rx="6"/>
+  <text class="t3m" x="500" y="192">subtree of any shape</text>
+  <text class="t3m" x="500" y="210">never visited — accepted as-is,</text>
+  <text class="t3m" x="500" y="224">no descent, no conversions</text>
+  <line class="arx" x1="490" y1="120" x2="495" y2="168"/>
+  <text class="t3m" x="140" y="200">Cardinality of the "data" label is still counted</text>
+  <text class="t3m" x="140" y="216">by the record layer — only the VALUE is skipped.</text>
+</svg></p>
+<h3 id="32-compatible_with--the-two-new-clauses">3.2 <code>compatible_with</code> — the two new clauses<a class="headerlink" href="#32-compatible_with--the-two-new-clauses" title="Permanent link">&para;</a></h3>
+<p><svg viewBox="0 0 660 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="containment decision flow with any clauses">
+<br />
+<style>
+    .dc { fill:#fffbeb; stroke:#d97706; }
+    .rs { fill:#dcfce7; stroke:#3a9; }
+    .rf { fill:#fde2e2; stroke:#c66; }
+    .old { fill:#f5f5f7; stroke:#999; }
+    .t4 { font: 12px sans-serif; fill:#1a1a1a; text-anchor:middle; }
+    .t4s { font: 11px sans-serif; fill:#555; text-anchor:middle; }
+    .fl { stroke:#888; stroke-width:1.5; marker-end:url(#ah2); }
+  </style></p>
+<p><defs><marker id="ah2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#888"/></marker></defs>
+  <rect class="dc" x="230" y="10" width="200" height="34" rx="8"/><text class="t4" x="330" y="32">_sub(A-side da, B-side db)</text>
+  <rect class="dc" x="80" y="80" width="180" height="34" rx="8"/><text class="t4" x="170" y="102">db is any?  (NEW #1)</text>
+  <rect class="rs" x="80" y="140" width="180" height="30" rx="8"/><text class="t4" x="170" y="160">True — any absorbs all</text>
+  <rect class="dc" x="300" y="80" width="180" height="34" rx="8"/><text class="t4" x="390" y="102">da is any?  (NEW #2)</text>
+  <rect class="rf" x="300" y="140" width="180" height="30" rx="8"/><text class="t4" x="390" y="160">False — only any holds any</text>
+  <rect class="old" x="510" y="80" width="140" height="90" rx="8"/>
+  <text class="t4" x="580" y="110">existing logic</text>
+  <text class="t4s" x="580" y="130">Scalar/Scalar,</text>
+  <text class="t4s" x="580" y="146">Record/Record,</text>
+  <text class="t4s" x="580" y="162">else False</text>
+  <line class="fl" x1="290" y1="44" x2="185" y2="78"/>
+  <line class="fl" x1="330" y1="44" x2="385" y2="78"/>
+  <line class="fl" x1="370" y1="44" x2="565" y2="78"/>
+  <line class="fl" x1="170" y1="114" x2="170" y2="138"/>
+  <line class="fl" x1="390" y1="114" x2="390" y2="138"/>
+  <text class="t4s" x="120" y="76">yes</text>
+  <text class="t4s" x="345" y="76">yes (db not any)</text>
+  <text class="t4s" x="480" y="66">neither is any</text>
+  <text class="t4s" x="330" y="230">Order matters: check db first. Both any → first clause fires → True (correct: any ≡ any).</text>
+  <text class="t4s" x="330" y="250">Memoization, coinduction, and the vacuous-A-side rule are untouched.</text>
+</svg></p>
+<h3 id="33-materialize-schema-directed-deserialization--upgradedegrade-rules">3.3 <code>materialize</code> (schema-directed deserialization) — upgrade/degrade rules<a class="headerlink" href="#33-materialize-schema-directed-deserialization--upgradedegrade-rules" title="Permanent link">&para;</a></h3>
+<p>At an <code>any</code> position, <code>materialize</code> returns the node <strong>exactly as the
+reader produced it</strong> — the <code>schema=None</code> behavior, scoped to the subtree:</p>
+<ul>
+<li>No upgrades: an ISO date <em>string</em> inside <code>any</code> stays a string (while a
+  sibling <code>datetime</code>-typed field converts as today).</li>
+<li>No degrades either: a YAML/TOML-native <code>date</code> object inside <code>any</code> stays
+  a <code>date</code> object — pass-through means <em>identity</em>, not normalization.</li>
+<li>No validation errors can originate inside <code>any</code>; the conformance
+  guarantee (<code>materialize</code>'s output conforms to the schema) holds
+  trivially there since <code>L(any) = V</code>.</li>
+<li>Writers are unaffected (I-25): writing an <code>any</code> subtree applies the
+  same per-format adjustment rules (<code>WriteReport</code>) any Document gets.</li>
+</ul>
+<h2 id="4-soundness-any-is-unambiguous-and-every-operation-stays-decidable">4. Soundness: <code>any</code> is unambiguous and every operation stays decidable<a class="headerlink" href="#4-soundness-any-is-unambiguous-and-every-operation-stays-decidable" title="Permanent link">&para;</a></h2>
+<p><strong>4.1 Single-candidate principle (no union ambiguity).</strong> The historical
+refusals (unions, multi-shape nulls, open records, <code>Map</code>) all failed one
+test: a value matching <em>more than one candidate</em> with no principled
+winner. <code>any</code> passes it: a field's declared type is still exactly one of
+{one Scalar, one Ref, <code>any</code>} — validation at any node consults exactly
+one candidate and never chooses. <code>infer</code> never emits <code>any</code> by default
+(I-19), so no Record-vs-any inference ambiguity exists either — that rule
+is not a carve-out but a consequence of <code>infer</code>'s "most specific schema"
+contract, since <code>any</code> is never most-specific. (The opt-in <code>--allow-any</code>
+mode falls back to <code>any</code> only at a genuine conflict point, and reports each
+one; it does not choose <code>any</code> over a more specific candidate.)</p>
+<p><strong>4.2 Containment is decidable and the lattice is bounded.</strong> The <code>⊑</code>
+relation gains exactly the rules of I-12. Termination of the coinductive
+<code>_sub</code> is preserved: its memo table is keyed by pairs of resolved
+definitions, of which there remain finitely many (the environments are
+finite; <code>ANY</code> adds one element). Completeness of the two clauses follows
+from <code>L(any) = V</code>: <code>L(T) ⊆ V</code> always (so <code>db = any</code> → True is sound and
+complete), and <code>V ⊆ L(T)</code> iff <code>L(T) = V</code> iff <code>T = any</code> (no Scalar or
+satisfiable Record accepts <em>every</em> value — e.g. no Record accepts scalar
+leaves, no Scalar accepts edge-lists). With ⊤ = the <code>any</code>-accepting
+schema and ⊥ = the empty schema, <code>⊑</code> is a bounded preorder.</p>
+<p><strong>4.3 Normalization stays canonical.</strong> <code>normalize</code> is partition
+refinement over local signatures. I-14 makes <code>any</code> an eighth atomic kind
+in the signature; the initial partition therefore never co-locates an
+any-field record with a scalar-field record, and refinement only ever
+<em>splits</em> blocks — so the <code>None</code> refinement key at I-15 can never cause a
+wrong merge. Minimality and canonicality arguments are otherwise
+untouched, because <code>any</code> participates as an atomic, non-referencing leaf
+— exactly the role scalars already play in the proof.</p>
+<p><strong>4.4 Interaction matrix.</strong> Each cell is the normative answer an
+implementer can test against:</p>
+<table>
+<thead>
+<tr>
+<th>interaction</th>
+<th>rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>any</code> vs <code>null</code> value</td>
+<td>accepted (<code>null ∈ L(any)</code>); no <code>any?</code> exists</td>
+</tr>
+<tr>
+<td><code>any</code> vs cardinality <code>[m,n]</code></td>
+<td>count enforced on the label as today; <code>[0,]</code>, <code>[1,]</code>, <code>[2,5]</code> all legal</td>
+</tr>
+<tr>
+<td><code>any</code> vs <code>Ref</code> cycles</td>
+<td><code>any</code> names nothing and cannot participate in a cycle; <code>check_refs</code> unaffected</td>
+</tr>
+<tr>
+<td><code>any</code> field vs unsatisfiable sibling</td>
+<td>record satisfiability = all mandatory fields satisfiable; <code>any</code> is always satisfiable (I-17) and never rescues an unsatisfiable sibling</td>
+</tr>
+<tr>
+<td><code>Scalar s ⊑ any</code> / <code>Record R ⊑ any</code></td>
+<td>True / True</td>
+</tr>
+<tr>
+<td><code>any ⊑ Scalar s</code> / <code>any ⊑ Record R</code></td>
+<td>False / False</td>
+</tr>
+<tr>
+<td><code>any ⊑ any</code> / <code>any ≡ any</code></td>
+<td>True / True; <code>any ≡ T</code> for non-any T: False</td>
+</tr>
+<tr>
+<td><code>extract</code> at <code>any</code></td>
+<td>leaf: kept/dropped wholesale by its own label</td>
+</tr>
+<tr>
+<td><code>materialize</code> inside <code>any</code></td>
+<td>identity pass-through (§3.3)</td>
+</tr>
+<tr>
+<td><code>infer</code></td>
+<td>never produces <code>any</code> by default; opt-in <code>--allow-any</code> falls back to <code>any</code> at a conflict point and reports it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-testing-and-correctness-strategy">5. Testing and correctness strategy<a class="headerlink" href="#5-testing-and-correctness-strategy" title="Permanent link">&para;</a></h2>
+<p><strong>5.1 Unit obligations.</strong> Every inventory row I-1…I-25 carries a named
+test obligation (T-1…T-24, T-RT); the implementation PRs (§8) enumerate
+which they discharge. Project bar applies throughout: full suite green,
+<code>ruff</code>, <code>mypy --strict</code>, <strong>100% line coverage</strong> on every touched file,
+and every new doc example executed as a test.</p>
+<p><strong>5.2 Property-based fuzzing.</strong> Extend the hypothesis schema-generation
+strategy in <code>tests/test_fuzz.py</code>: with probability ~0.15 a generated
+field's type is <code>ANY</code> (instead of a scalar/ref). Document generators, at
+<code>any</code> positions, draw from a "chaos" strategy producing arbitrary legal
+Document values (all seven scalar kinds, <code>null</code>, and nested edge-lists to
+bounded depth). Existing round-trip and metamorphic properties then
+exercise <code>any</code> automatically: OSD round-trip (<code>T-RT</code>), validate/accepts
+agreement, <code>normalize</code> preserving <code>equivalent</code>, <code>prune</code> preserving the
+language, and <code>compatible_with</code> reflexivity/transitivity samples.</p>
+<p><strong>5.3 The semantic oracle — analysis and required treatment.</strong> The
+oracle brute-force-compares algebra answers against set-theoretic truth
+over a finite document universe <code>U</code>. With <code>any</code>:</p>
+<ul>
+<li><strong><code>db = any</code> direction:</strong> truth over <code>U</code> says every <code>L(A)∩U ⊆ U</code> —
+  agrees with the algebra's True. No change needed.</li>
+<li><strong><code>da = any</code> direction (the subtle one):</strong> the algebra answers False,
+  but over a small <code>U</code>, <code>B</code> might accept everything in <code>U</code> — finite truth
+  cannot <em>witness</em> the False. This is exactly the situation the oracle's
+  existing <strong>vindication / needs-review machinery</strong> was built for: an
+  unvindicated False is reported <code>needs_review</code>, not <code>definite_bug</code>.
+  Required treatment: (a) ensure <code>U</code> always contains at least one value
+  per scalar kind plus one edge-list — then any <code>B</code> that is a Scalar or
+  Record fails to accept <em>something</em> in <code>U</code>, vindicating the False
+  concretely (a Record accepts no scalar leaf; a Scalar accepts no
+  edge-list); with that guarantee, <code>da = any</code> cases are always vindicated
+  and never even reach needs_review; (b) add an oracle unit test pinning
+  this (T-22).</li>
+<li><strong>Generators:</strong> the oracle's seeded random schema family optionally
+  emits <code>any</code> fields (small fixed probability), and <code>_minimal_value</code>
+  returns <code>None</code> for <code>AnyType</code> (I-21).</li>
+</ul>
+<p><strong>5.4 Executable documentation.</strong> The worked examples in openness.md §8
+(envelope schema, compatibility blind spot, pass-through) move from
+"illustrative" to executable doc-tests in <code>tests/test_docs.py</code> when the
+feature lands, per the project's docs-as-tests convention.</p>
+<h2 id="6-impact-on-the-models-philosophy--and-the-claims-audit">6. Impact on the model's philosophy — and the claims audit<a class="headerlink" href="#6-impact-on-the-models-philosophy--and-the-claims-audit" title="Permanent link">&para;</a></h2>
+<p><strong>The honest headline change:</strong> "closed by construction" becomes
+<strong>"closed by default; open only where explicitly marked."</strong> The
+weakening is real and deliberately purchased; what keeps it principled is
+that openness is <em>demarcated</em> — every hole is a literal <code>any</code> token,
+grep-visible and code-reviewable — and the tool never introduces one on
+its own (<code>infer</code> never emits it unless you opt in with <code>--allow-any</code>, which
+reports every field it opens). The differentiator claim survives precisely:
+it was never "no escape hatch"; it was a <em>decidable algebra</em>, which §4
+shows is preserved. The sharpest practical cost stays what openness.md
+§9.2 says: <code>compatible_with</code> is locally vacuous inside <code>any</code> — checking
+ends exactly where <code>any</code> begins — and the docs must say so loudly at
+every mention.</p>
+<p><strong>Claims audit — enumerated rewrite sites</strong> (the docs PR works through
+this list, then runs
+<code>grep -rn "closed by construction\|escape hatch\|no unions" README.md docs/</code>
+to catch stragglers):</p>
+<table>
+<thead>
+<tr>
+<th>Site</th>
+<th>Required change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/design/model.md</code> §1, headline idea 4</td>
+<td>The clause "no structureless escape hatches (<code>Any</code>, open objects, maps)" <strong>splits</strong>: open objects and maps remain refused; <code>any</code> becomes the model's one deliberate, contained opening, cross-referencing this spec and openness.md</td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Re-word any "closed by construction" phrasing; one sentence introducing <code>any</code> with its cost</td>
+</tr>
+<tr>
+<td><code>docs/why-omnist.md</code></td>
+<td>Same re-wording; the decidability differentiator stays, stated precisely</td>
+</tr>
+<tr>
+<td><code>docs/schema.md</code></td>
+<td>Document <code>any</code> as the eighth type keyword: semantics, <code>any?</code> rejection, reserved-word rule, the §3.3 pass-through, and the vacuous-compatibility warning</td>
+</tr>
+<tr>
+<td><code>docs/deserialization.md</code></td>
+<td>Add the pass-through subsection (§3.3 content, with a runnable example)</td>
+</tr>
+<tr>
+<td><code>docs/api.md</code></td>
+<td><code>t.any</code>, <code>AnyType</code> export, <code>nullable(t.any)</code> error; types table row</td>
+</tr>
+<tr>
+<td><code>docs/glossary.md</code></td>
+<td>New <code>any</code> entry</td>
+</tr>
+<tr>
+<td><code>docs/design/schema-osd-grammar.md</code></td>
+<td>Type production + reserved words + worked example row (backed by <code>test_grammar_docs.py</code>)</td>
+</tr>
+<tr>
+<td><code>docs/testing.md</code></td>
+<td>Oracle witness note (§5.3)</td>
+</tr>
+<tr>
+<td><code>docs/design/openness.md</code></td>
+<td>Status header flips <code>any</code> from "decision deferred" to "adopted, spec at any-type-spec.md" — <strong>only in the PR that ships the feature</strong></td>
+</tr>
+<tr>
+<td><code>CHANGELOG.md</code></td>
+<td>v0.5.0 entry: new capability, minor bump, the §6 headline change stated honestly</td>
+</tr>
+</tbody>
+</table>
+<h2 id="7-remaining-perspectives">7. Remaining perspectives<a class="headerlink" href="#7-remaining-perspectives" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Security.</strong> No new surface: readers enforce Document legality and
+  <code>_MAX_DEPTH</code> <em>before</em> any schema logic runs; an <code>any</code> subtree is parsed
+  by exactly the same reader code as today. <code>any</code> never causes parsing,
+  evaluation, or resource use that <code>schema=None</code> doesn't already.</li>
+<li><strong>Performance.</strong> Strictly favorable: <code>validate</code>/<code>materialize</code> skip
+  entire subtrees at <code>any</code> positions; algebra operations add O(1)
+  branches. No benchmark gate needed, but the existing perf-measurement
+  habit (before/after timing on the standard corpus) applies to PR-1.</li>
+<li><strong>Error-message quality.</strong> Two new, specified error messages (§2.4);
+  a schema author typo like <code>"x": Any</code> (capitalized) is a <code>Ref("Any")</code> →
+  existing "unknown type 'Any'" error — acceptable, no special case.</li>
+<li><strong>Interop (future, not this change).</strong> A JSON-Schema importer, if ever
+  built, gains a lossless target: <code>additionalProperties: true</code>/<code>{}</code> and
+  <code>xs:any</code> map to <code>any</code>. Noted so the importer design doesn't rediscover it.</li>
+<li><strong>Governance.</strong> The lint dial (count/flag <code>any</code> usage per schema)
+  remains deliberately out of scope (openness.md §10.5), noted for later.</li>
+<li><strong>The unserved gap, restated.</strong> Natively-validated open-key data with
+  per-value typing is served by neither <code>any</code> nor the entry-list
+  encoding. <code>any</code> does not close it and must not be advertised as doing
+  so. If that need ever becomes pressing, the debate restarts from
+  openness.md — not from a fifth disguise of the same question.</li>
+</ul>
+<h2 id="8-implementation-plan">8. Implementation plan<a class="headerlink" href="#8-implementation-plan" title="Permanent link">&para;</a></h2>
+<p>Four PRs, strictly sequenced — master remains sound after every merge
+because <strong>grammar exposure lands only in PR-2</strong>, after every operation
+already handles the new kind; until then <code>any</code> in OSD text still fails
+with today's "unknown type" error and the only construction path is the
+builder, which PR-1 fully supports and tests.</p>
+<p><svg viewBox="0 0 660 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PR sequence">
+<br />
+<style>
+    .pr { fill:#ede9fe; stroke:#7c3aed; stroke-width:1.5; }
+    .pr2 { fill:#f5f5f7; stroke:#999; }
+    .t5 { font: 600 12px sans-serif; fill:#1a1a1a; text-anchor:middle; }
+    .t5s { font: 11px sans-serif; fill:#444; text-anchor:middle; }
+    .fl2 { stroke:#7c3aed; stroke-width:2; marker-end:url(#ah3); }
+  </style></p>
+<p><defs><marker id="ah3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#7c3aed"/></marker></defs>
+  <rect class="pr" x="15" y="50" width="140" height="80" rx="10"/>
+  <text class="t5" x="85" y="75">PR-1 · sonnet</text>
+  <text class="t5s" x="85" y="93">model + all ops</text>
+  <text class="t5s" x="85" y="108">+ writer + builder</text>
+  <text class="t5s" x="85" y="123">I-1..7, 10..21, 23</text>
+  <rect class="pr" x="185" y="50" width="140" height="80" rx="10"/>
+  <text class="t5" x="255" y="75">PR-2 · sonnet</text>
+  <text class="t5s" x="255" y="93">parser + reserved</text>
+  <text class="t5s" x="255" y="108">words + round-trips</text>
+  <text class="t5s" x="255" y="123">I-8, I-9, grammar doc</text>
+  <rect class="pr" x="355" y="50" width="140" height="80" rx="10"/>
+  <text class="t5" x="425" y="75">PR-3 · sonnet</text>
+  <text class="t5s" x="425" y="93">oracle witness +</text>
+  <text class="t5s" x="425" y="108">fuzz strategies</text>
+  <text class="t5s" x="425" y="123">I-22, §5.2–5.3</text>
+  <rect class="pr2" x="525" y="50" width="120" height="80" rx="10"/>
+  <text class="t5" x="585" y="75">PR-4 · haiku</text>
+  <text class="t5s" x="585" y="93">docs sweep (§6)</text>
+  <text class="t5s" x="585" y="108">CHANGELOG, bump</text>
+  <text class="t5s" x="585" y="123">0.5.0 + release</text>
+  <line class="fl2" x1="155" y1="90" x2="183" y2="90"/>
+  <line class="fl2" x1="325" y1="90" x2="353" y2="90"/>
+  <line class="fl2" x1="495" y1="90" x2="523" y2="90"/>
+  <text class="t5s" x="330" y="170">Each PR: issue-first (spec §-references in the body) → implement → suite/ruff/mypy/coverage →</text>
+  <text class="t5s" x="330" y="188">independent verifier (fresh agent, checks against the §3 inventory) → merge → sync clones.</text>
+</svg></p>
+<p><strong>PR-1 — core model and algebra (sonnet; the critical one).</strong>
+Files: <code>omnist/schema.py</code>, <code>omnist/deserialize.py</code>, <code>omnist/osd.py</code>
+(writer only), <code>omnist/ops/{subschema,signature,prune}.py</code> (code),
+<code>omnist/ops/{minimize,extract,isomorphic}.py</code> + <code>omnist/infer.py</code>
+(verification-only rows), <code>tools/semantic_oracle.py</code> (I-21 only), new
+tests. Discharges I-1..I-7, I-10..I-21 with tests T-1..T-7, T-10..T-21.
+<strong>No public export in this PR</strong> (I-23 lands in PR-2): <code>AnyType</code>/<code>ANY</code>
+stay reachable only via <code>omnist.schema</code> internally, and PR-1's tests
+import them from there. Release-safety invariant: if master had to be
+released between PR-1 and PR-2, the feature would be publicly invisible. Acceptance: all inventory rows
+marked code-change are implemented with the <code>AnyType</code>-clause-first
+convention; all rows marked no-change have the specified regression test
+proving it; the verifier greps for dichotomy sites and finds none outside
+the table; suite/ruff/mypy/coverage green; before/after timing on the
+standard corpus shows no regression. <em>The one intentional gap:</em> OSD
+<em>parsing</em> of <code>any</code> still fails ("unknown type") — a test pins this
+interim behavior and is removed in PR-2.</p>
+<p><strong>PR-2 — grammar exposure (sonnet).</strong> Files: <code>omnist/osd.py</code> (parser),
+<code>docs/design/schema-osd-grammar.md</code>, <code>tests/test_grammar_docs.py</code>,
+round-trip tests, plus the public export (I-23: <code>omnist/__init__.py</code>,
+moved here from PR-1 for release-safety). Discharges I-8, I-9, I-23,
+T-8, T-9, T-23, T-RT; removes PR-1's interim-behavior test. Acceptance:
+both specified error messages byte-match §2.4; round-trip <code>equivalent</code>
+property holds under fuzz; after this PR the feature is functionally
+complete and safe to release even undocumented.</p>
+<p><strong>PR-3 — verification infrastructure (sonnet).</strong> Files:
+<code>tools/semantic_oracle.py</code> (universe guarantee + generator emission of
+<code>any</code>), <code>tests/test_fuzz.py</code>, <code>tests/test_semantic_oracle.py</code>.
+Discharges I-22, T-22, §5.2. Acceptance: oracle run over the standard
+budget reports zero definite bugs and zero needs-review attributable to
+<code>any</code> (per §5.3's vindication argument); fuzz suite green at full budget.</p>
+<p><strong>PR-4 — docs, claims audit, release (haiku — fully mechanical given
+§6's table).</strong> Files: every row of the §6 table, version bump to
+<strong>0.5.0</strong> in the usual four files, CHANGELOG. Acceptance: every table row
+done; the §6 grep returns no unreviewed hits; <code>test_docs.py</code> executes the
+new examples (added here, mirroring the docs); tag <code>v0.5.0</code> after merge;
+release verified on the PyPI <strong>Simple index</strong>; both clones synced.</p>
+<p><strong>Verification protocol (all PRs):</strong> the implementing agent never merges;
+an independent fresh-context verifier checks the diff against this spec's
+inventory (§3) and rules (§2, §4), re-runs all gates, and — for PR-1 —
+re-derives at least the I-12 and I-15 correctness arguments against the
+actual code. Controller merges only on a clean verdict.</p>
+<p><strong>Risk register.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A dichotomy site missed by the inventory</td>
+<td>Verifier's mandatory grep (§3 preamble) + clause-first convention makes new-kind handling visually auditable</td>
+</tr>
+<tr>
+<td>Silent wrong-merge in <code>normalize</code> (I-15's subtlety)</td>
+<td>T-15 regression pair + §4.3 argument re-derived by PR-1's verifier</td>
+</tr>
+<tr>
+<td>Oracle false comfort at <code>any</code> positions</td>
+<td>§5.3(a) universe guarantee makes <code>da = any</code> Falses concretely vindicated, not waved through</td>
+</tr>
+<tr>
+<td>Docs claim drift ("closed by construction" survives somewhere)</td>
+<td>§6 enumerated table + closing grep gate in PR-4</td>
+</tr>
+<tr>
+<td>Scope creep toward <code>Map</code>/unions during implementation</td>
+<td>§1 non-goals; implementers stop-and-report on anything not covered by this spec</td>
+</tr>
+</tbody>
+</table>
+<h2 id="9-decision-record">9. Decision record<a class="headerlink" href="#9-decision-record" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>Map</code>: refused, final</strong> (maintainer, 2026-07-06). openness.md is the
+  rationale of record; §3 of that document answers all future
+  label-alphabet-opening proposals.</li>
+<li><strong><code>any</code>: fully specified by this document; implementation approved by
+  the maintainer 2026-07-07.</strong> The §8 issues are filed and executed in
+  sequence, shipping as v0.5.0.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../assets/mermaid.min.js"></script>
+      
+        <script src="../../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

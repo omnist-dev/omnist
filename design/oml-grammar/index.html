@@ -1,0 +1,2001 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="One canonical data model for JSON, YAML, TOML, XML, and OML.">
+      
+      
+      
+        <link rel="canonical" href="https://py.omnist.dev/design/oml-grammar/">
+      
+      
+        <link rel="prev" href="../model/">
+      
+      
+        <link rel="next" href="../schema-osd-grammar/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>OML-Core grammar - Omnist</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#oml-core-formal-grammar" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Omnist" class="md-header__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Omnist
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              OML-Core grammar
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Omnist" class="md-nav__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Omnist
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../presentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction deck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../why-omnist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Omnist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stability policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../limitations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known limitations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema model & OSD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real-life example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-world examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Real-world examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/pyproject/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pyproject.toml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/package-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    package.json
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Actions workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/sitemap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sitemap.xml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deserialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema-directed deserialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formats
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Formats
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/yaml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/toml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TOML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/xml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    XML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document & Schema model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML-Core grammar
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML-Core grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-lexical-grammar-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Lexical grammar (tokens)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema-osd-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OSD grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../any-type-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    any type spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Openness decision record
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo layout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-lexical-grammar-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Lexical grammar (tokens)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="oml-core-formal-grammar">OML-Core formal grammar<a class="headerlink" href="#oml-core-formal-grammar" title="Permanent link">&para;</a></h1>
+<p>This is the formal grammar for <strong>OML-Core</strong> — the subset of OML the
+canonical writer emits and every conformant reader must accept — written in
+ABNF (<a href="https://www.rfc-editor.org/rfc/rfc5234">RFC 5234</a>). It is the
+normative companion to the user-facing tour in <a href="../../formats/oml/">the OML format
+page</a>; read that first for context and examples, and the
+<a href="../../glossary/">glossary</a> for the terms used here (node, edge, label,
+scalar value).</p>
+<p>It also documents the <strong>OML-Extended</strong> read-only spellings the tokenizer
+accepts — the raw string (<code>'...'</code>) and triple-quoted multiline string
+(<code>"""..."""</code>) forms — which the canonical writer never produces but
+<code>read_oml</code> understands on input.</p>
+<p>Every production below has been exercised against the real implementation
+in <a href="https://github.com/omnist-dev/omnist/blob/master/omnist/oml.py"><code>omnist/oml.py</code></a> (the <code>_Scanner</code>
+tokenizer and <code>_Parser</code> parser); see <a href="#7-worked-examples">Worked examples</a> and
+the conformance tests in
+<a href="https://github.com/omnist-dev/omnist/blob/master/tests/test_grammar_docs.py"><code>tests/test_grammar_docs.py</code></a>.</p>
+<h2 id="1-lexical-grammar-tokens">1. Lexical grammar (tokens)<a class="headerlink" href="#1-lexical-grammar-tokens" title="Permanent link">&para;</a></h2>
+<p>The tokenizer (<code>_Scanner</code>) scans <strong>maximal munch with a fixed priority
+order</strong> at every position: it tries STRING-family and punctuation first
+(each pinned to its own leading character, so these never compete with
+anything else), then DATETIME, DATE, TIME, NUMBER, the three reserved float
+spellings (<code>nan</code>, <code>inf</code>, <code>-inf</code>), INTEGER, then <code>IDENT</code>. The first matching
+rule wins and consumes the <em>longest</em> match for its own pattern — there is no
+later backtracking between rules. Since v0.2.27 this is implemented as one
+compiled "master" regex alternation (<code>_MASTER</code>) in that same priority order,
+driven by <code>_Scanner.next</code>'s <code>_MASTER.match(s, pos)</code> + <code>lastgroup</code> dispatch
+loop, rather than a sequence of separate per-kind regex attempts — Python's
+<code>re</code> alternation is itself ordered (first match wins, not longest-overall),
+which is what makes one regex correctly implement "first matching rule
+wins." See <code>_Scanner.next</code> for the literal order this grammar mirrors:</p>
+<pre class="mermaid-src"><code>flowchart TD
+    start(["next token, at the current position"]) --&gt; q{"leading\nchar?"}
+    q --&gt;|"&amp;quot; or '"| str["STRING-family\n(dquote / raw / multiline)"]
+    q --&gt;|"{ } :"| punct["punctuation"]
+    q --&gt;|"other"| dt{"matches\nDATETIME?"}
+    dt --&gt;|yes| DT["DATETIME"]
+    dt --&gt;|no| da{"matches DATE\n(and not DATE+'T'+TIME)?"}
+    da --&gt;|yes| DA["DATE"]
+    da --&gt;|no| ti{"matches\nTIME?"}
+    ti --&gt;|yes| TI["TIME"]
+    ti --&gt;|no| nu{"matches\nNUMBER\n(decimal/exponent)?"}
+    nu --&gt;|yes| NU["NUMBER"]
+    nu --&gt;|no| rf{"'-inf' / 'nan' /\n'inf' spelling?"}
+    rf --&gt;|yes| RF["NUMBER\n(reserved float)"]
+    rf --&gt;|no| ig{"matches\nINTEGER?"}
+    ig --&gt;|yes| IG["INTEGER"]
+    ig --&gt;|no| id{"matches\nIDENT?"}
+    id --&gt;|yes| ID["IDENT"]
+    id --&gt;|no| err(["ParseError:\nstray character"])</code></pre>
+<p>This is exactly why <code>nan: 1</code> and <code>inf: 1</code> are <code>ParseError</code>s (Worked example</p>
+<h1 id="9-below--naninf-inf-are-claimed-by-the-reserved-float-branch">9 below) — <code>nan</code>/<code>inf</code>/<code>-inf</code> are claimed by the reserved-float branch<a class="headerlink" href="#9-below--naninf-inf-are-claimed-by-the-reserved-float-branch" title="Permanent link">&para;</a></h1>
+<p><em>before</em> <code>IDENT</code> is ever tried, so they can never become a bare label; only
+the quoted spelling (<code>"nan"</code>, <code>"inf"</code>) reaches the <code>STRING</code> branch instead.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">; -- whitespace, comments, separators -----------------------------------</span>
+
+<span class="nc">hspace</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="l">%x20</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x09</span><span class="w">                  </span><span class="c1">; space, tab (intra-line only)</span>
+<span class="nc">comment</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="l">"#"</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="l">%x00-09</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x0B-10FFFF</span><span class="p">)</span><span class="w"> </span><span class="c1">; '#' to end of line, NL excluded</span>
+<span class="nc">newline</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="l">%x0D.0A</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x0A</span><span class="w">               </span><span class="c1">; CRLF or LF</span>
+<span class="nc">SEP</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="o">1*</span><span class="p">(</span><span class="w"> </span><span class="nc">hspace</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">comment</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">newline</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">";"</span><span class="w"> </span><span class="p">)</span>
+<span class="w">              </span><span class="c1">; one or more of these collapse into a single SEP token, as</span>
+<span class="w">              </span><span class="c1">; long as at least one newline/";" occurs; pure hspace/comment</span>
+<span class="w">              </span><span class="c1">; with no newline or ";" is just skipped (no token emitted)</span>
+
+<span class="c1">; -- punctuation ----------------------------------------------------------</span>
+
+<span class="nc">LBRACE</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="l">"{"</span>
+<span class="nc">RBRACE</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="l">"}"</span>
+<span class="nc">COLON</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="l">":"</span>
+
+<span class="c1">; -- identifiers and reserved words --------------------------------------</span>
+
+<span class="nc">IDENT</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">ALPHA</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"_"</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="k">ALPHA</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="k">DIGIT</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"_"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"-"</span><span class="p">)</span>
+<span class="k">ALPHA</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="l">%x41-5A</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x61-7A</span><span class="w">            </span><span class="c1">; A-Z / a-z</span>
+<span class="k">DIGIT</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="l">%x30-39</span><span class="w">                      </span><span class="c1">; 0-9</span>
+
+<span class="nc">reserved-word</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="l">%s"null"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%s"true"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%s"false"</span>
+<span class="nc">reserved-number</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="l">%s"nan"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%s"inf"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"-"</span><span class="w"> </span><span class="l">%s"inf"</span>
+<span class="w">              </span><span class="c1">; "nan"/"inf"/"-inf" are matched as NUMBER, never IDENT, by</span>
+<span class="w">              </span><span class="c1">; priority order (§1 above) -- they are not in the IDENT</span>
+<span class="w">              </span><span class="c1">; grammar's reserved set, they are pre-empted before IDENT is</span>
+<span class="w">              </span><span class="c1">; even tried. reserved-word ("null"/"true"/"false") *is*</span>
+<span class="w">              </span><span class="c1">; IDENT-shaped; it is excluded only at the *parser* level</span>
+<span class="w">              </span><span class="c1">; (a bare label can't be one of these three words -- see §4).</span>
+
+<span class="c1">; -- numeric and temporal literals ---------------------------------------</span>
+
+<span class="c1">; int-part forbids a leading zero followed by more digits (issue #328/</span>
+<span class="c1">; omnist-spec §4.2.3) -- "0" alone is fine (int-part = "0" is its own</span>
+<span class="c1">; alternative), "01"/"00.5" are not: a 0 followed by more digits is</span>
+<span class="c1">; rejected with parse.leading-zero, whether or not a fractional/exponent</span>
+<span class="c1">; part follows. This matches JSON's and TOML's own number grammars, which</span>
+<span class="c1">; OML already round-trips through.</span>
+<span class="nc">int-part</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="l">"0"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="l">%x31-39</span><span class="w"> </span><span class="o">*</span><span class="k">DIGIT</span><span class="p">)</span><span class="w">       </span><span class="c1">; "0", or a nonzero digit then any digits</span>
+
+<span class="nc">INTEGER</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="l">"-"</span><span class="p">]</span><span class="w"> </span><span class="nc">int-part</span>
+<span class="w">              </span><span class="c1">; digit count (sign excluded) is capped at 4300 -- see §6.</span>
+
+<span class="nc">NUMBER</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="nc">decimal-num</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">exponent-num</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">reserved-number</span>
+<span class="nc">decimal-num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="l">"-"</span><span class="p">]</span><span class="w"> </span><span class="nc">int-part</span><span class="w"> </span><span class="l">"."</span><span class="w"> </span><span class="o">1*</span><span class="k">DIGIT</span><span class="w"> </span><span class="p">[</span><span class="nc">exponent</span><span class="p">]</span>
+<span class="nc">exponent-num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="l">"-"</span><span class="p">]</span><span class="w"> </span><span class="nc">int-part</span><span class="w"> </span><span class="nc">exponent</span>
+<span class="nc">exponent</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="l">"e"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"E"</span><span class="p">)</span><span class="w"> </span><span class="p">[</span><span class="l">"+"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"-"</span><span class="p">]</span><span class="w"> </span><span class="o">1*</span><span class="k">DIGIT</span>
+
+<span class="nc">DATE</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="o">4</span><span class="k">DIGIT</span><span class="w"> </span><span class="l">"-"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span><span class="w"> </span><span class="l">"-"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span>
+<span class="w">              </span><span class="c1">; matched only when NOT immediately followed by "T" + a</span>
+<span class="w">              </span><span class="c1">; TIME-shaped lookahead -- see §1.1.</span>
+<span class="w">              </span><span class="c1">; issue #329/omnist-spec §4.2.4: 2DIGIT alone permits 00-99 for</span>
+<span class="w">              </span><span class="c1">; month/day, but only a valid proleptic-Gregorian calendar date</span>
+<span class="w">              </span><span class="c1">; is accepted (month 01-12, day valid for month/year including</span>
+<span class="w">              </span><span class="c1">; leap years) -- ABNF can't express that range constraint, so</span>
+<span class="w">              </span><span class="c1">; it's enforced by the parser, not this grammar, and violating</span>
+<span class="w">              </span><span class="c1">; it is parse.invalid-date, not a lexical failure.</span>
+
+<span class="nc">TIME</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span><span class="w"> </span><span class="l">":"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span><span class="w"> </span><span class="p">[</span><span class="l">":"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span><span class="w"> </span><span class="p">[</span><span class="l">"."</span><span class="w"> </span><span class="o">1*6</span><span class="k">DIGIT</span><span class="p">]]</span><span class="w"> </span><span class="p">[</span><span class="nc">tz-offset</span><span class="p">]</span>
+<span class="nc">tz-offset</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="l">"+"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"-"</span><span class="p">)</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span><span class="w"> </span><span class="l">":"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span>
+<span class="w">              </span><span class="c1">; issue #329/omnist-spec §4.2.4: hour 00-23, minute/second</span>
+<span class="w">              </span><span class="c1">; 00-59 (no leap-second spelling -- 23:59:60 is an error), and</span>
+<span class="w">              </span><span class="c1">; tz-offset's hour/minute share this *exact* rule, not a</span>
+<span class="w">              </span><span class="c1">; separately implemented (and potentially looser) one --</span>
+<span class="w">              </span><span class="c1">; enforced by the parser as parse.invalid-time.</span>
+
+<span class="nc">DATETIME</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="nc">DATE</span><span class="w"> </span><span class="l">"T"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span><span class="w"> </span><span class="l">":"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span>
+<span class="w">              </span><span class="p">[</span><span class="l">":"</span><span class="w"> </span><span class="o">2</span><span class="k">DIGIT</span><span class="w"> </span><span class="p">[</span><span class="l">"."</span><span class="w"> </span><span class="o">1*6</span><span class="k">DIGIT</span><span class="p">]]</span><span class="w"> </span><span class="p">[</span><span class="nc">tz-offset</span><span class="p">]</span>
+<span class="w">              </span><span class="c1">; its date portion and time portion (or tz-offset) are</span>
+<span class="w">              </span><span class="c1">; range-checked -- and, on failure, coded -- independently:</span>
+<span class="w">              </span><span class="c1">; parse.invalid-date vs parse.invalid-time respectively.</span>
+
+<span class="c1">; -- strings ---------------------------------------------------------------</span>
+
+<span class="nc">STRING</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="nc">dquote-string</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">raw-string</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">multiline-string</span>
+
+<span class="nc">dquote-string</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="k">DQUOTE</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="w"> </span><span class="nc">unescaped</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">escape</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="k">DQUOTE</span>
+<span class="k">DQUOTE</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="l">%x22</span><span class="w">                          </span><span class="c1">; '"'</span>
+<span class="nc">unescaped</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="l">%x20-21</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x23-5B</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x5D-10FFFF</span>
+<span class="w">              </span><span class="c1">; any character &gt;= U+0020 except '"' (x22) and '\' (x5C);</span>
+<span class="w">              </span><span class="c1">; control characters (&lt; U+0020) are rejected with a ParseError</span>
+<span class="nc">escape</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="l">"\"</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="l">%x22</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"\"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"/"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"b"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"f"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"n"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"r"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"t"</span>
+<span class="w">                   </span><span class="o">/</span><span class="w"> </span><span class="l">"u"</span><span class="w"> </span><span class="o">4</span><span class="k">HEXDIG</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="l">"\"</span><span class="w"> </span><span class="l">"u"</span><span class="w"> </span><span class="o">4</span><span class="k">HEXDIG</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">)</span>
+<span class="w">              </span><span class="c1">; \", \\, \/, \b, \f, \n, \r, \t, or \uXXXX -- a \uXXXX in the</span>
+<span class="w">              </span><span class="c1">; high-surrogate range (D800-DBFF) MUST be immediately</span>
+<span class="w">              </span><span class="c1">; followed by a second \uXXXX low-surrogate (DC00-DFFF);</span>
+<span class="w">              </span><span class="c1">; an unpaired high or low surrogate escape is a ParseError.</span>
+<span class="k">HEXDIG</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="k">DIGIT</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x41-46</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x61-66</span><span class="w">     </span><span class="c1">; 0-9 / A-F / a-f</span>
+
+<span class="c1">; -- OML-Extended (read-only; the writer never emits these) ---------------</span>
+
+<span class="nc">raw-string</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="l">"'"</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="l">%x00-26</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x28-10FFFF</span><span class="p">)</span><span class="w"> </span><span class="l">"'"</span>
+<span class="w">              </span><span class="c1">; everything between single quotes is literal -- no escape</span>
+<span class="w">              </span><span class="c1">; processing at all, including backslash and newline.</span>
+
+<span class="nc">multiline-string</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">DQUOTE</span><span class="w"> </span><span class="k">DQUOTE</span><span class="w"> </span><span class="k">DQUOTE</span><span class="w"> </span><span class="p">[</span><span class="nc">newline</span><span class="p">]</span>
+<span class="w">                    </span><span class="o">*</span><span class="p">(</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="k">DQUOTE</span><span class="w"> </span><span class="k">DQUOTE</span><span class="w"> </span><span class="nc">not-3-dquote</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">mlchar</span><span class="w"> </span><span class="p">)</span>
+<span class="w">                    </span><span class="k">DQUOTE</span><span class="w"> </span><span class="k">DQUOTE</span><span class="w"> </span><span class="k">DQUOTE</span>
+<span class="w">              </span><span class="c1">; opens with """, optionally followed immediately by one</span>
+<span class="w">              </span><span class="c1">; newline (consumed, not part of the value); closes at the</span>
+<span class="w">              </span><span class="c1">; *first* run of 3 or more '"' characters encountered -- only</span>
+<span class="w">              </span><span class="c1">; the first 3 quotes of that run are consumed as the</span>
+<span class="w">              </span><span class="c1">; terminator (see §1.2); a run of exactly 1-2 quotes is</span>
+<span class="w">              </span><span class="c1">; literal content, not a terminator.</span>
+<span class="nc">mlchar</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="l">%x09</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x0A</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%x20-10FFFF</span><span class="w">     </span><span class="c1">; tab, LF, or &gt;= U+0020</span>
+<span class="w">              </span><span class="c1">; (control chars other than tab/LF are rejected)</span>
+</code></pre></div>
+<!-- doc-illustrative -->
+
+<h3 id="11-date-vs-datetime-disambiguation">1.1 DATE vs. DATETIME disambiguation<a class="headerlink" href="#11-date-vs-datetime-disambiguation" title="Permanent link">&para;</a></h3>
+<p>At a position where <code>DATE</code> matches, the scanner does <strong>not</strong> emit a <code>DATE</code>
+token if the character immediately after the date digits is <code>T</code> <em>and</em> the
+text following that <code>T</code> itself matches <code>TIME</code>. In that case it instead
+tries <code>DATETIME</code> (which, since <code>DATETIME = DATE "T" TIME-body</code>, will
+succeed). If the text after <code>T</code> does <strong>not</strong> look like a time (e.g.
+<code>2024-01-01T99</code>, where <code>99</code> does not match <code>TIME</code>'s <code>2DIGIT ":" 2DIGIT...</code>
+shape), the scanner emits a plain <code>DATE</code> token for the date part, and the
+<code>T99</code> that follows becomes a separate <code>IDENT</code> token (<code>T</code> is alphabetic, so
+<code>T99</code> matches the <code>IDENT</code> pattern) — this is exactly maximal-munch-per-rule,
+not a single combined lookahead across the whole token stream. See
+<a href="#7-worked-examples">Worked examples</a> #1-#2.</p>
+<h3 id="12-multiline-string-termination-oml-extended">1.2 Multiline string termination (OML-Extended)<a class="headerlink" href="#12-multiline-string-termination-oml-extended" title="Permanent link">&para;</a></h3>
+<p>A <code>"""..."""</code> string closes at the <strong>first</strong> point where three or more
+consecutive <code>"</code> characters appear. Only the first three of that run are
+consumed as the closing delimiter; any further <code>"</code> characters in the run
+are left in the source and re-tokenized by the main scanner immediately
+after (so e.g. a run of 5 quotes closes the string with the first 3, and
+leaves a 2-quote run — which is <em>not</em> by itself a valid <code>STRING</code> start, and
+is a ParseError at the parser level, since two bare <code>"</code> would attempt to
+open an empty-then-unterminated string). See <a href="#7-worked-examples">Worked examples</a></p>
+<h1 id="7-8">7-#8.<a class="headerlink" href="#7-8" title="Permanent link">&para;</a></h1>
+<h3 id="13-reserved-spellings-are-tokenizer-level-not-parser-level-for-numbers">1.3 Reserved spellings are tokenizer-level, not parser-level, for numbers<a class="headerlink" href="#13-reserved-spellings-are-tokenizer-level-not-parser-level-for-numbers" title="Permanent link">&para;</a></h3>
+<p><code>nan</code>, <code>inf</code>, and <code>-inf</code> are recognized as <code>NUMBER</code> tokens by the scanner
+itself (priority order in §1), so they can never be mistaken for an
+<code>IDENT</code> — <code>nan: 1</code> always means the label <code>nan</code> is rejected as <em>not a
+label</em> (it's a NUMBER token, and <code>_looks_like_edge</code> only treats <code>STRING</code>
+and non-reserved <code>IDENT</code> followed by <code>COLON</code> as edges), forcing a quoted
+spelling <code>"nan": 1</code> if a literal label <code>nan</code> is wanted. By contrast <code>null</code>,
+<code>true</code>, <code>false</code> are tokenized as ordinary <code>IDENT</code> tokens and excluded only
+by the <em>parser</em> (§4) — a meaningful difference if you're hand-rolling a
+tokenizer-only consumer. See <a href="#7-worked-examples">Worked examples</a> #9-#10.</p>
+<h2 id="2-syntactic-grammar-document-edges-values">2. Syntactic grammar (document, edges, values)<a class="headerlink" href="#2-syntactic-grammar-document-edges-values" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nc">document</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="nc">value</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">node-edges</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span>
+<span class="w">              </span><span class="c1">; a document is exactly one node: either a single scalar</span>
+<span class="w">              </span><span class="c1">; value, or a (possibly empty) list of top-level edges.</span>
+<span class="w">              </span><span class="c1">; Leading/trailing SEP is allowed; anything else left over</span>
+<span class="w">              </span><span class="c1">; after the one node is a ParseError ("unexpected trailing</span>
+<span class="w">              </span><span class="c1">; content").</span>
+
+<span class="nc">node-edges</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">edge</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="w"> </span><span class="nc">SEP</span><span class="w"> </span><span class="nc">edge</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">""</span>
+<span class="w">              </span><span class="c1">; zero or more `label: value` edges, SEP-separated; the same</span>
+<span class="w">              </span><span class="c1">; label may repeat (an edge list, not a map) and edges may</span>
+<span class="w">              </span><span class="c1">; interleave freely -- there is no uniqueness or ordering</span>
+<span class="w">              </span><span class="c1">; constraint on labels.</span>
+
+<span class="nc">edge</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="nc">label</span><span class="w"> </span><span class="nc">COLON</span><span class="w"> </span><span class="nc">value</span>
+
+<span class="nc">label</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="nc">STRING</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">bare-label</span>
+<span class="nc">bare-label</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">IDENT</span><span class="w">                </span><span class="c1">; rejected at parse time if IDENT's text</span>
+<span class="w">                                    </span><span class="c1">; is "null", "true", or "false" (§4)</span>
+
+<span class="nc">value</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="nc">scalar</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"{"</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="nc">node-edges</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="l">"}"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">array</span>
+<span class="w">              </span><span class="c1">; "{}" (with only SEP, if any, between the braces) is a valid</span>
+<span class="w">              </span><span class="c1">; value: the empty edge list.</span>
+
+<span class="nc">scalar</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="nc">STRING</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">INTEGER</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">NUMBER</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">DATE</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">TIME</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nc">DATETIME</span>
+<span class="w">            </span><span class="o">/</span><span class="w"> </span><span class="l">%s"null"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%s"true"</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">%s"false"</span>
+<span class="w">              </span><span class="c1">; a bare IDENT that is none of null/true/false is a</span>
+<span class="w">              </span><span class="c1">; ParseError ("bare word ... is not a valid value here;</span>
+<span class="w">              </span><span class="c1">; strings must be quoted") -- there is no implicit</span>
+<span class="w">              </span><span class="c1">; string-from-identifier coercion anywhere in OML.</span>
+
+<span class="c1">; -- arrays (issue #218) --------------------------------------------------</span>
+
+<span class="nc">array</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="l">"["</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="nc">array-element</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="w"> </span><span class="l">","</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="nc">array-element</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">[</span><span class="l">","</span><span class="p">]</span>
+<span class="w">              </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="l">"]"</span>
+<span class="w">              </span><span class="c1">; sugar for edge-multiplication, expanded at *parse* time --</span>
+<span class="w">              </span><span class="c1">; "label: [v1, v2]" becomes two edges, "label: v1" and</span>
+<span class="w">              </span><span class="c1">; "label: v2", at that exact position in the edge list. An</span>
+<span class="w">              </span><span class="c1">; array is not itself a value in the Document model, which is</span>
+<span class="w">              </span><span class="c1">; why array-element excludes array: nesting has nothing to</span>
+<span class="w">              </span><span class="c1">; nest into. Comma is the only element separator (a bare</span>
+<span class="w">              </span><span class="c1">; newline/";" is a ParseError inside "[...]"); a trailing</span>
+<span class="w">              </span><span class="c1">; comma before "]" is legal; "[]" (empty) is a ParseError,</span>
+<span class="w">              </span><span class="c1">; not a zero-edge expansion; SEP (including "#" comments and</span>
+<span class="w">              </span><span class="c1">; newlines) is otherwise insignificant inside "[...]", same</span>
+<span class="w">              </span><span class="c1">; as everywhere else.</span>
+
+<span class="nc">array-element</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">scalar</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="l">"{"</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="nc">node-edges</span><span class="w"> </span><span class="p">[</span><span class="nc">SEP</span><span class="p">]</span><span class="w"> </span><span class="l">"}"</span>
+<span class="w">              </span><span class="c1">; everything "value" allows except another array.</span>
+</code></pre></div>
+<p>Nesting depth — the number of <code>{</code> braces a value may be wrapped in — is
+capped at 200 (<code>_MAX_DEPTH</code>); see §6.</p>
+<h3 id="21-top-level-node-kind-disambiguation">2.1 Top-level node-kind disambiguation<a class="headerlink" href="#21-top-level-node-kind-disambiguation" title="Permanent link">&para;</a></h3>
+<p><code>document</code>'s grammar is ambiguous on paper (a bare <code>IDENT</code>/<code>STRING</code> could
+start either a <code>scalar</code> or an <code>edge</code>), but the parser resolves it with one
+token of lookahead before committing (<code>_looks_like_edge</code>): if the current
+token is a <code>STRING</code> or a non-reserved <code>IDENT</code> <strong>and</strong> the token immediately
+after it is <code>COLON</code>, the document is parsed as <code>node-edges</code>; otherwise it is
+parsed as a single <code>scalar</code>. This lookahead only fires at the very start of
+the document (and recursively, at the start of each value inside <code>{ }</code>) —
+it is not a general operator-precedence ambiguity.</p>
+<p>One sharp edge from this: <code>null: 1</code> at the top level is <strong>not</strong> the
+"reserved word as label" error from §4 — <code>null</code> fails the <code>_looks_like_edge</code>
+check (reserved words are excluded from the edge lookahead), so the parser
+takes the <code>scalar</code> branch, consumes <code>null</code> as the value <code>None</code>, and then
+fails afterward on the unconsumed <code>:</code> as ordinary trailing content. The same
+<code>null: 1</code> written <em>inside</em> a node (e.g. <code>a: { null: 1 }</code>) does hit the
+explicit reserved-word check in <code>parse_label</code>, with a different, more
+specific error message. See <a href="#7-worked-examples">Worked examples</a> #11-#12.</p>
+<h2 id="3-string-escaping-rules">3. String escaping rules<a class="headerlink" href="#3-string-escaping-rules" title="Permanent link">&para;</a></h2>
+<p>Inside a <code>dquote-string</code> or <code>multiline-string</code>, the recognized escapes are
+exactly: <code>\"</code>, <code>\\</code>, <code>\/</code>, <code>\b</code>, <code>\f</code>, <code>\n</code>, <code>\r</code>, <code>\t</code>, and <code>\uXXXX</code> (4 hex
+digits). A <code>\uXXXX</code> in the UTF-16 high-surrogate range <code>D800</code>-<code>DBFF</code> must be
+immediately followed by a second <code>\uXXXX</code> escape in the low-surrogate range
+<code>DC00</code>-<code>DFFF</code>; the pair is combined into one astral code point. Any other
+backslash escape, or an unpaired surrogate escape, is a <code>ParseError</code>. Any
+literal control character (code point &lt; <code>U+0020</code>, except tab/LF inside a
+multiline string) is rejected unescaped.</p>
+<p>A <code>raw-string</code> (<code>'...'</code>, OML-Extended, read-only) performs <strong>no</strong> escape
+processing at all — a backslash inside single quotes is a literal
+backslash, and there is no way to include a <code>'</code> character in a raw string
+(the first <code>'</code> always closes it).</p>
+<p>The canonical writer (<a href="https://github.com/omnist-dev/omnist/blob/master/omnist/oml.py"><code>_write_string</code></a>)
+only ever emits <code>\"</code>, <code>\\</code>, <code>\n</code>, <code>\r</code>, <code>\t</code>, and <code>\u00XX</code> (for other
+control characters) — it never emits <code>\/</code>, <code>\b</code>, <code>\f</code>, surrogate pairs (it
+emits literal non-ASCII characters unescaped), raw strings, or multiline
+strings; those are read-only conveniences.</p>
+<h2 id="4-labels-bare-vs-quoted-and-reserved-words">4. Labels: bare vs. quoted, and reserved words<a class="headerlink" href="#4-labels-bare-vs-quoted-and-reserved-words" title="Permanent link">&para;</a></h2>
+<p>A <code>bare-label</code> is an <code>IDENT</code> whose text is <strong>not</strong> <code>null</code>, <code>true</code>, or
+<code>false</code> — using one of those three words unquoted as a label inside <code>{ }</code>
+is a <code>ParseError</code> with a message naming the specific reserved word and
+suggesting the quoted spelling. Any other <code>IDENT</code>-shaped text, and any
+<code>STRING</code>, is a valid label. The canonical writer
+(<a href="https://github.com/omnist-dev/omnist/blob/master/omnist/oml.py"><code>_write_label</code></a>) emits a bare label only
+when the label text matches the <code>IDENT</code> shape <em>and</em> is not one of <code>null</code>,
+<code>true</code>, <code>false</code>, <code>nan</code>, <code>inf</code>; otherwise it quotes the label.</p>
+<h2 id="5-top-level-document-shapes">5. Top-level document shapes<a class="headerlink" href="#5-top-level-document-shapes" title="Permanent link">&para;</a></h2>
+<p>Unlike most formats, an OML document is not required to have a single root
+object — <code>document</code> (§2) accepts:</p>
+<ul>
+<li>a single top-level <strong>scalar</strong> (<code>"hello"</code>, <code>42</code>, <code>null</code>, ...) — the
+  document <em>is</em> that one leaf value, with no wrapping edge;</li>
+<li>zero or more top-level <strong>edges</strong>, of which there can be more than one
+  (including repeats of the same label) — there is no implicit top-level
+  object/array wrapper.</li>
+</ul>
+<p>A document containing more than one top-level item that doesn't parse as a
+single edge list (e.g. two bare scalars back to back) is a <code>ParseError</code>.</p>
+<h2 id="6-documented-limits">6. Documented limits<a class="headerlink" href="#6-documented-limits" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Value</th>
+<th>Constant</th>
+<th>Enforced where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Integer literal digit count (sign excluded)</td>
+<td>4300</td>
+<td><code>_MAX_INT_DIGITS</code> in <code>omnist/oml.py</code></td>
+<td><code>_Scanner._emit_integer</code>, at tokenize time</td>
+</tr>
+<tr>
+<td>Nesting depth (<code>{</code> levels)</td>
+<td>200</td>
+<td><code>_MAX_DEPTH</code> in <code>omnist/oml.py</code></td>
+<td><code>_Parser.parse_value</code>, at parse time</td>
+</tr>
+</tbody>
+</table>
+<p>The integer-digit limit matches CPython's own default
+<code>sys.get_int_max_str_digits()</code> — int-to-str/str-to-int conversion on
+arbitrarily large digit strings is superlinear, so this is a
+denial-of-service guard, not a data-modeling constraint. The nesting-depth
+limit matches the Document model's own bound (<code>document.py</code>). Both raise
+<code>ParseError</code> rather than letting a pathological input hang or exhaust
+memory/stack. Verified exactly at the boundary: a 4300-digit integer and
+200 levels of <code>{</code> both parse; a 4301-digit integer and 201 levels both raise
+<code>ParseError</code> (see <a href="#7-worked-examples">Worked examples</a> #13-#14, and
+<code>tests/test_grammar_docs.py</code>).</p>
+<h2 id="7-worked-examples">7. Worked examples<a class="headerlink" href="#7-worked-examples" title="Permanent link">&para;</a></h2>
+<p>Each row was run against <code>read_oml</code>/<code>write_oml</code> to confirm the claimed
+behavior (see <code>tests/test_grammar_docs.py</code> for the executable form).</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Input</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>2024-01-01T10:30</code></td>
+<td><code>DATETIME</code> token → <code>datetime.datetime(2024, 1, 1, 10, 30)</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>2024-01-01T99</code></td>
+<td><code>DATE</code> token (<code>2024-01-01</code>) followed by <code>IDENT</code> token (<code>T99</code>) → trailing-content <code>ParseError</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>a: 'C:\no\escapes'</code></td>
+<td>raw string, value is the literal text <code>C:\no\escapes</code> (backslashes not processed)</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>a: """␊hello␊world"""</code></td>
+<td>multiline string, value <code>"hello\nworld"</code> (leading newline after <code>"""</code> is stripped)</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>a: """␊says ""hi"" there"""</code></td>
+<td>embedded 2-quote runs are literal; value <code>'says ""hi"" there'</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>null: 1</code> (inside <code>{ }</code>)</td>
+<td><code>ParseError</code>: <code>'null' is a reserved word and cannot be a bare label; quote it: "null"</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>a: """␊x""""</code> (4 trailing quotes)</td>
+<td>first 3 quotes close the string; the 4th quote starts an unterminated <code>dquote-string</code> → <code>ParseError</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>a: """␊x"""""</code> (5 trailing quotes)</td>
+<td>first 3 close the string; remaining 2 quotes are a 2-character leftover, rejected as an unexpected token after the value</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>nan: 1</code></td>
+<td><code>ParseError</code> (<code>nan</code> is tokenized as <code>NUMBER</code>, never reaches the edge/label grammar at all)</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>"nan": 1</code></td>
+<td>OK — quoting forces the <code>STRING</code> token, which <em>is</em> a valid label</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>null: 1</code> (top level)</td>
+<td>OK as far as <code>null</code> (parsed as the scalar <code>None</code>), then <code>ParseError</code> on the leftover <code>:</code> as trailing content — a different failure mode than #6</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>a: { null: 1 }</code></td>
+<td>the explicit reserved-word <code>ParseError</code> from #6 (label position is unambiguous inside <code>{ }</code>)</td>
+</tr>
+<tr>
+<td>13</td>
+<td>integer with 4300 digits / 200 levels of <code>{</code> nesting</td>
+<td>both parse successfully</td>
+</tr>
+<tr>
+<td>14</td>
+<td>integer with 4301 digits / 201 levels of <code>{</code> nesting</td>
+<td>both raise <code>ParseError</code> naming the limit</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>tag: "x"␊tag: "y"</code></td>
+<td>repeated label → two edges, <code>[('tag', 'x'), ('tag', 'y')]</code> (an array is just a repeated label, never a list value)</td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>a: {}</code></td>
+<td>empty node value → <code>[('a', [])]</code></td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>"hello"</code> (top level, no label)</td>
+<td>the whole document is the single scalar <code>'hello'</code></td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>write_oml([('a', 1), ('b', [('x', 1), ('y', 2)])], indent=None)</code></td>
+<td>compact form <code>'a: 1; b: { x: 1; y: 2 }'</code>, which <code>read_oml</code> parses back to the same node</td>
+</tr>
+<tr>
+<td>19</td>
+<td><code>b: [1, 2, 3]</code></td>
+<td>array sugar, expands at parse time to <code>[('b', 1), ('b', 2), ('b', 3)]</code> -- identical to three repeated <code>b:</code> edges (issue #218)</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../assets/mermaid.min.js"></script>
+      
+        <script src="../../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

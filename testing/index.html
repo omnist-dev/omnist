@@ -1,0 +1,2005 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="One canonical data model for JSON, YAML, TOML, XML, and OML.">
+      
+      
+      
+        <link rel="canonical" href="https://py.omnist.dev/testing/">
+      
+      
+        <link rel="prev" href="../glossary/">
+      
+      
+        <link rel="next" href="../layout/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Testing - Omnist</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#testing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Omnist" class="md-header__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Omnist
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Testing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Omnist" class="md-nav__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    Omnist
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../presentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction deck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../why-omnist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Omnist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stability policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../limitations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known limitations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema model & OSD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real-life example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-world examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Real-world examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/pyproject/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pyproject.toml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/package-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    package.json
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Actions workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/sitemap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sitemap.xml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deserialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema-directed deserialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formats
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Formats
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/yaml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/toml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TOML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/xml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    XML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document & Schema model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/oml-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML-Core grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/schema-osd-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OSD grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/any-type-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    any type spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/openness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Openness decision record
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/cli-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fuzzing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fuzzing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fuzzing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-triple-checked-algebra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The triple-checked algebra
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#doc-example-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Doc-example coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo layout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fuzzing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fuzzing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fuzzing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-triple-checked-algebra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The triple-checked algebra
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#doc-example-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Doc-example coverage
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h1>
+<p>How Omnist's test suite is laid out, how coverage is measured and treated,
+what the fuzz tests actually fuzz, and what CI runs on every push and PR.</p>
+<h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
+<p>All tests live in <code>tests/</code>, run with <code>pytest</code>.</p>
+<ul>
+<li><strong><code>tests/test_canonical.py</code></strong> — the core test file for the canonical
+  (current) Document/Schema model described in <code>docs/design/model.md</code>: the
+  edge-list <code>Doc</code>, the <code>record</code>/<code>Ref</code> schema model with its seven scalar
+  kinds and field cardinality, OSD, validation (<code>Schema.validate</code>,
+  <code>accepts</code>), the schema operations (<code>compatible_with</code>, <code>equivalent</code>,
+  <code>infer</code>), and the codecs (<code>check_*</code>/<code>read_*</code>/<code>write_*</code> for JSON, YAML,
+  TOML, XML). It's organized into <code>Test*</code> classes by area — public API,
+  <code>Doc</code>, <code>infer</code>, validation, OSD robustness, temporal boundary values,
+  operations, malformed input, codecs, deserialize-with-schema, reports,
+  the format registry, <code>Doc</code>/module-level check parity, <code>WriteReport.__str__</code>,
+  OSD error messages, document/schema-construction error paths, schema model
+  dunders (<code>__repr__</code>/<code>__eq__</code>/<code>__hash__</code>/<code>__str__</code>/<code>__bool__</code>),
+  <code>matches_kind</code>/<code>value_kind</code>, infer errors, and TOML/XML-specific edge
+  cases.</li>
+<li><strong><code>tests/test_oml.py</code></strong> — OML (Omnist's own format), covering happy-path
+  round-tripping of every scalar kind plus null, string escaping, raw
+  strings, multiline strings and their interaction with the line/<code>;</code>
+  separator, top-level brace disambiguation, structural parse errors inside
+  braces, reserved words used as labels, numeric edge cases, the
+  nesting-depth limit, BOM/encoding handling, full Document round-trips
+  (repeated/interleaved labels, nesting), schema-directed reads, and a
+  full real-life document matching the design doc's worked example.</li>
+<li><strong><code>tests/test_docs.py</code></strong> — every key snippet shown in the docs
+  (<code>README.md</code>, <code>docs/guide.md</code>, <code>docs/schema.md</code>, <code>docs/formats/*.md</code>,
+  etc.) is executed as an assertion here, so a documentation change that
+  silently breaks the described behavior fails CI instead of rotting
+  unnoticed.</li>
+<li><strong><code>tests/test_examples.py</code></strong> — runs every <code>examples/*.py</code> file as a
+  subprocess (via <code>pytest.mark.parametrize</code>) and asserts a clean exit code,
+  printing stdout/stderr on failure. Examples are documentation too, and
+  nothing else exercises them as scripts.</li>
+<li><strong><code>tests/test_fuzz.py</code></strong> — property-based fuzzing with
+  <a href="https://hypothesis.readthedocs.io/">Hypothesis</a>, added in #64. See
+  <a href="#fuzzing">Fuzzing</a> below.</li>
+<li><strong><code>tests/test_semantic_oracle.py</code></strong> — a bounded, deterministic run of the
+  brute-force semantic oracle (<code>tools/semantic_oracle.py</code>, #158): the
+  schema algebra checked against enumerated set-theoretic ground truth
+  rather than another algorithm. See
+  <a href="#the-triple-checked-algebra">The triple-checked algebra</a> below.</li>
+</ul>
+<h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
+<p>Run the full suite under coverage with:</p>
+<div class="highlight"><pre><span></span><code>coverage<span class="w"> </span>run<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>coverage<span class="w"> </span>report<span class="w"> </span>-m
+</code></pre></div>
+<p><strong>Target: 100% line coverage across the whole repository</strong> — the
+<code>omnist</code> package itself, and the test/tooling files that exercise it.
+The package-level breakdown, at the time of writing:</p>
+<div class="highlight"><pre><span></span><code>Name                       Stmts   Miss  Cover
+----------------------------------------------
+omnist/__init__.py            14      0   100%
+omnist/cli.py                216      0   100%
+omnist/deserialize.py         91      0   100%
+omnist/document.py           202      0   100%
+omnist/errors.py              10      0   100%
+omnist/formats.py            255      0   100%
+omnist/infer.py               77      0   100%
+omnist/oml.py                437      0   100%
+omnist/ops/__init__.py         5      0   100%
+omnist/ops/extract.py         43      0   100%
+omnist/ops/isomorphic.py      27      0   100%
+omnist/ops/minimize.py        55      0   100%
+omnist/ops/prune.py           65      0   100%
+omnist/ops/signature.py       10      0   100%
+omnist/ops/subschema.py       56      0   100%
+omnist/osd.py                149      0   100%
+omnist/registry.py            32      0   100%
+omnist/report.py              35      0   100%
+omnist/schema.py             250      0   100%
+----------------------------------------------
+TOTAL                       2029      0   100%
+</code></pre></div>
+<p>The few <code># pragma: no cover</code> exclusions in the package are limited to
+genuinely unreachable defensive code, each annotated with its reason
+in-line: three <code>raise ValueError</code> guards behind argparse <code>choices=</code>
+restrictions, and the <code>if __name__ == "__main__"</code> entry point in
+<code>cli.py</code>.</p>
+<p>Test files carry the same discipline. A recurring pattern there is the
+defensive trip-wire: <code>assert False, "expected SomeError"</code> (or equivalent)
+inside a <code>try/except</code>-negative test, which by construction never executes
+while the suite passes — writing a test that deliberately breaks the
+library to hit it would be actively wrong, so these are annotated
+<code># pragma: no cover</code> with a one-line reason instead. Genuinely rare-but-real
+branches (e.g. a helper's mismatch case Hypothesis rarely generates by
+chance, or a recursion base case at max depth) are forced deterministically
+with a direct unit test or an explicit <code>@example(...)</code>, not suppressed —
+Hypothesis's own random seed isn't a reliable way to guarantee a branch
+runs on every CI run. A handful of branches turned out to be unreachable
+dead code on inspection (e.g. an empty-<code>env</code> <code>Schema</code> that the constructor
+can't actually produce, since <code>root</code> must always resolve in <code>env</code>) — those
+were deleted, not tested around.</p>
+<p><strong>How a gap is treated</strong>, following the precedent set in #63 (the PR that
+first brought the package to 100%, omnist-dev/omnist#74): for every line/branch
+reported as missing,</p>
+<ol>
+<li>Read the surrounding code to understand what path is untested.</li>
+<li>Decide: is it a <em>real, reachable</em> edge case, or <em>dead/unreachable</em> code?</li>
+<li>If reachable — add a targeted test in the relevant existing file
+   (<code>test_canonical.py</code> for schema/document/report code, <code>test_oml.py</code> for
+   <code>oml.py</code>, or a new file if nothing existing fits) that exercises real
+   behavior. Coverage should follow from testing real behavior, not the
+   reverse — don't change behavior just to make a line easier to hit.</li>
+<li>If dead — delete it. (#63's PR removed <code>formats.get_reader()</code>, a helper
+   left over from before the <code>registry.py</code>/<code>get_format()</code> plugin system,
+   confirmed via a history search to be unused and unreferenced.)</li>
+<li>Some lines are defense-in-depth that the public API can't reach through
+   normal use (e.g. a cyclic-reference guard that construction-time checks
+   already make unreachable). These are tested by deliberately bypassing
+   the guard (e.g. mutating private state) rather than marked
+   <code># pragma: no cover</code> — <code># pragma: no cover</code> is reserved for lines that
+   are genuinely untestable, such as an <code>ImportError</code> fallback for an
+   optional dependency that's always installed in CI, and each such pragma
+   must be justified in its PR.</li>
+</ol>
+<h2 id="fuzzing">Fuzzing<a class="headerlink" href="#fuzzing" title="Permanent link">&para;</a></h2>
+<p><code>tests/test_fuzz.py</code> uses Hypothesis to fuzz two different things:</p>
+<p><strong>1. Round-trip fuzzing.</strong> Randomly generated canonical Document nodes (the
+<code>[(label, child), ...]</code> edge-list/scalar-leaf shape, nested up to 5 levels
+deep, with all seven scalar kinds plus <code>null</code>, including edge-case values
+like signed zero, NaN/inf, and dates spanning year 1 to year 9999) are
+round-tripped through every codec:</p>
+<ul>
+<li><strong>OML</strong> (<code>write_oml</code>/<code>read_oml</code>) must round-trip <em>exactly</em>, with zero
+  reported adjustments — OML is the one format with no documented lossiness.</li>
+<li><strong>JSON, YAML, TOML, XML</strong> must round-trip exactly <em>modulo documented
+  adjustments</em> — the test asserts every adjustment code returned by
+  <code>check_json</code>/<code>check_yaml</code>/<code>check_toml</code>/<code>check_xml</code> is one already
+  documented (e.g. <code>temporal.stringified</code>, <code>null.omitted</code>,
+  <code>value.stringified</code>) and only skips the
+  exact-equality assertion when an adjustment was actually reported. A value
+  with no legal representation at all (a null leaf to TOML, a NaN/Infinity
+  leaf to JSON, a bad label or empty internal node to XML — issues
+  #323/#324/#325) raises <code>WriteError</code> with <code>code="write.unsupported-value"</code>
+  instead of returning a report; the test catches that specifically and
+  skips the round-trip comparison for that example, same as an
+  already-documented adjustment. An
+  <em>undocumented</em> mismatch — an adjustment code the test doesn't recognize,
+  a <code>WriteError</code> with a different code, or data that changes without any
+  reported adjustment at all — fails the
+  test. TOML is restricted to list-shaped (table) roots, since it has no
+  scalar top level.</li>
+<li><strong><code>doc(...)</code>/<code>build_node</code></strong> round-trip from an equivalent plain Python
+  value (dict/list/scalar, generated separately since a Python dict can't
+  express repeated/interleaved same-level labels), and the resulting node
+  is itself round-tripped through OML.</li>
+</ul>
+<p><strong>2. Crash-freedom fuzzing.</strong> Arbitrary text — both fully random Unicode and
+text drawn from an alphabet biased toward OML/OSD syntax characters (more
+likely to reach deep parser states) — is fed into <code>read_oml</code> and
+<code>parse_schema</code>. The only exceptions either is allowed to raise are
+<code>ParseError</code>/<code>SchemaError</code> (or a subclass); anything else escaping is
+treated as a hardening bug and fails the test immediately.</p>
+<p><strong>What's deliberately <em>not</em> fuzzed</strong>: the third-party format parsers
+themselves (PyYAML, <code>tomllib</code>/<code>tomli_w</code>, the stdlib/<code>defusedxml</code> XML parser,
+the stdlib <code>json</code> module) — Omnist's codecs are fuzzed at the boundary
+(Document in, formatted text out, and back), not the underlying libraries'
+own parsing correctness, which is out of scope.</p>
+<p>A handful of known, separately-filed bugs are excluded from the generators
+with an explanation in the code (each cross-references its own issue) so
+the fuzz suite tests the <em>currently documented</em> contract rather than
+red-lining on already-tracked gaps — e.g. <code>"inf"</code>/<code>"nan"</code>/<code>"-inf"</code> excluded
+from generated labels (#71), documents containing U+0085 excluded from the
+YAML round-trip test (#69), and two XML round-trip gaps around control
+characters and empty containers (#67, #68). Found bugs are not fixed inside
+this test file — per the project's standing workflow, a real bug found by
+fuzzing gets its own issue and its own fix PR; only a flaw in the fuzz
+test's own assumptions (e.g. an equality helper that doesn't handle NaN) is
+fixed here directly.</p>
+<p>To run only the fuzz tests:</p>
+<div class="highlight"><pre><span></span><code>pytest<span class="w"> </span>-q<span class="w"> </span>tests/test_fuzz.py
+</code></pre></div>
+<p>There are no custom pytest markers for fuzz tests; they're ordinary
+<code>@given</code>-decorated test functions, scoped to one file, so running that file
+is the standalone invocation. Hypothesis settings are tuned for CI in the
+module-level <code>_SUPPRESS</code> settings object (<code>deadline=None</code>, <code>max_examples=150</code>,
+<code>HealthCheck.too_slow</code> suppressed) and apply automatically to every test
+in the file.</p>
+<h3 id="the-triple-checked-algebra">The triple-checked algebra<a class="headerlink" href="#the-triple-checked-algebra" title="Permanent link">&para;</a></h3>
+<p>Most of this suite tests behavior against examples: a schema and a document,
+worked out by hand, checked against the expected result. <code>equivalent()</code>'s
+property tests (#141) and the brute-force semantic oracle (#158) do
+something stronger, and it's worth calling out why. Between them, the core
+schema algebra is checked three independent ways: <code>compatible_with</code>'s own
+Algorithm 4 inclusion test, a minimize-then-isomorphism-test decision
+procedure for the same question (Theorem 4), and brute-force enumeration
+against set-theoretic ground truth. Any two of these sharing a bug would
+require the bug to survive three structurally unrelated computations at
+once.</p>
+<p><code>omnist</code>'s public <code>Schema.equivalent()</code> is defined as bidirectional
+<code>compatible_with()</code> — the paper's Algorithm 4 (SubschemaSA) run in both
+directions. That's the cheap, single algorithm the public API commits to.
+But the paper also proves a separate result, Theorem 4: two schemas are
+equivalent <em>iff</em> their minimized forms (<code>normalize()</code>, Algorithm 2) are
+isomorphic (Algorithm 3's isomorphism-testing step). Isomorphism testing —
+implemented privately as <code>omnist.ops.isomorphic._isomorphic</code>, not
+part of the public API — is a structurally unrelated computation: it walks
+both schemas' already-minimized environments in parallel, building a name
+bijection and comparing <code>local_signature</code> at each matched record pair,
+rather than doing anything resembling subschema inclusion checking.</p>
+<p><code>tests/test_fuzz.py</code> runs both procedures against the same generated
+schema pairs and asserts they always agree:
+<code>s.equivalent(t) == _isomorphic(s.normalize(), t.normalize())</code>. Because two
+independently-random schemas are almost always inequivalent, a second set
+of generators builds pairs that are equivalent <em>by construction</em> — a
+record rename, a field reorder, an added unreachable record, an added
+<code>max == 0</code> field, all provably language-preserving — so the property is
+also exercised on its harder, less common "True" branch. Companion
+properties check that <code>normalize()</code> never changes a schema's language
+(<code>normalize(s).equivalent(s)</code>) and that it's idempotent.</p>
+<p>This is the "boringly correct" idea applied concretely: the value isn't
+that <code>equivalent()</code> passes a pile of example-based tests (any
+implementation, buggy or not, can be made to pass hand-picked examples by
+construction), it's that its result is cross-checked, on every property-test
+run, against a second implementation of a completely different theorem in
+the same paper. If <code>compatible_with</code> and <code>_isomorphic</code> were to ever
+disagree, that would mean either the paper's Theorem 4 doesn't hold under
+omnist's counting-cardinality restriction (unlikely — it's proved for the
+general model omnist restricts), or one of the two algorithms has a bug —
+and property testing, not a hand-picked example, is what would catch it.</p>
+<p><strong>The third check: brute-force enumeration against ground truth.</strong> Both of
+the above are algorithms cross-checked against each other — powerful, but
+it's conceivable (however unlikely) that a bug in the shared conceptual
+model behind both survives in a way that makes them agree while both are
+wrong. <code>tools/semantic_oracle.py</code> (issue #158, the strongest tool from the
+full-codebase review in #154) removes that possibility by not using an
+algorithm as the reference at all. It enumerates a finite universe <code>U</code> of
+documents — root edge-lists over labels <code>{a, b}</code>, leaves <code>{1, "x", None}</code>,
+children either a leaf or a nested depth-1 edge list, plus an extended
+universe adding higher-cardinality shapes, plus (since v0.5.0) a fixed set
+of witness leaves guaranteeing one value of <em>each</em> of the seven scalar
+kinds and at least one edge-list is always present — the structural
+guarantee that makes every <code>any</code>-containment False concretely vindicated
+by a counterexample document rather than left unresolved (a <code>Record</code>
+accepts no scalar leaf; a <code>Scalar</code> accepts no edge-list; see
+<a href="../design/any-type-spec/">any-type-spec.md §5.3</a>) — and a family of schemas
+(systematic single-record schemas covering every scalar x cardinality
+combination, a few structural schemas, plus seeded-random two-record
+schemas). For each schema <code>s</code>, the ground-truth language is computed
+directly: <code>L(s) = {d in U : s.validate(Doc(d)).ok}</code> — no algorithm
+involved, just the same <code>validate()</code> every other test in this suite already
+trusts. Five checks then compare the algebra's answers against that ground
+truth:</p>
+<ol>
+<li><code>compatible_with(a, b)</code> <strong>True</strong> must mean <code>L(a)</code> is a subset of <code>L(b)</code>
+   — any counterexample here is an unambiguous bug (this is the direction
+   an unconditional "yes" claim can be definitively wrong).</li>
+<li><code>compatible_with(a, b)</code> <strong>False</strong> answers are <em>vindicated</em>: first
+   against the extended universe (a witness the base universe was simply
+   too small to contain), then against a family of targeted minimal
+   witnesses built from <code>a</code>'s own cardinality and type requirements. A
+   <code>False</code> answer that no witness at any size can substantiate is reported
+   as needs-manual-review rather than failing the run — a known,
+   documented limitation of checking against a <em>finite</em> universe, not an
+   algebra bug (the review hand-verified its own small residual set of
+   these and confirmed each was correct).</li>
+<li><code>is_empty(s)</code> <strong>True</strong> must mean <code>L(s)</code> is empty.</li>
+<li><code>L(normalize(s)) == L(s)</code> and <code>L(prune(s)) == L(s)</code> <strong>exactly</strong> — both
+   operations must be language-preserving, not just size-reducing.</li>
+<li><code>L(extract(s, keep)) == {d in L(s) : labels(d) subset keep}</code>, both
+   directions — <code>extract</code>'s label-restriction contract, checked directly
+   against enumeration rather than against <code>extract</code>'s own reasoning about
+   which records it invalidates.</li>
+</ol>
+<p><code>tests/test_semantic_oracle.py</code> runs the same five checks over a much
+smaller, seeded-deterministic universe and schema family so it fits in the
+normal test suite (about a second); <code>tools/semantic_oracle.py</code> runs the
+full-size version (documents in the tens of thousands, roughly a couple of
+minutes) as a standalone script — see <code>tools/README.md</code>. As of the #158
+run, both find zero definite bugs.</p>
+<h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
+<p><code>.github/workflows/test.yml</code> runs on every push to <code>master</code> and every pull
+request targeting <code>master</code>. Two jobs:</p>
+<p><strong><code>test</code> job</strong>, matrixed over <strong>Python 3.11, 3.12, and 3.13</strong>. Each matrix run:</p>
+<ol>
+<li>Checks out the repo (<code>actions/checkout@v4</code>).</li>
+<li>Sets up the matrix Python version (<code>actions/setup-python@v5</code>).</li>
+<li>Installs the package with dev extras: <code>pip install -e .[dev]</code>.</li>
+<li>Lints: <code>ruff check .</code>.</li>
+<li>Tests: <code>pytest -q</code>.</li>
+</ol>
+<p><strong><code>typecheck</code> job</strong> (separate, single run on Python 3.12):</p>
+<ol>
+<li>Checks out the repo.</li>
+<li>Sets up Python 3.12.</li>
+<li>Installs the package with dev extras.</li>
+<li>Type-checks: <code>mypy --strict omnist</code> — all 75 previous errors fixed; passes
+   as a gate to catch type regressions (added in #159).</li>
+</ol>
+<p><strong><code>coverage</code> job</strong> (issue #295): a single run on Python 3.12 that runs
+<code>coverage run -m pytest -q</code> then <code>coverage report -m --fail-under=100</code> — the
+100% target above is now a real CI gate, not just a contributor discipline
+checked manually via the periodic sweeps described in
+<a href="#coverage">Coverage</a>.</p>
+<p><strong><code>conformance</code> job</strong> (issue #283): runs <code>omnist</code>'s own OML/OSD conformance
+test runner (<code>tools/conformance/</code>) against
+<a href="https://github.com/omnist-dev/omnist-spec"><code>omnist-spec</code></a>'s fixtures,
+checked out via a pinned git submodule (<code>vendor/omnist-spec</code> —
+<code>actions/checkout</code>'s <code>submodules: true</code>). Catches a regression against the
+spec on every push/PR; see <code>tools/conformance/README.md</code> for the submodule
+layout, the pin-bump procedure, and how to run it locally.</p>
+<h2 id="doc-example-coverage">Doc-example coverage<a class="headerlink" href="#doc-example-coverage" title="Permanent link">&para;</a></h2>
+<p>A code block showing literal output must be verified against that exact
+literal — not <code>.ok</code>, not a substring, not a derived property standing in
+for it. This distinction matters: a test with a plausible name and a
+passing status is not proof its doc block is checked. <code>docs/api.md</code> and
+<code>docs/cli.md</code> both showed a stale example version string for 5+ releases
+undetected, because the test guarding them (<code>test_api_docs_version</code>)
+checked the <em>live</em> <code>omnist.__version__</code>, never the doc's own displayed
+text — see the audit and fix in #248.</p>
+<p>Every code block in <code>docs/*.md</code> that you add or change needs one of two
+markers immediately before or after it:</p>
+<ul>
+<li><code>&lt;!-- verified-by: tests/test_docs.py::test_name --&gt;</code> — names the test
+  that asserts the block's exact displayed output.</li>
+<li><code>&lt;!-- doc-illustrative --&gt;</code> — an explicit opt-out for a diagram, a
+  grammar fragment, a type-signature table, or anything else with no
+  runnable claim to check.</li>
+</ul>
+<p><code>tools/check_doc_examples.py</code> enforces this in CI on every PR (the
+<code>doc-examples</code> job in <code>.github/workflows/test.yml</code>): it diffs <code>docs/*.md</code>
+against the PR's base branch and fails if any added or changed code block
+lacks a marker. It only checks that a marker is <em>present</em> — not that a
+<code>verified-by</code> marker is honest (i.e. that the named test really does
+assert the exact literal text). See
+<a href="https://github.com/omnist-dev/omnist/issues/249">issue #249</a> for the
+stronger check that would close that gap; it's filed for design review,
+not yet built.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../assets/mermaid.min.js"></script>
+      
+        <script src="../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

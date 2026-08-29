@@ -1,0 +1,2263 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="One canonical data model for JSON, YAML, TOML, XML, and OML.">
+      
+      
+      
+        <link rel="canonical" href="https://py.omnist.dev/design/cli-spec/">
+      
+      
+        <link rel="prev" href="../openness/">
+      
+      
+        <link rel="next" href="../../glossary/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>CLI spec - Omnist</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cli-spec" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Omnist" class="md-header__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Omnist
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CLI spec
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Omnist" class="md-nav__button md-logo" aria-label="Omnist" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Omnist
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/omnist-dev/omnist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnist-dev/omnist
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../presentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction deck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../why-omnist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Omnist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stability policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../limitations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known limitations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema model & OSD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A real-life example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-world examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Real-world examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/pyproject/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pyproject.toml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/package-json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    package.json
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Actions workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/sitemap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sitemap.xml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deserialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schema-directed deserialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formats
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Formats
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/yaml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/toml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TOML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/xml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    XML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/oml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document & Schema model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oml-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OML-Core grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema-osd-grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OSD grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../any-type-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    any type spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Openness decision record
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI spec
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-command-tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Command tree
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1a---json-machine-mode-shared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1a. --json (machine mode, shared)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-format-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Format handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omnist-format----compact---arrays--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist format &lt;input&gt; [--compact] [--arrays] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-convert----from-fmt---to-fmt---schema-file---strict---report---result-format-textjsonoml---compact---arrays--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist convert &lt;input&gt; --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [--arrays] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-validate----from-fmt---schema-file---result-format-textjsonoml---json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist validate &lt;input&gt; --from FMT --schema FILE [--result-format text|json|oml] [--json]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-infer----from-fmt---compact---allow-any--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist infer &lt;input&gt;... --from FMT [--compact] [--allow-any] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-check----from-fmt---to-fmt---strict---result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist check &lt;input&gt; --from FMT --to FMT [--strict] [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-format----compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema format &lt;schema-file&gt; [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-normalize----compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema normalize &lt;schema-file&gt; [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-prune----compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema prune &lt;schema-file&gt; [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-is-empty----result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema is-empty &lt;schema-file&gt; [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-lint----json---severity-infowarning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema lint &lt;schema-file&gt; [--json] [--severity info|warning]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-extract----keep-label1label2---compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema extract &lt;schema-file&gt; --keep label1,label2,... [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-compatible-with-----result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema compatible-with &lt;a&gt; &lt;b&gt; [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-equivalent-----result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema equivalent &lt;a&gt; &lt;b&gt; [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Packaging
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repo layout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-command-tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Command tree
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1a---json-machine-mode-shared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1a. --json (machine mode, shared)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-format-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Format handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omnist-format----compact---arrays--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist format &lt;input&gt; [--compact] [--arrays] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-convert----from-fmt---to-fmt---schema-file---strict---report---result-format-textjsonoml---compact---arrays--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist convert &lt;input&gt; --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [--arrays] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-validate----from-fmt---schema-file---result-format-textjsonoml---json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist validate &lt;input&gt; --from FMT --schema FILE [--result-format text|json|oml] [--json]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-infer----from-fmt---compact---allow-any--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist infer &lt;input&gt;... --from FMT [--compact] [--allow-any] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-check----from-fmt---to-fmt---strict---result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist check &lt;input&gt; --from FMT --to FMT [--strict] [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-format----compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema format &lt;schema-file&gt; [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-normalize----compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema normalize &lt;schema-file&gt; [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-prune----compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema prune &lt;schema-file&gt; [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-is-empty----result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema is-empty &lt;schema-file&gt; [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-lint----json---severity-infowarning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema lint &lt;schema-file&gt; [--json] [--severity info|warning]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-extract----keep-label1label2---compact--o-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema extract &lt;schema-file&gt; --keep label1,label2,... [--compact] [-o OUTPUT]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-compatible-with-----result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema compatible-with &lt;a&gt; &lt;b&gt; [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omnist-schema-equivalent-----result-format-textjsonoml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        omnist schema equivalent &lt;a&gt; &lt;b&gt; [--result-format text|json|oml]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Packaging
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="cli-spec">CLI Spec<a class="headerlink" href="#cli-spec" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Status: <strong>implemented</strong> — <code>omnist/cli.py</code> has shipped since 2026-06-26.
+This document specified the command surface before implementation, the
+same way the <a href="../model/">model spec</a> and the
+<a href="../schema-osd-grammar/">grammars</a> preceded theirs; it's kept as the
+normative spec the shipped CLI is checked against. See <a href="../../cli/">the CLI
+reference</a> for the current, example-verified command docs.</p>
+</blockquote>
+<h2 id="1-command-tree">1. Command tree<a class="headerlink" href="#1-command-tree" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>omnist format     &lt;input&gt;                          [--compact] [--arrays] [-o OUTPUT] [--json]
+omnist convert    &lt;input&gt;   --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [--arrays] [-o OUTPUT] [--json]
+omnist validate   &lt;input&gt;   --from FMT --schema FILE [--result-format text|json|oml] [--json]
+omnist infer      &lt;input&gt;...  --from FMT             [--compact] [--allow-any] [-o OUTPUT] [--json]
+omnist check      &lt;input&gt;   --from FMT --to FMT [--strict] [--result-format text|json|oml] [--json]
+
+omnist schema format           &lt;schema-file&gt;  [--compact] [-o OUTPUT] [--json]
+omnist schema normalize        &lt;schema-file&gt;  [--compact] [-o OUTPUT] [--json]
+omnist schema prune            &lt;schema-file&gt;  [--compact] [-o OUTPUT] [--json]
+omnist schema is-empty         &lt;schema-file&gt;  [--result-format text|json|oml] [--json]
+omnist schema lint             &lt;schema-file&gt;  [--json] [--severity info|warning]
+omnist schema extract          &lt;schema-file&gt;  --keep label1,label2,... [--compact] [-o OUTPUT] [--json]
+omnist schema compatible-with  &lt;a&gt; &lt;b&gt;        [--result-format text|json|oml] [--json]
+omnist schema equivalent       &lt;a&gt; &lt;b&gt;        [--result-format text|json|oml] [--json]
+</code></pre></div>
+<p><code>FMT</code> is one of <code>json|yaml|toml|xml|oml</code>. A schema file is always OSD
+(Omnist Schema Definition; <code>parse_schema</code>/<code>to_osd</code>) — schema commands take
+no <code>--from</code>/<code>--to</code>.</p>
+<p><code>--json</code> is a <strong>shared flag on every command</strong> (an <code>argparse</code> parent parser),
+specified once in <a href="#1a-json-machine-mode-shared">§1a</a> rather than repeated per
+command below.</p>
+<h2 id="1a---json-machine-mode-shared">1a. <code>--json</code> (machine mode, shared)<a class="headerlink" href="#1a---json-machine-mode-shared" title="Permanent link">&para;</a></h2>
+<p>Every command accepts <code>--json</code>, with one uniform guarantee:</p>
+<ul>
+<li><strong>On any error</strong> — <code>ParseError</code>/<code>SchemaError</code>/<code>WriteError</code>/<code>DocumentError</code>/
+  <code>OSError</code>, whether raised through <code>main()</code>'s top-level handler or caught in a
+  handler for a command-specific exit code (<code>convert --strict</code>'s WriteError→<code>1</code>,
+  the <code>--from oml --to oml</code> guard→<code>2</code>, <code>schema extract</code>'s SchemaError→<code>1</code>) — the
+  command prints <code>{"ok": false, "message": str(exc), "errors": [{"path","code",
+  "message"}, ...]}</code> to <strong>stdout</strong> (stderr empty). <code>errors</code> is <code>ParseError.errors</code>
+  when the exception is a <code>ParseError</code>, else <code>[]</code>. Exit code is <strong>unchanged</strong> from
+  the non-<code>--json</code> run.</li>
+<li><strong>On success</strong>, the commands with a single structured result — <code>validate</code>,
+  <code>check</code>, <code>schema is-empty</code>/<code>compatible-with</code>/<code>equivalent</code> — emit that result as
+  JSON on stdout, the same shape <code>--result-format json</code> produces for that command
+  (reusing the existing json encoders; no new shapes). The text-emitting commands
+  (<code>format</code>, <code>convert</code>, <code>infer</code>, <code>schema format</code>/<code>normalize</code>/<code>prune</code>/<code>extract</code>)
+  print their document/schema text unchanged; <code>--json</code> governs only their error
+  shape.</li>
+</ul>
+<p>Exit codes are identical with and without <code>--json</code>, everywhere.</p>
+<p><strong>Boundary:</strong> argparse usage errors (unknown flag, missing required arg) are
+<em>not</em> JSON-ified — they occur in <code>parse_args</code>, before any handler runs, and stay
+argparse's own stderr message + exit <code>2</code>. Those are caller bugs, not data errors.</p>
+<p><code>--result-format</code> is unchanged and retained (it additionally offers <code>oml</code>
+encoding and does not catch parse errors); <code>--json</code> is the recommended machine
+interface. <code>validate --json</code> (issue #182) and <code>schema lint --json</code> predate this
+and keep their exact prior output — they are the same shared flag, wired to their
+existing richer handlers.</p>
+<h2 id="2-format-handling">2. Format handling<a class="headerlink" href="#2-format-handling" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>&lt;input&gt;</code>/<code>&lt;a&gt;</code>/<code>&lt;b&gt;</code> may be a file path or <code>-</code> for stdin; <code>-o</code>/
+  <code>--output</code> may be a file path or omitted for stdout.</li>
+<li><code>--from</code> is always required wherever it appears, file or stream alike —
+  no extension-based inference.</li>
+<li><code>--to</code> is always required on <code>convert</code>/<code>check</code> — no defaulting.</li>
+<li><code>format</code>/<code>schema format</code>/<code>schema normalize</code>/<code>schema prune</code>/
+  <code>schema is-empty</code>/<code>schema lint</code>/<code>schema extract</code>/<code>schema compatible-with</code>/
+  <code>schema equivalent</code> take no <code>--from</code>/<code>--to</code>: each reads/writes exactly
+  one format (OML or OSD).</li>
+<li>Schema files conventionally use <code>.osd</code>; not enforced.</li>
+</ul>
+<h2 id="3-commands">3. Commands<a class="headerlink" href="#3-commands" title="Permanent link">&para;</a></h2>
+<h3 id="omnist-format----compact---arrays--o-output"><code>omnist format &lt;input&gt; [--compact] [--arrays] [-o OUTPUT]</code><a class="headerlink" href="#omnist-format----compact---arrays--o-output" title="Permanent link">&para;</a></h3>
+<p><code>read_oml(text)</code> → <code>write_oml(node)</code>. OML only; <code>--compact</code>
+(<code>write_oml(node, indent=None)</code> — single-line output) and <code>--arrays</code>
+(<code>write_oml(node, arrays=True)</code> — collapses same-label runs into <code>[...]</code>
+array syntax, issue #218) are the flags beyond <code>-o</code>; they combine freely.</p>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>format<span class="w"> </span>messy.oml<span class="w"> </span>-o<span class="w"> </span>clean.oml
+omnist<span class="w"> </span>format<span class="w"> </span>messy.oml<span class="w"> </span>--compact
+omnist<span class="w"> </span>format<span class="w"> </span>messy.oml<span class="w"> </span>--arrays
+</code></pre></div>
+<h3 id="omnist-convert----from-fmt---to-fmt---schema-file---strict---report---result-format-textjsonoml---compact---arrays--o-output"><code>omnist convert &lt;input&gt; --from FMT --to FMT [--schema FILE] [--strict] [--report] [--result-format text|json|oml] [--compact] [--arrays] [-o OUTPUT]</code><a class="headerlink" href="#omnist-convert----from-fmt---to-fmt---schema-file---strict---report---result-format-textjsonoml---compact---arrays--o-output" title="Permanent link">&para;</a></h3>
+<p><code>read_&lt;from&gt;(text, schema=...)</code> → <code>write_&lt;to&gt;(node, strict=, report=)</code>.</p>
+<ul>
+<li><code>--schema FILE</code>: schema-directed deserialization on read. If the input
+  can't be made to conform, raises <code>ParseError</code> (every problem found),
+  nothing written, exit <code>2</code>.</li>
+<li><code>--report</code>: prints what <code>write_&lt;to&gt;</code> adjusted to stderr (encoding per
+  <code>--result-format</code>, default <code>text</code>); the write still happens.</li>
+<li><code>--strict</code>: refuses to write at all if anything would need adjusting —
+  exit <code>1</code>.</li>
+<li><code>--compact</code>: single-line OML output (<code>write_oml(node, indent=None)</code>)
+  when <code>--to oml</code>; no effect for other <code>--to</code> values.</li>
+<li><code>--arrays</code>: OML output collapses same-label runs into <code>[...]</code> array
+  syntax (<code>write_oml(node, arrays=True)</code>) when <code>--to oml</code>; no effect for
+  other <code>--to</code> values.</li>
+<li><code>--from oml --to oml</code> with no <code>--schema</code> is rejected (exit <code>2</code>, use
+  <code>format</code>) — a pure no-op otherwise. With <code>--schema</code> it's allowed: real
+  schema-directed materialization, and the only CLI path to it (<code>format</code>/
+  <code>check</code> have no <code>--schema</code>). Every other same-format pair (<code>json</code>→<code>json</code>,
+  etc.) is always allowed.</li>
+<li>One document in, one document out; no batch mode.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>convert<span class="w"> </span>order.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>--to<span class="w"> </span>oml
+omnist<span class="w"> </span>convert<span class="w"> </span>order.xml<span class="w"> </span>--from<span class="w"> </span>xml<span class="w"> </span>--to<span class="w"> </span>oml<span class="w"> </span>--schema<span class="w"> </span>order.osd<span class="w"> </span>-o<span class="w"> </span>order.oml
+omnist<span class="w"> </span>convert<span class="w"> </span>data.oml<span class="w"> </span>--from<span class="w"> </span>oml<span class="w"> </span>--to<span class="w"> </span>oml<span class="w"> </span>--schema<span class="w"> </span>data.osd<span class="w"> </span>-o<span class="w"> </span>data.oml
+omnist<span class="w"> </span>convert<span class="w"> </span>data.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>--to<span class="w"> </span>toml<span class="w"> </span>--report<span class="w"> </span>-o<span class="w"> </span>data.toml
+omnist<span class="w"> </span>convert<span class="w"> </span>data.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>--to<span class="w"> </span>toml<span class="w"> </span>--strict<span class="w"> </span>-o<span class="w"> </span>data.toml
+</code></pre></div>
+<!-- doc-illustrative -->
+
+<h3 id="omnist-validate----from-fmt---schema-file---result-format-textjsonoml---json"><code>omnist validate &lt;input&gt; --from FMT --schema FILE [--result-format text|json|oml] [--json]</code><a class="headerlink" href="#omnist-validate----from-fmt---schema-file---result-format-textjsonoml---json" title="Permanent link">&para;</a></h3>
+<p>Reads without schema-directed upgrading, then <code>Schema.validate</code>.</p>
+<ul>
+<li><code>text</code> (default): <code>ValidationResult</code>'s <code>"invalid:\n  at $.path: message"</code> (or <code>valid</code>).</li>
+<li><code>json</code>: <code>{"ok": bool, "errors": [{"path": str, "message": str}, ...]}</code>.</li>
+<li><code>oml</code>: same shape, OML-encoded.</li>
+</ul>
+<p>Exit <code>0</code> valid, <code>1</code> invalid, <code>2</code> read/parse error.</p>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>validate<span class="w"> </span>order.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>--schema<span class="w"> </span>order.osd
+omnist<span class="w"> </span>validate<span class="w"> </span>order.xml<span class="w"> </span>--from<span class="w"> </span>xml<span class="w"> </span>--schema<span class="w"> </span>order.osd<span class="w"> </span>--result-format<span class="w"> </span>json
+</code></pre></div>
+<ul>
+<li><code>--json</code>: a distinct, more detailed machine-readable mode (issue #182),
+  independent of <code>--result-format</code>. Each errors entry also carries the
+  stable machine-readable <code>code</code> (<code>validate.unexpected-field</code>, <code>validate.cardinality</code>,
+  <code>validate.type-mismatch</code>, <code>validate.null-not-allowed</code>, <code>validate.shape-mismatch</code>) from
+  <code>ValidationResult</code>/<code>ParseError.errors</code> (the same structured list
+  <code>ParseError</code> has exposed since v0.4.1). Unlike <code>--result-format</code>,
+  <code>--json</code> also converts read/parse errors -- normally <code>error: ...</code> on
+  stderr -- into the same <code>{ok, message, errors}</code> shape on stdout:</li>
+<li>success: <code>{"ok": true}</code>.</li>
+<li>conformance failure: <code>{"ok": false, "message": str, "errors": [{"path": str, "code": str, "message": str}, ...]}</code>.</li>
+<li>format-syntax failure (invalid input text, or a malformed schema): same shape, <code>"errors"</code> always <code>[]</code>, parse error in <code>"message"</code>.</li>
+<li>Exit codes are unchanged in every case (<code>0</code>/<code>1</code>/<code>2</code> as above); only the
+    printed shape and destination (stdout, not stderr, for read/parse
+    errors) differ.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>validate<span class="w"> </span>order.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>--schema<span class="w"> </span>order.osd<span class="w"> </span>--json
+omnist<span class="w"> </span>validate<span class="w"> </span>order.xml<span class="w"> </span>--from<span class="w"> </span>xml<span class="w"> </span>--schema<span class="w"> </span>order.osd<span class="w"> </span>--json
+</code></pre></div>
+<h3 id="omnist-infer----from-fmt---compact---allow-any--o-output"><code>omnist infer &lt;input&gt;... --from FMT [--compact] [--allow-any] [-o OUTPUT]</code><a class="headerlink" href="#omnist-infer----from-fmt---compact---allow-any--o-output" title="Permanent link">&para;</a></h3>
+<p>All inputs same format; <code>infer(docs)</code>, writes the result as OSD.
+<code>--compact</code> emits a single-line schema (<code>to_osd(schema, indent=None)</code>).
+Passing <code>--arrays</code> here is an <strong>error</strong> (exit code <code>2</code>) — the output is
+always OSD, and OSD has no array syntax; <code>--arrays</code> applies only to OML
+output (issues #218, #220). <code>--allow-any</code> opts in
+to opening the two <code>infer</code> conflict points
+(object/scalar mix, multi-kind scalar) as <code>any</code> fields instead of erroring;
+the schema still goes to stdout, and a per-field report of what was opened
+and why goes to stderr (nothing printed when zero fields open). Like every
+other diagnostic-producing command, <code>--json</code> switches that report to
+structured JSON (<code>{"opened": [{"location", "reason"}, ...]}</code>, matching
+<code>AnyFallback</code>) instead of the text form.</p>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>infer<span class="w"> </span>samples/*.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>-o<span class="w"> </span>inferred.osd
+</code></pre></div>
+<h3 id="omnist-check----from-fmt---to-fmt---strict---result-format-textjsonoml"><code>omnist check &lt;input&gt; --from FMT --to FMT [--strict] [--result-format text|json|oml]</code><a class="headerlink" href="#omnist-check----from-fmt---to-fmt---strict---result-format-textjsonoml" title="Permanent link">&para;</a></h3>
+<p><code>check_&lt;to&gt;</code> — reports what <code>write_&lt;to&gt;</code> would adjust, never writes
+anything. <code>--from</code>/<code>--to</code> may be equal (unlike <code>convert</code>).</p>
+<ul>
+<li>Default: exit <code>0</code> regardless of result; purely informational.</li>
+<li><code>--strict</code>: exit <code>0</code> if nothing would need adjusting, <code>1</code> otherwise.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>check<span class="w"> </span>data.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>--to<span class="w"> </span>toml
+omnist<span class="w"> </span>check<span class="w"> </span>data.json<span class="w"> </span>--from<span class="w"> </span>json<span class="w"> </span>--to<span class="w"> </span>toml<span class="w"> </span>--strict
+</code></pre></div>
+<h3 id="omnist-schema-format----compact--o-output"><code>omnist schema format &lt;schema-file&gt; [--compact] [-o OUTPUT]</code><a class="headerlink" href="#omnist-schema-format----compact--o-output" title="Permanent link">&para;</a></h3>
+<p><code>parse_schema</code> → <code>to_osd</code>. Safe reformat only — same records, same names,
+canonical whitespace/field order. No structural change (contrast
+<code>normalize</code>). <code>--compact</code> emits a single-line schema (<code>to_osd(schema,
+indent=None)</code>). Passing <code>--arrays</code> here is an <strong>error</strong> (exit code <code>2</code>) — OSD output, no
+array syntax (issues #218, #220).</p>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>schema<span class="w"> </span>format<span class="w"> </span>messy.osd<span class="w"> </span>-o<span class="w"> </span>clean.osd
+omnist<span class="w"> </span>schema<span class="w"> </span>format<span class="w"> </span>messy.osd<span class="w"> </span>--compact
+</code></pre></div>
+<h3 id="omnist-schema-normalize----compact--o-output"><code>omnist schema normalize &lt;schema-file&gt; [--compact] [-o OUTPUT]</code><a class="headerlink" href="#omnist-schema-normalize----compact--o-output" title="Permanent link">&para;</a></h3>
+<p><code>Schema.normalize()</code>, written back as OSD. Computes the canonical minimal
+equivalent schema (partition refinement, fewest env records, unique up to
+naming) — a structural change, unlike <code>schema format</code>. <code>--compact</code> emits a
+single-line schema, same as <code>schema format</code>. Passing <code>--arrays</code> here is
+likewise an <strong>error</strong> (exit code <code>2</code>) — OSD output, no array syntax.</p>
+<h3 id="omnist-schema-prune----compact--o-output"><code>omnist schema prune &lt;schema-file&gt; [--compact] [-o OUTPUT]</code><a class="headerlink" href="#omnist-schema-prune----compact--o-output" title="Permanent link">&para;</a></h3>
+<p><code>Schema.prune()</code>, written back as OSD. Removes everything that can never
+match — unreachable records, never-emittable (<code>max == 0</code>) fields, and
+optional fields whose type is an unsatisfiable record — without ever
+merging records (that's <code>normalize</code>'s job; <code>normalize</code> runs <code>prune</code> as its
+own first step). <code>--compact</code> as elsewhere.</p>
+<h3 id="omnist-schema-is-empty----result-format-textjsonoml"><code>omnist schema is-empty &lt;schema-file&gt; [--result-format text|json|oml]</code><a class="headerlink" href="#omnist-schema-is-empty----result-format-textjsonoml" title="Permanent link">&para;</a></h3>
+<p><code>Schema.is_empty()</code> — True iff the schema accepts no documents at all
+(unsatisfiable root, e.g. a mandatory ref cycle). Prints <code>true</code>/<code>false</code>
+(<code>text</code>, default), <code>{"empty": bool}</code> (<code>json</code>), or the same shape
+OML-encoded (<code>oml</code>). Exit <code>0</code> if empty, <code>1</code> if not — the same
+boolean-result convention as <code>compatible-with</code>/<code>equivalent</code>.</p>
+<h3 id="omnist-schema-lint----json---severity-infowarning"><code>omnist schema lint &lt;schema-file&gt; [--json] [--severity info|warning]</code><a class="headerlink" href="#omnist-schema-lint----json---severity-infowarning" title="Permanent link">&para;</a></h3>
+<p><code>lint()</code> — non-destructive structural diagnostics for the schema itself.
+Reports, never mutates (<code>prune</code>/<code>normalize</code> are the transforms). Four
+checks: <code>lint.unsatisfiable-record</code> (reachable but no finite document matches),
+<code>lint.unreachable-record</code> (defined but not reachable from root),
+<code>lint.duplicate-record</code> (structurally identical records under different names),
+each <code>warning</code>; and <code>lint.any-field</code> (inventory of every <code>any</code>-typed field),
+<code>info</code>. Findings sort by <code>(code, location)</code>. Text output is one
+<code>severity: code: location: message</code> line per finding, or <code>no findings</code>.
+<code>--json</code> prints <code>{"ok": bool, "findings": [{"code","severity","location",
+"message"}, ...]}</code>, mirroring <code>validate --json</code>'s shape. <code>--severity</code>
+filters by minimum severity (<code>info</code> default keeps everything; <code>warning</code>
+drops the <code>lint.any-field</code> inventory). Exit <code>0</code> if no surviving finding is
+<code>warning</code>-severity, <code>1</code> if any is — an <code>info</code>-only result always exits <code>0</code>.</p>
+<h3 id="omnist-schema-extract----keep-label1label2---compact--o-output"><code>omnist schema extract &lt;schema-file&gt; --keep label1,label2,... [--compact] [-o OUTPUT]</code><a class="headerlink" href="#omnist-schema-extract----keep-label1label2---compact--o-output" title="Permanent link">&para;</a></h3>
+<p><code>Schema.extract(*labels)</code>, written back as OSD (paper Algorithm 5,
+ExtractSubschema). The minimal subschema recognizing only documents built
+from <code>--keep</code>'s comma-separated labels: fields whose label isn't kept are
+dropped, and anything they make unreachable is pruned away too (<code>prune()</code>
++ <code>normalize()</code> is the algorithm's own final step). <code>--compact</code> emits a
+single-line schema, same as <code>schema format</code>/<code>schema normalize</code>.</p>
+<p>If deleting a non-kept label would remove a <em>mandatory</em> (<code>min &gt;= 1</code>)
+field, the record that had it -- and transitively anything mandatorily
+depending on it -- is invalidated; deliberately an error rather than a
+silent relaxation to optional (see <code>docs/schema.md</code>'s "Subschema
+extraction" section for the rationale). If that invalidation reaches the
+root, there is no valid subschema for this <code>--keep</code> set: <code>SchemaError</code>
+naming the first offending label and record, printed to stderr as
+<code>error: ...</code>, exit <code>1</code> (a definite "no," like <code>compatible-with</code>'s False --
+not the generic exit <code>2</code> for parse/usage errors).</p>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>schema<span class="w"> </span>extract<span class="w"> </span>order.osd<span class="w"> </span>--keep<span class="w"> </span>quote,line,desc,price
+omnist<span class="w"> </span>schema<span class="w"> </span>extract<span class="w"> </span>order.osd<span class="w"> </span>--keep<span class="w"> </span>quote,line,desc,price<span class="w"> </span>--compact
+</code></pre></div>
+<h3 id="omnist-schema-compatible-with-----result-format-textjsonoml"><code>omnist schema compatible-with &lt;a&gt; &lt;b&gt; [--result-format text|json|oml]</code><a class="headerlink" href="#omnist-schema-compatible-with-----result-format-textjsonoml" title="Permanent link">&para;</a></h3>
+<p><code>a.compatible_with(b)</code>. <code>text</code>: <code>true</code>/<code>false</code>. <code>json</code>:
+<code>{"compatible": bool}</code>. <code>oml</code>: <code>compatible: true</code>/<code>compatible: false</code>.
+Exit <code>0</code>/<code>1</code>.</p>
+<div class="highlight"><pre><span></span><code>omnist<span class="w"> </span>schema<span class="w"> </span>compatible-with<span class="w"> </span>v1.osd<span class="w"> </span>v2.osd
+</code></pre></div>
+<h3 id="omnist-schema-equivalent-----result-format-textjsonoml"><code>omnist schema equivalent &lt;a&gt; &lt;b&gt; [--result-format text|json|oml]</code><a class="headerlink" href="#omnist-schema-equivalent-----result-format-textjsonoml" title="Permanent link">&para;</a></h3>
+<p><code>a.equivalent(b)</code>. Same output/exit convention as <code>compatible-with</code>.</p>
+<h2 id="4-conventions">4. Conventions<a class="headerlink" href="#4-conventions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exit <code>0</code></td>
+<td>success / valid / compatible / equivalent / losslessly-writable</td>
+</tr>
+<tr>
+<td>Exit <code>1</code></td>
+<td>a definite "no" — invalid, incompatible, not equivalent, or (<code>--strict</code>) not losslessly writable</td>
+</tr>
+<tr>
+<td>Exit <code>2</code></td>
+<td>usage error, parse error, missing file, unsupported format, schema non-conformance</td>
+</tr>
+<tr>
+<td><code>--result-format</code></td>
+<td><code>text</code> (default) / <code>json</code> / <code>oml</code> — encodes a command's own result, not Document/Schema content; <code>convert</code> only uses it together with <code>--report</code></td>
+</tr>
+<tr>
+<td><code>-</code>/<code>-o</code></td>
+<td>stdin/stdout</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-non-goals">5. Non-goals<a class="headerlink" href="#5-non-goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>No format auto-detection (content or extension).</li>
+<li>No batch/multi-document conversion.</li>
+<li>No alternate Schema serialization (e.g. JSON-Schema-shaped import/export).</li>
+<li>No <code>schema diff</code> (structural diff beyond the boolean <code>compatible-with</code>/<code>equivalent</code>).</li>
+<li>No schema editing (only whole-schema read/transform).</li>
+</ul>
+<h2 id="6-packaging">6. Packaging<a class="headerlink" href="#6-packaging" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="k">[project.scripts]</span>
+<span class="n">omnist</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"omnist.cli:main"</span>
+</code></pre></div>
+<p><code>omnist/cli.py</code> — <code>argparse</code>-based, public <code>omnist</code> API only. No new
+required dependency.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../assets/mermaid.min.js"></script>
+      
+        <script src="../../assets/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>
