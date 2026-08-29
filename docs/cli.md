@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.9.1
+omnist 0.9.2
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -519,16 +519,21 @@ omnist schema prune <schema-file> [--compact] [-o OUTPUT]
 never match: records unreachable from root, never-emittable (`max == 0`)
 fields, and optional fields whose type is an unsatisfiable record (see
 [the schema doc](schema.md#operations-compare-and-infer)). Unlike
-`normalize` it never merges records — it only deletes dead weight:
+`normalize` it never merges records — it only deletes dead weight. (`max ==
+0` fields can only arise from another schema-rewriting step, not from OSD
+text -- `[0,0]` is rejected at parse time since issue #322, as redundant
+with not declaring the field at all; `ghost` below is dead a different way,
+by referencing an unsatisfiable record.)
 
 ```sh
-$ printf 'record R { "x": integer, "ghost" [0,0]: string }\nrecord Orphan { "y": string }\nroot R\n' \
+$ printf 'record R { "x": integer, "ghost" [0,1]: Dead }\nrecord Dead { "d": Dead }\nrecord Orphan { "y": string }\nroot R\n' \
     | omnist schema prune -
 record R {
     "x": integer,
 }
 root R
 ```
+<!-- verified-by: tests/test_cli_examples.py::TestSchemaPruneExample::test_prune_stdin_example -->
 
 ## `omnist schema is-empty`
 

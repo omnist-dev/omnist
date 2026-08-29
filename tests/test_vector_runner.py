@@ -477,6 +477,22 @@ def test_run_prune_pass(tmp_path, monkeypatch):
     assert status == "pass"
 
 
+def test_run_prune_skips_known_contradictory_vector(tmp_path, monkeypatch):
+    # Issue #322: prune/basic/drops-max-zero-field's own input schema uses
+    # now-invalid OSD text ([0,0] cardinality) -- a genuine vendored
+    # test-suite contradiction, not a divergence in this port. Confirm the
+    # driver never even calls cli_runner.prune for it.
+    def _boom(schema):  # pragma: no cover -- the assertion below is what matters
+        raise AssertionError("should not be called for a known-contradictory vector")
+    monkeypatch.setattr(vr.cli_runner, "prune", _boom)
+    v = {"name": "prune/basic/drops-max-zero-field",
+         "input": {"schema": 'record R { "gone" [0,0]: string }\nroot R\n'},
+         "expect": {"schema": "record R {}\nroot R\n"}}
+    status, msg = vr.run_prune(v, tmp_path)
+    assert status == "skip"
+    assert "contradict" in msg
+
+
 # ------------------------------------------------------------- booleans
 
 def test_run_is_empty(tmp_path, monkeypatch):

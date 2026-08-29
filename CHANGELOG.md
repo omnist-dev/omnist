@@ -6,6 +6,48 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.9.2] — reject redundant [0,0] cardinality, empty labels, and bracket labels
+
+- Closed [#322](https://github.com/omnist-dev/omnist/issues/322): per
+  omnist-spec Sec5.5 (commit `cea3b3e`), an OSD cardinality of exactly
+  `[0,0]` is now rejected at parse time with `schema.invalid-cardinality`
+  -- it's a second spelling for "never declared" (records are closed by
+  default, so an undeclared label is already `validate.unexpected-field`).
+  `[0,0]` is still legal to construct directly as a `Field` in Python
+  (`prune()`/`minimize()` use it internally as a "dead field" marker) --
+  only OSD *text* rejects it now, not the model itself.
+  - Also fixed, found while implementing this: OSD text with a negative
+    cardinality bound or an inverted range (`[3,1]`) already failed to
+    parse, but via `Field.__init__`'s own bare, code-less guard -- never
+    actually carrying `schema.invalid-cardinality`, contrary to the spec's
+    Sec8.3 table. The OSD parser now checks all three invalid shapes
+    itself, ahead of `Field()`'s constructor-level backstop, so every one
+    carries the structured code and a `record.field`-shaped path.
+  - Also fixed: `schema.unquoted-label`'s `path` was the raw text offset
+    instead of the enclosing record name the spec's own vector expects
+    (`osd-grammar/labels/unquoted-field-name-is-rejected` — a pre-existing
+    divergence undetected because the vector-runner's diagnostics mode
+    skips syntax-level path/code comparisons). Now matches.
+  - A genuine contradiction was found in the vendored `omnist-spec`
+    test-suite while implementing this: `prune/basic/drops-max-zero-field`
+    still authors its "dead field" fixture with `[0,0]` OSD text, which the
+    very same spec change now makes unparseable. Flagged upstream;
+    `tools/conformance/vector_runner.py` SKIPs this one vector with a
+    clear, documented reason rather than silently masking it.
+- Closed [#327](https://github.com/omnist-dev/omnist/issues/327): per
+  omnist-spec Sec5.4 (commit `211c2e2`), an empty-string field label
+  (`""`) is now rejected at parse time with `schema.empty-label` -- `""` is
+  a legal OSD *value* generally, but a label is an identifier, not a value.
+- Closed [#330](https://github.com/omnist-dev/omnist/issues/330): per
+  omnist-spec Sec5.4 (commit `5e4b2fc`), a field label containing `[` or
+  `]` is now rejected at parse time with `schema.bracket-in-label` -- a
+  literal bracket in a label can collide with the diagnostic-path
+  convention that appends `[i]` to a repeated label's later occurrences
+  (e.g. a repeatable field `"a"` and a separately-declared field literally
+  named `"a[1]"` would both stringify to the same path).
+- `vendor/omnist-spec` submodule stays pinned at `5e4b2fc` (already covers
+  all three commits above; unchanged from v0.9.1).
+
 ## [v0.9.1] — write refusals for unrepresentable values, plus a lossless XML CR fix
 
 - Closed [#323](https://github.com/omnist-dev/omnist/issues/323),

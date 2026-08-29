@@ -170,6 +170,11 @@ class Field:
                 f"field {label!r} type must be a Ref, Scalar, or t.any, got {type!r}")
         if min < 0 or (max is not None and max < min):
             raise SchemaError(f"field {label!r} has an invalid cardinality [{min},{max}]")
+        # Note: [0,0] is deliberately still legal to construct directly here
+        # (issue #322 only makes it illegal in OSD *text* -- osd.py's
+        # _field() -- not as a Python-model invariant; prune()/minimize()
+        # construct/consume Field(..., 0, 0) internally as a "dead field"
+        # marker, confirmed by tests/test_canonical.py's TestEmptySchemas).
         self.label = label
         self.type = type
         self.min = min

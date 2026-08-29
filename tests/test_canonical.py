@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.9.1"
+        assert ds.__version__ == "0.9.2"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -774,7 +774,13 @@ class TestEmptySchemas:
         assert "A" in p.env
 
     def test_prune_drops_max_zero_fields(self):
-        s = parse_schema('record R { "dead" [0,0]: integer, "live": integer }\nroot R')
+        # Issue #322: [0,0] is no longer legal OSD *text* (schema.invalid
+        # -cardinality -- it's redundant with not declaring the field), but
+        # it's still a legal Field() to construct directly in Python --
+        # prune() itself still needs to drop one wherever it finds it
+        # (e.g. produced by another schema-rewriting step upstream).
+        s = Schema(Ref("R"), {"R": Record(
+            [Field("dead", t.integer, 0, 0), Field("live", t.integer)])})
         p = s.prune()
         assert p.env["R"].field("dead") is None
         assert p.env["R"].field("live") is not None
@@ -786,14 +792,20 @@ class TestEmptySchemas:
         assert p.env["R"].field("x") is None
         assert "Dead" not in p.env
 
+    def _dead_field_schema(self) -> Schema:
+        # Issue #322: [0,0] is no longer legal OSD text, so build this
+        # fixture directly -- see test_prune_drops_max_zero_fields.
+        return Schema(Ref("R"), {
+            "R": Record([Field("dead", t.integer, 0, 0), Field("live", t.integer)]),
+            "Unused": Record([Field("z", t.integer)]),
+        })
+
     def test_prune_is_equivalent(self):
-        s = parse_schema('record R { "dead" [0,0]: integer, "live": integer }\n'
-                         'record Unused { "z": integer }\nroot R')
+        s = self._dead_field_schema()
         assert s.prune().equivalent(s)
 
     def test_prune_is_idempotent(self):
-        s = parse_schema('record R { "dead" [0,0]: integer, "live": integer }\n'
-                         'record Unused { "z": integer }\nroot R')
+        s = self._dead_field_schema()
         once = s.prune()
         twice = once.prune()
         assert once.env.keys() == twice.env.keys()
@@ -829,7 +841,9 @@ class TestEmptySchemas:
         assert list(s2.prune().env.keys()) == ["A", "B", "R"]
 
     def test_prune_free_function_matches_method(self):
-        s = parse_schema('record R { "dead" [0,0]: integer }\nroot R')
+        # Issue #322: [0,0] is no longer legal OSD text -- see
+        # test_prune_drops_max_zero_fields.
+        s = Schema(Ref("R"), {"R": Record([Field("dead", t.integer, 0, 0)])})
         assert prune(s).equivalent(s.prune())
 
     def test_prune_on_unsatisfiable_root_keeps_it_intact(self):
@@ -1840,6 +1854,72 @@ class TestOsdErrorCodes:
         with pytest.raises(SchemaError) as exc:
             parse_schema('record R { x: integer }\nroot R')
         assert exc.value.code == "schema.unquoted-label"
+        # Issue #327/#330's comments note this is the same "the label
+        # itself is the problem" convention their two new codes follow --
+        # path is the enclosing record, not a text offset. Cross-checked
+        # directly against the vendored vector
+        # osd-grammar/labels/unquoted-field-name-is-rejected, which expects
+        # path "R" (previously this port used the text position instead --
+        # a pre-existing divergence from the vendored conformance vector,
+        # undetected because the vector-runner's diagnostics-mode still
+        # skips syntax-level path/code comparisons for parse_schema).
+        assert exc.value.path == "R"
+
+    def test_empty_field_label(self):
+        # Issue #327/omnist-spec Sec5.4: "" is a legal *value* for an OSD
+        # string generally, but a label is an identifier, not a value.
+        # Matches vendored vector osd-grammar/labels/empty-label-is-rejected.
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R {\n    "": string,\n}\nroot R\n')
+        assert exc.value.code == "schema.empty-label"
+        assert exc.value.path == "R"
+
+    def test_bracket_in_label(self):
+        # Issue #330/omnist-spec Sec5.4: a bracket character in a label
+        # collides with the diagnostic-path convention's "[i]" repeated
+        # -label suffix. Matches vendored vector
+        # osd-grammar/labels/bracket-in-label-is-rejected.
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R {\n    "a[1]": string,\n}\nroot R\n')
+        assert exc.value.code == "schema.bracket-in-label"
+        assert exc.value.path == "R"
+
+    def test_closing_bracket_alone_in_label(self):
+        # The rule is about the character vocabulary, not specifically a
+        # matched [i] pair -- matches vendored vector
+        # osd-grammar/labels/closing-bracket-alone-in-label-is-rejected.
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R {\n    "total]": string,\n}\nroot R\n')
+        assert exc.value.code == "schema.bracket-in-label"
+        assert exc.value.path == "R"
+
+    def test_zero_max_cardinality_is_invalid(self):
+        # Issue #322/omnist-spec Sec5.5: [0,0] is redundant with not
+        # declaring the field at all -- rejected at OSD parse time, unlike
+        # 0 non-negative and max==min not-inverted, which pass every other
+        # cardinality check. Matches vendored vector
+        # osd-grammar/cardinality/zero-max-is-invalid-redundant-with-absence.
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R {\n    "a" [0,0]: string,\n}\nroot R\n')
+        assert exc.value.code == "schema.invalid-cardinality"
+        assert exc.value.path == "R.a"
+
+    def test_negative_cardinality_now_carries_the_structured_code(self):
+        # Pre-existing gap found while implementing #322: OSD text already
+        # rejected a negative minimum (the tokenizer's number regex allows
+        # a leading '-'), but via Field()'s own bare, code-less guard --
+        # never carrying schema.invalid-cardinality, contrary to the spec's
+        # Sec8.3 table. Fixed alongside #322 since it's the same check site.
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R {\n    "a" [-1,3]: string,\n}\nroot R\n')
+        assert exc.value.code == "schema.invalid-cardinality"
+        assert exc.value.path == "R.a"
+
+    def test_inverted_cardinality_now_carries_the_structured_code(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema('record R {\n    "a" [3,1]: string,\n}\nroot R\n')
+        assert exc.value.code == "schema.invalid-cardinality"
+        assert exc.value.path == "R.a"
 
     def test_empty_cardinality(self):
         with pytest.raises(SchemaError) as exc:
@@ -2648,8 +2728,11 @@ class TestOperationsEdgeCases:
 
     def test_a_field_with_max_zero_is_skipped_even_if_b_lacks_it(self):
         # cardinality [0,0] means the field is declared but never actually
-        # emitted -- B doesn't need to know about it at all
-        a = parse_schema('record R { "never" [0,0]: integer, "v": integer }\nroot R')
+        # emitted -- B doesn't need to know about it at all. Issue #322:
+        # [0,0] is no longer legal OSD text (schema.invalid-cardinality),
+        # so `a` is built directly -- see test_prune_drops_max_zero_fields.
+        a = Schema(Ref("R"), {"R": Record(
+            [Field("never", t.integer, 0, 0), Field("v", t.integer)])})
         b = parse_schema('record R { "v": integer }\nroot R')
         assert compatible_with(a, b)
 

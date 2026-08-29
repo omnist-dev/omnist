@@ -377,7 +377,10 @@ record definitions look.
 unsatisfiable, no finite document exists. `prune()` returns an equivalent
 schema with everything that can never actually appear removed: records
 unreachable from root, fields that can never be emitted (`[0,0]`
-cardinality), and optional fields whose type is itself unsatisfiable:
+cardinality -- constructible directly as a `Field`, though no longer legal
+OSD *text*: `[0,0]` is rejected at parse time as of issue #322, since it's
+redundant with not declaring the field at all), and optional fields whose
+type is itself unsatisfiable:
 
 ```python
 s = parse_schema('record R { "x" [0,1]: Dead }\nrecord Dead { "d": Dead }\n'
