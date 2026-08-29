@@ -145,10 +145,17 @@ round-tripped through every codec:
   adjustments* — the test asserts every adjustment code returned by
   `check_json`/`check_yaml`/`check_toml`/`check_xml` is one already
   documented (e.g. `temporal.stringified`, `null.omitted`,
-  `key.sanitized`, `float.special`) and only skips the
-  exact-equality assertion when an adjustment was actually reported. An
+  `value.stringified`) and only skips the
+  exact-equality assertion when an adjustment was actually reported. A value
+  with no legal representation at all (a null leaf to TOML, a NaN/Infinity
+  leaf to JSON, a bad label or empty internal node to XML — issues
+  #323/#324/#325) raises `WriteError` with `code="write.unsupported-value"`
+  instead of returning a report; the test catches that specifically and
+  skips the round-trip comparison for that example, same as an
+  already-documented adjustment. An
   *undocumented* mismatch — an adjustment code the test doesn't recognize,
-  or data that changes without any reported adjustment at all — fails the
+  a `WriteError` with a different code, or data that changes without any
+  reported adjustment at all — fails the
   test. TOML is restricted to list-shaped (table) roots, since it has no
   scalar top level.
 - **`doc(...)`/`build_node`** round-trip from an equivalent plain Python

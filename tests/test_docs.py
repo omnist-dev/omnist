@@ -37,7 +37,7 @@ def test_readme_at_a_glance():
                                           "server": "db1.internal.example.com",
                                           "port": 5432}],
                            "tags": ["prod", "us-east"]})).ok
-    assert ds.__version__ == "0.9.0"
+    assert ds.__version__ == "0.9.1"
 
 
 def test_quickstart():
@@ -662,13 +662,30 @@ def test_api_docs_schema_directed_deserialization():
 
 
 def test_api_docs_adjustment_reports():
-    d = doc({"a": 1, "b": None})
-    assert d.to_toml() == "a = 1\n"
+    # temporal.stringified is still a plain recorded (still-succeeds)
+    # adjustment -- TOML's null case moved to an unconditional WriteError
+    # (issues #323/#324/#325), demonstrated separately below.
+    import datetime
+    d = doc({"d": datetime.date(2024, 1, 1)})
+    assert d.to_json() == '{"d": "2024-01-01"}'
     rep = WriteReport()
-    d.to_toml(report=rep)
-    assert [(a.code, a.severity) for a in rep] == [("null.omitted", "warning")]
-    assert [(a.code, a.severity) for a in d.check_toml()] == \
+    d.to_json(report=rep)
+    assert [(a.code, a.severity) for a in rep] == [("temporal.stringified", "warning")]
+    assert [(a.code, a.severity) for a in d.check_json()] == \
         [(a.code, a.severity) for a in rep]
+    with pytest.raises(WriteError):
+        d.to_json(strict=True)
+
+
+def test_api_docs_unconditional_write_failure():
+    # Issues #323/#324/#325: a value with no legal representation at all
+    # (a null leaf to TOML, here) fails unconditionally -- report= doesn't
+    # soften it, and strict=True gives the identical result.
+    d = doc({"a": 1, "b": None})
+    with pytest.raises(WriteError) as ei:
+        d.to_toml()
+    assert ei.value.code == "write.unsupported-value"
+    assert ei.value.path == "$.b"
     with pytest.raises(WriteError):
         d.to_toml(strict=True)
 
@@ -695,7 +712,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.9.0"
+    assert ds.__version__ == "0.9.1"
 
 
 def test_docs_version_examples_match_live_version():
@@ -924,9 +941,11 @@ def test_formats_json_writing():
     assert Doc.of({"tag": ["x", "y"]}).to_json() == '{"tag": ["x", "y"]}'
 
 
-def test_formats_json_docs_special_float_substitution():
-    from omnist import write_json
-    assert write_json([("a", float("inf"))]) == '{"a": null}'
+def test_formats_json_docs_special_float_write_fails():
+    from omnist import WriteError, write_json
+    with pytest.raises(WriteError) as ei:
+        write_json([("a", float("inf"))])
+    assert ei.value.code == "write.unsupported-value"
 
 
 def test_formats_yaml_docs_opener():

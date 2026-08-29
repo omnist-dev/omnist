@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.9.0"
+omnist.__version__        # "0.9.1"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -294,7 +294,7 @@ explanation, the conversion rules, and `materialize`.
 
 ### Adjustment reports (lossy writes)
 
-Writing to a format that can't hold every value (TOML has no `null`; JSON/XML
+Writing to a format that can't hold every value the way it was typed (JSON/XML
 have no date type) is **lenient by default**: the writer adjusts the value and
 records it. `Doc.to_*` and `write_*` accept the same two options:
 
@@ -305,35 +305,47 @@ records it. `Doc.to_*` and `write_*` accept the same two options:
 
 ```python
 from omnist import doc, WriteReport, WriteError
+import datetime
 
-d = doc({"a": 1, "b": None})
-d.to_toml()                          # 'a = 1\n' -- 'b' dropped, silently
+d = doc({"d": datetime.date(2024, 1, 1)})
+d.to_json()                          # '{"d": "2024-01-01"}' -- stringified, still succeeds
 
 rep = WriteReport()
-d.to_toml(report=rep)
-[(a.code, a.severity) for a in rep]  # [('null.omitted', 'warning')]
+d.to_json(report=rep)
+[(a.code, a.severity) for a in rep]  # [('temporal.stringified', 'warning')]
 
-d.to_toml(strict=True)               # raises WriteError
+d.to_json(strict=True)               # raises WriteError
 ```
+<!-- verified-by: tests/test_docs.py::test_api_docs_adjustment_reports -->
+
+A value with **no legal representation at all** in the target format --
+TOML has no `null`, and there is no safe substitute for one (issues
+#323/#324/#325: two other values can't be told apart after a substitution
+happens) -- fails unconditionally instead, `strict` or not:
+
+```python
+d2 = doc({"a": 1, "b": None})
+d2.to_toml()                         # raises WriteError, code='write.unsupported-value'
+d2.to_toml(strict=True)              # the identical failure -- not a strict-only refusal
+```
+<!-- verified-by: tests/test_docs.py::test_api_docs_unconditional_write_failure -->
 
 ### `class WriteReport`
 Every adjustment a writer made. `.warnings` / `.errors` (lists of
 `Adjustment`); `bool(report)` is `True` when there are no `"error"`-severity
 entries (warnings are fine) — `if check_toml(node): ...` reads as "safe to
-write." Iterable; `str(report)` is a readable multi-line summary.
+write." Iterable; `str(report)` is a readable multi-line summary. A value with
+no legal representation at all in the target format never reaches a report at
+all -- it raises `WriteError` (`code="write.unsupported-value"`, `path` set)
+before recording anything, from `check_*` as well as `write_*` (above).
 
 ### `class Adjustment`
 A named tuple `Adjustment(path, code, message, severity)` — `severity` is
-`"warning"` or `"error"`. Stable codes: `null.omitted` (TOML/XML), `temporal.stringified`
-(JSON/YAML/XML), `float.special` (JSON, `"error"` — a `NaN`/`Infinity`/`-Infinity`
-leaf isn't valid JSON; lenient `write_json` substitutes `null` there so the
-output stays well-formed, `strict=True` raises instead), `key.sanitized` (XML),
-`shape.empty_ambiguous`
-(XML — an empty internal node, i.e. zero edges, is written as `<tag />` and
-reads back as the empty-string leaf `""`, not `[]`), `string.illegal_xml_char`
-(XML, `"error"` — a string contains a character XML 1.0 cannot represent, e.g.
-a C0 control other than tab/LF/CR, or a surrogate; `write_xml` replaces it with
-U+FFFD so the output is always well-formed), `string.cr_normalized` (XML — a
+`"warning"` or `"error"`. Stable codes: `null.omitted` (XML only — TOML's null
+case is an unconditional `WriteError` now, not a report entry, per above),
+`temporal.stringified`
+(JSON/YAML/XML), `value.stringified` (XML — a non-string scalar written as
+text), `string.cr_normalized` (XML — a
 string contains `\r`, which is legal XML but normalizes to `\n` on parse per
 the XML spec, so it doesn't round-trip byte-for-byte), and `string.line-break-char`
 (YAML — a label or value containing U+0085 NEL, which YAML's line-break rules would

@@ -6,6 +6,41 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.9.1] — "fail, don't invent": three write adjustments now fail unconditionally
+
+- Closed [#323](https://github.com/omnist-dev/omnist/issues/323),
+  [#324](https://github.com/omnist-dev/omnist/issues/324), and
+  [#325](https://github.com/omnist-dev/omnist/issues/325): per omnist-spec
+  Sec8.3.8/8.3.9 (commits `f7cb8dd`/`634fd4e`/`33c23b4`), a write whose value
+  has **no safe substitute** in the target format now fails unconditionally
+  (`WriteError`, `code="write.unsupported-value"`) instead of substituting a
+  value and reporting a warning-severity adjustment -- lenient or
+  `strict=True` alike. Each of the five removed codes was found to have a
+  real collision: the substituted spelling is indistinguishable, on
+  read-back, from some other, genuinely different, independently-valid
+  input.
+  - **XML**: a label that isn't a valid XML name (`format.key-sanitized`)
+    and a string containing a character XML 1.0 cannot represent
+    (`format.string-illegal-char`) -- confirmed two different labels can
+    sanitize to the same tag, colliding on read-back with no diagnostic.
+  - **TOML**: a null leaf (`format.null-unrepresentable`) -- dropping the
+    edge erased its existence entirely, not just its value, with no trace
+    it was ever there.
+  - **JSON**: a `NaN`/`Infinity`/`-Infinity` leaf (`format.float-special`)
+    -- the substituted `null` is indistinguishable from a leaf that was
+    genuinely `null`.
+  - **XML**: an empty internal node, zero edges (`format.shape-empty-ambiguous`)
+    -- both it and an empty-string leaf write as `<tag />`, and read back
+    identically as the leaf.
+  - `omnist check`/`omnist convert --json` surface the failure as a
+    structured `{"path", "code": "write.unsupported-value", "message"}`
+    error, same shape as a structured `SchemaError`; `omnist check` now
+    exits `1` (not its usual unconditional `0`) for this specific case,
+    matching `convert`'s refusal.
+  - The vendored `omnist-spec` submodule is bumped to `5e4b2fc` (covers all
+    nine 2026-08-29 spec-correctness commits; the six issues beyond this
+    one -- #322, #326, #327, #328, #329, #330 -- land in separate PRs).
+
 ## [v0.9.0] — three format-adjustments MUST now be reported (D-3)
 
 - Closed [#320](https://github.com/omnist-dev/omnist/issues/320): per

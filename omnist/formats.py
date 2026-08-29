@@ -154,8 +154,7 @@ def read_json(text: str, *, schema: Optional["Schema"] = None) -> Any:
 def write_json(node: Any, *, indent: Optional[int] = None, strict: bool = False,
                report: Optional[WriteReport] = None) -> str:
     rep = _scan_json(node)
-    prepared = node if strict else _prepare_json(node)
-    text = _json.dumps(_grouped(prepared), indent=indent, ensure_ascii=False, default=_iso)
+    text = _json.dumps(_grouped(node), indent=indent, ensure_ascii=False, default=_iso)
     return finish_write(text, rep, strict=strict, report=report)
 
 
@@ -171,22 +170,15 @@ def _scan_json(node: Any) -> WriteReport:
             rep.add(path, "temporal.stringified",
                     "temporal value written as an ISO-8601 string", "warning")
         elif isinstance(v, float) and (_math.isnan(v) or _math.isinf(v)):
-            rep.add(path, "float.special", f"{v} is not valid JSON; wrote null", "error")
+            # Issue #325: NaN/Infinity used to be substituted with `null` and
+            # reported (format.float-special) -- found to collide with a
+            # genuine null value (both produce the identical `null` token,
+            # indistinguishable on read-back). No substitute is safe, so this
+            # now fails unconditionally, not just under strict.
+            raise WriteError(f"{path}: {v} is not valid JSON and has no safe "
+                              "substitute", code="write.unsupported-value", path=path)
     _check_interleaving(node, rep)
     return rep
-
-
-def _prepare_json(node: Any, depth: int = 0) -> Any:
-    """Lenient-mode substitution: a NaN/Infinity leaf becomes ``null`` so the
-    written text is always valid JSON (mirrors XML's illegal-char -> U+FFFD
-    substitution). ``strict=True`` skips this and refuses via WriteError
-    instead, so it never sees the substituted value."""
-    if isinstance(node, list):
-        _check_write_depth(depth)
-        return [(label, _prepare_json(child, depth + 1)) for label, child in node]
-    if isinstance(node, float) and (_math.isnan(node) or _math.isinf(node)):
-        return None
-    return node
 
 
 def _iso(o: Any) -> str:
@@ -333,7 +325,15 @@ def check_toml(node: Any) -> WriteReport:
 
 
 def _strip_nulls(node: Any, path: str, rep: WriteReport, depth: int = 0) -> Any:
-    """Drop edges whose value is null (TOML can't hold null), recording each."""
+    """Reject a null leaf (TOML can't hold null, and there is no substitute
+    value to fall back to).
+
+    Issue #324: this used to drop the edge and record the loss
+    (``format.null-unrepresentable``) -- but dropping doesn't just alter what
+    a position holds, it erases the edge's existence entirely, with no trace
+    on read-back that it was ever there. That's unconditional data loss, so
+    the write now fails unconditionally too, not just under strict.
+    """
     if not isinstance(node, list):
         return node
     _check_write_depth(depth)
@@ -344,8 +344,8 @@ def _strip_nulls(node: Any, path: str, rep: WriteReport, depth: int = 0) -> Any:
         counts[label] = i + 1
         p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
         if child is None:
-            rep.add(p, "null.omitted", "null value dropped (TOML has no null)", "warning")
-            continue
+            raise WriteError(f"{p}: null has no representation in TOML",
+                              code="write.unsupported-value", path=p)
         out.append((label, _strip_nulls(child, p, rep, depth + 1)))
     return out
 
@@ -469,7 +469,7 @@ def write_xml(node: Any, *, strict: bool = False,
     rep = check_xml(node)
     import xml.etree.ElementTree as ET
     (tag, content), = node
-    el = ET.Element(_xml_name(tag))
+    el = ET.Element(tag)
     _node_to_xml(content, el)
     _indent(el)
     text = ET.tostring(el, encoding="unicode")
@@ -486,20 +486,30 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
     if isinstance(node, list):
         _check_write_depth(depth)
         if not node:
-            rep.add(path, "shape.empty_ambiguous",
-                    "empty internal node (no edges) written as <tag /> and "
-                    "reads back as the empty-string leaf '', not []",
-                    "warning")
-            return
+            # Issue #325: an empty internal node and an empty-string leaf
+            # both serialize to <tag />, and read_xml always reconstructs
+            # the leaf -- the same collision shape as the label/null cases
+            # below. No substitute is safe, so this now fails
+            # unconditionally instead of substituting-and-warning
+            # (previously format.shape-empty-ambiguous).
+            raise WriteError(
+                f"{path}: an empty internal node has no XML spelling distinct "
+                "from an empty-string leaf",
+                code="write.unsupported-value", path=path)
         counts: dict[str, int] = {}
         for label, child in node:
             i = counts.get(label, 0)
             counts[label] = i + 1
             p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
             if not _XML_NAME.match(label):
-                rep.add(p, "key.sanitized",
-                        f"label {label!r} isn't a valid XML name; written sanitized",
-                        "warning")
+                # Issue #323: two different labels can sanitize to the same
+                # XML name (e.g. "my label" and "my_label" both becoming
+                # <my_label>), silently colliding on read-back with no
+                # diagnostic. No single well-defined substitute is safe, so
+                # this now fails unconditionally instead of
+                # substituting-and-warning (previously format.key-sanitized).
+                raise WriteError(f"{p}: label {label!r} isn't a valid XML name",
+                                  code="write.unsupported-value", path=p)
             _scan_xml(child, p, rep, depth + 1)
         return
     v = node
@@ -519,11 +529,15 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
                 "non-string scalar written as text (reads back as a string)", "warning")
     if isinstance(v, str):
         if _XML_ILLEGAL_CHAR.search(v):
-            rep.add(path, "string.illegal_xml_char",
-                    "string contains a character XML 1.0 cannot represent "
-                    "(e.g. a C0 control other than tab/LF/CR); it is replaced "
-                    "with U+FFFD on write so the output stays well-formed",
-                    "error")
+            # Issue #323: same "no safe substitute" collision shape as the
+            # label case above -- U+FFFD substitution is unconditional data
+            # corruption, not a recoverable adjustment. Fails unconditionally
+            # instead of substituting-and-warning (previously
+            # format.string-illegal-char).
+            raise WriteError(
+                f"{path}: string contains a character XML 1.0 cannot "
+                "represent (e.g. a C0 control other than tab/LF/CR)",
+                code="write.unsupported-value", path=path)
         if "\r" in v:
             rep.add(path, "string.cr_normalized",
                     "string contains a carriage return ('\\r'); XML mandates "
@@ -536,19 +550,14 @@ def _node_to_xml(content: Any, parent: Any) -> None:
     import xml.etree.ElementTree as ET
     if isinstance(content, list):
         for label, child in content:
-            sub = ET.SubElement(parent, _xml_name(label))
+            # _scan_xml already rejected (via write.unsupported-value) any
+            # label that isn't a valid XML name, so every label reaching
+            # here is used verbatim -- no sanitizing fallback needed
+            # (issue #323).
+            sub = ET.SubElement(parent, label)
             _node_to_xml(child, sub)
     else:
-        parent.text = _xml_sanitize(_xml_text(content))
-
-
-def _xml_name(name: str) -> str:
-    if _XML_NAME.match(name):
-        return name
-    safe = _re.sub(r"[^A-Za-z0-9_.\-]", "_", name)
-    if not safe or not _XML_NAME.match(safe):
-        safe = "_" + safe
-    return safe
+        parent.text = _xml_text(content)
 
 
 def _xml_text(v: Any) -> str:
@@ -559,14 +568,6 @@ def _xml_text(v: Any) -> str:
     if isinstance(v, (_dt.date, _dt.time)):
         return v.isoformat()
     return str(v)
-
-
-def _xml_sanitize(text: str) -> str:
-    """Replace characters XML 1.0 cannot represent (see ``string.illegal_xml_char``)
-    with U+FFFD so write_xml's output is always well-formed XML.  CR is left
-    as-is -- it's legal XML and only normalizes to LF on parse, which is
-    reported separately as ``string.cr_normalized``."""
-    return _XML_ILLEGAL_CHAR.sub(chr(0xFFFD), text)
 
 
 def _local(tag: str) -> str:

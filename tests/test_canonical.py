@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.9.0"
+        assert ds.__version__ == "0.9.1"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1081,15 +1081,22 @@ class TestCodecs:
         with pytest.raises(WriteError):
             write_xml([("a", 1), ("b", 2)])      # two top-level edges
 
-    def test_xml_label_sanitized_when_not_a_valid_xml_name(self):
-        # a label with spaces/punctuation isn't a valid XML name -- write_xml
-        # sanitizes it (and prefixes "_" if sanitizing leaves nothing usable).
-        out = write_xml([("a b", "1")])
-        assert "<a_b>" in out
+    def test_xml_label_not_a_valid_xml_name_fails_unconditionally(self):
+        # Issue #323: a label with spaces/punctuation isn't a valid XML name
+        # -- write_xml used to sanitize it; no single well-defined substitute
+        # is safe (two different labels can collide into the same sanitized
+        # tag), so this now fails outright instead.
+        with pytest.raises(WriteError) as ei:
+            write_xml([("a b", "1")])
+        assert ei.value.code == "write.unsupported-value"
 
-    def test_xml_label_starting_with_digit_gets_underscore_prefix(self):
-        out = write_xml([("1tag", "x")])
-        assert "<_1tag>" in out
+    def test_xml_label_starting_with_digit_is_valid(self):
+        # A leading digit alone isn't legal in an XML Name production, but
+        # _XML_NAME requires a leading [A-Za-z_] -- "1tag" is rejected, same
+        # as any other non-XML-name label, not silently prefixed.
+        with pytest.raises(WriteError) as ei:
+            write_xml([("1tag", "x")])
+        assert ei.value.code == "write.unsupported-value"
 
     def test_xml_leaf_types_round_trip_as_text(self):
         # bool/None/date leaves all go through _xml_text's special-casing.
@@ -1493,14 +1500,22 @@ class TestDeserialize:
 
 # ----------------------------------------------------------- adjustment reports
 class TestReports:
-    def test_toml_drops_null_with_a_warning(self):
+    def test_toml_null_fails_unconditionally(self):
+        # Issue #324: a null leaf has no representation in TOML and no safe
+        # substitute (dropping it silently erases the edge), so this now
+        # fails outright instead of dropping-and-warning.
         node = doc({"a": 1, "b": None}).to_data()
-        rep = check_toml(node)
-        assert [a.code for a in rep] == ["null.omitted"]
-        assert rep.warnings and not rep.errors
-        assert "b" not in write_toml(node)
+        with pytest.raises(WriteError) as ei:
+            check_toml(node)
+        assert ei.value.code == "write.unsupported-value"
+        assert ei.value.path == "$.b"
+        with pytest.raises(WriteError) as ei2:
+            write_toml(node)
+        assert ei2.value.code == "write.unsupported-value"
 
     def test_toml_strict_raises_on_null(self):
+        # strict=True is unconditionally the same result as lenient now --
+        # both fail (issue #324's "strict-is-the-same" companion vector).
         node = doc({"a": 1, "b": None}).to_data()
         with pytest.raises(WriteError):
             write_toml(node, strict=True)
@@ -1518,41 +1533,32 @@ class TestReports:
         assert [a.code for a in rep] == ["temporal.stringified"]
         assert write_json(node) == '{"d": "2024-01-01"}'   # actually adjusted, not just reported
         node2 = [("x", float("nan"))]
-        rep2 = check_json(node2)
-        assert [a.code for a in rep2] == ["float.special"]
-        assert rep2.errors
+        with pytest.raises(WriteError) as ei:
+            check_json(node2)
+        assert ei.value.code == "write.unsupported-value"
+        assert ei.value.path == "$.x"
 
-    def test_json_lenient_write_substitutes_null_for_special_floats(self):
-        # #157/S1: lenient (default) write_json used to emit the literal,
-        # non-standard tokens NaN/Infinity/-Infinity -- invalid JSON per the
-        # spec, even though check_json already flagged them error-severity.
-        # It now substitutes `null` at those leaves, same as XML substitutes
-        # U+FFFD for an illegal character: the output stays well-formed and
-        # the report still names the problem.
-        import json as _json
+    def test_json_write_fails_unconditionally_for_special_floats(self):
+        # Issue #325: NaN/Infinity/-Infinity used to be substituted with the
+        # literal `null` and reported (format.float-special) -- found to
+        # collide with a genuine null value (both produce the identical
+        # `null` token, indistinguishable on read-back). No substitute is
+        # safe, so the write now fails outright, lenient or strict alike.
         for value in (float("inf"), float("-inf"), float("nan")):
             node = [("a", value)]
-            text = write_json(node)
-            assert text == '{"a": null}'
-            _json.loads(text)                     # must be valid under strict stdlib json
-            rep = check_json(node)
-            assert [a.code for a in rep] == ["float.special"]
-            assert rep.errors
-            (adj,) = rep.adjustments
-            assert "null" in adj.message           # message notes the substitution
-
-    def test_json_strict_still_refuses_special_floats(self):
-        # strict=True is unchanged: it raises rather than substituting, and
-        # never emits the (invalid) raw Infinity/NaN token either.
-        node = [("a", float("inf"))]
-        with pytest.raises(WriteError):
-            write_json(node, strict=True)
+            with pytest.raises(WriteError) as ei:
+                write_json(node)
+            assert ei.value.code == "write.unsupported-value"
+            with pytest.raises(WriteError):
+                write_json(node, strict=True)
 
     def test_json_special_float_nested_in_object(self):
-        # the substitution walks nested structure, not just top-level leaves
+        # the failure is detected walking nested structure, not just
+        # top-level leaves
         node = [("r", [("x", float("inf")), ("y", 1)])]
-        text = write_json(node)
-        assert text == '{"r": {"x": null, "y": 1}}'
+        with pytest.raises(WriteError) as ei:
+            write_json(node)
+        assert ei.value.path == "$.r.x"
 
     def test_xml_null_omitted(self):
         node = doc({"a": None}).to_data()
@@ -1591,20 +1597,26 @@ class TestReports:
         assert [a.code for a in rep] == ["string.line-break-char"]
         assert read_yaml(write_yaml(node)) == node
 
-    def test_xml_sanitizes_bad_key_and_reports_temporal(self):
+    def test_xml_bad_key_fails_unconditionally(self):
+        # Issue #323: a label that isn't a valid XML name has no safe
+        # substitute (two different labels can sanitize to the same tag,
+        # colliding silently on read-back), so this now fails outright
+        # instead of sanitizing-and-warning.
         node = doc({"r": {"a b": 1, "d": datetime.date(2024, 1, 1)}}).to_data()
-        rep = check_xml(node)
-        codes = {a.code for a in rep}
-        assert "key.sanitized" in codes
-        assert "temporal.stringified" in codes
+        with pytest.raises(WriteError) as ei:
+            check_xml(node)
+        assert ei.value.code == "write.unsupported-value"
 
     def test_report_arg_and_strict_share_events(self):
+        # Issue #324: null.omitted is gone for TOML -- a null leaf now fails
+        # unconditionally, so there's no adjustment event left to share
+        # between `report=` and `strict=True`; both simply raise.
         node = doc({"a": 1, "b": None}).to_data()
         rep = WriteReport()
         with pytest.raises(WriteError) as ei:
             write_toml(node, strict=True, report=rep)
-        assert [a.code for a in rep] == ["null.omitted"]
-        assert ei.value.report.errors == [] and ei.value.report.warnings
+        assert ei.value.code == "write.unsupported-value"
+        assert list(rep) == []
 
 
 # ----------------------------------------------------------- format registry
@@ -1645,16 +1657,32 @@ class TestRegistry:
 # ----------------------------------------------------- Doc.check_* parity
 class TestDocCheckParity:
     def test_check_methods_match_module_functions(self):
-        node = doc({"a": 1, "b": None}).to_data()
+        # toml/xml now raise unconditionally for a null/bad-label leaf
+        # (issues #323/#324), so parity for those two is exercised via the
+        # exception shape instead of a report-code comparison below; this
+        # case sticks to json/yaml, which are unaffected here.
+        node = doc({"a": 1, "d": datetime.date(2024, 1, 1)}).to_data()
         d = Doc(node)
-        assert [a.code for a in d.check_toml()] == [a.code for a in check_toml(node)]
         assert [a.code for a in d.check_json()] == [a.code for a in check_json(node)]
         assert [a.code for a in d.check_yaml()] == [a.code for a in check_yaml(node)]
+
+    def test_check_toml_matches_on_unconditional_failure(self):
+        node = doc({"a": 1, "b": None}).to_data()
+        d = Doc(node)
+        with pytest.raises(WriteError) as e1:
+            d.check_toml()
+        with pytest.raises(WriteError) as e2:
+            check_toml(node)
+        assert (e1.value.code, e1.value.path) == (e2.value.code, e2.value.path)
 
     def test_check_xml_matches(self):
         node = doc({"r": {"a b": 1}}).to_data()
         d = Doc(node)
-        assert [a.code for a in d.check_xml()] == [a.code for a in check_xml(node)]
+        with pytest.raises(WriteError) as e1:
+            d.check_xml()
+        with pytest.raises(WriteError) as e2:
+            check_xml(node)
+        assert (e1.value.code, e1.value.path) == (e2.value.code, e2.value.path)
 
     def test_check_oml_matches(self):
         node = doc({"a": 1, "b": None}).to_data()
@@ -1663,7 +1691,11 @@ class TestDocCheckParity:
 
     def test_check_format_matches_named_method(self):
         d = doc({"a": 1, "b": None})
-        assert [a.code for a in d.check_format("toml")] == [a.code for a in d.check_toml()]
+        with pytest.raises(WriteError) as e1:
+            d.check_format("toml")
+        with pytest.raises(WriteError) as e2:
+            d.check_toml()
+        assert (e1.value.code, e1.value.path) == (e2.value.code, e2.value.path)
 
 
 # ----------------------------------------------------------------- WriteReport
@@ -1672,11 +1704,14 @@ class TestWriteReportStr:
         assert str(WriteReport()) == "no adjustments"
 
     def test_str_with_adjustments(self):
-        node = doc({"a": 1, "b": None}).to_data()
-        rep = check_toml(node)
+        # temporal.stringified (JSON) is still a plain recorded adjustment --
+        # TOML's null case moved to an unconditional WriteError (issue #324),
+        # so it's no longer a WriteReport-str example.
+        node = doc({"d": datetime.date(2024, 1, 1)}).to_data()
+        rep = check_json(node)
         assert str(rep) == "\n".join(
             f"{a.severity}: {a.path}: {a.message}" for a in rep)
-        assert "null value dropped" in str(rep)
+        assert "temporal" in str(rep)
 
 
 # ----------------------------------------------------------- OSD error paths
@@ -2686,23 +2721,20 @@ class TestXmlAdjustmentCodes:
         assert list(rep) == []
         assert read_xml(write_xml(node)) == node
 
-    def test_empty_internal_node_vs_empty_string_leaf(self):
-        # An internal node with zero edges ([]) and a leaf holding the empty
-        # string ('') both serialize to the same XML element, <tag />, so
-        # read_xml can't tell them apart -- see issue #68.
+    def test_empty_internal_node_fails_unconditionally(self):
+        # Issue #325: an internal node with zero edges ([]) and a leaf
+        # holding the empty string ('') both serialize to the same XML
+        # element, <tag />, and read_xml always reconstructs the leaf, never
+        # [] -- see issue #68. No substitute is safe, so writing the empty
+        # internal node now fails outright instead of substituting-and-warning.
         empty_internal = [("A", [])]
         empty_leaf = [("A", "")]
 
-        # Both write to the identical XML text.
-        assert write_xml(empty_internal) == write_xml(empty_leaf)
-
-        # Writing the empty internal node is the lossy direction: check_xml
-        # flags it, and reading it back never reconstructs [] -- it always
-        # comes back as the empty-string leaf.
-        rep_internal = check_xml(empty_internal)
-        assert [a.code for a in rep_internal] == ["shape.empty_ambiguous"]
-        assert read_xml(write_xml(empty_internal)) == [("A", "")]
-        assert read_xml(write_xml(empty_internal)) != empty_internal
+        with pytest.raises(WriteError) as ei:
+            check_xml(empty_internal)
+        assert ei.value.code == "write.unsupported-value"
+        with pytest.raises(WriteError):
+            write_xml(empty_internal)
 
         # Writing the empty-string leaf is not lossy: it round-trips fine and
         # is not flagged.
@@ -2710,29 +2742,27 @@ class TestXmlAdjustmentCodes:
         assert list(rep_leaf) == []
         assert read_xml(write_xml(empty_leaf)) == empty_leaf
 
-    def test_illegal_xml_control_char_is_sanitized_and_reported(self):
-        # XML 1.0 forbids most C0 control characters in character data (only
-        # tab/LF/CR and U+0020+ are legal).  write_xml used to emit them
-        # verbatim, producing text that read_xml's own parser then rejected
-        # -- see issue #67.  It should now substitute U+FFFD and flag it.
+    def test_illegal_xml_control_char_fails_unconditionally(self):
+        # Issue #323: XML 1.0 forbids most C0 control characters in character
+        # data (only tab/LF/CR and U+0020+ are legal) -- see issue #67. A
+        # U+FFFD substitution is unconditional data corruption (not a
+        # recoverable adjustment), so this now fails outright.
         node = [("a", "x\x08y")]
-        rep = check_xml(node)
-        assert [a.code for a in rep] == ["string.illegal_xml_char"]
-        assert rep.errors                      # error severity, not a warning
-
-        text = write_xml(node)
-        assert "\x08" not in text              # the illegal byte is gone
-        assert "�" in text                # replaced with U+FFFD
-        assert read_xml(text) == [("a", "x�y")]   # round-trips cleanly now
-
         with pytest.raises(WriteError) as ei:
+            check_xml(node)
+        assert ei.value.code == "write.unsupported-value"
+
+        with pytest.raises(WriteError):
+            write_xml(node)
+        with pytest.raises(WriteError):
             write_xml(node, strict=True)
-        assert [a.code for a in ei.value.report] == ["string.illegal_xml_char"]
 
     def test_carriage_return_normalization_is_reported(self):
         # CR is legal XML, but XML's mandated line-ending normalization on
         # parse turns '\r' (and '\r\n') into '\n', so it's a documented,
-        # non-error lossiness rather than a crash -- see issue #67.
+        # non-error lossiness rather than a crash -- see issue #67. (Issue
+        # #326 changes this to a lossless &#13; escape instead; unaffected
+        # by this series.)
         node = [("a", "x\ry")]
         rep = check_xml(node)
         assert [a.code for a in rep] == ["string.cr_normalized"]
@@ -2742,34 +2772,26 @@ class TestXmlAdjustmentCodes:
         assert "\r" in text                    # CR is left as-is on write
         assert read_xml(text) == [("a", "x\ny")]   # but reads back as LF
 
-    def test_label_with_trailing_newline_is_sanitized_and_reported(self):
-        # A label like 'A\n' isn't a valid XML name, but the old _XML_NAME
-        # regex used a bare '$' anchor, which in Python matches just before a
-        # trailing '\n' as well as at the absolute end of string -- so
-        # 'A\n' was treated as already-valid and wasn't flagged or
-        # sanitized, even though ElementTree happily wrote a tag literally
-        # containing the newline. check_xml's empty report then lied: the
-        # label silently lost its trailing newline on round-trip -- see
-        # issue #95. It should be sanitized and flagged like any other
-        # illegal-XML-name label.
+    def test_label_with_trailing_newline_fails_unconditionally(self):
+        # Issue #323: a label like 'A\n' isn't a valid XML name, but the old
+        # _XML_NAME regex used a bare '$' anchor, which in Python matches
+        # just before a trailing '\n' as well as at the absolute end of
+        # string -- so 'A\n' was treated as already-valid -- see issue #95.
+        # It's now rejected like any other illegal-XML-name label.
         node = [("A\n", "x")]
-        rep = check_xml(node)
-        assert [a.code for a in rep] == ["key.sanitized"]
-        assert rep.warnings and not rep.errors
+        with pytest.raises(WriteError) as ei:
+            check_xml(node)
+        assert ei.value.code == "write.unsupported-value"
+        with pytest.raises(WriteError):
+            write_xml(node)
 
-        text = write_xml(node)
-        assert "\n" not in text.split(">", 1)[0]   # no raw newline in the tag
-        assert read_xml(text) == [("A_", "x")]   # round-trips via sanitized name
-
-    def test_embedded_newline_label_is_sanitized_and_reported(self):
+    def test_embedded_newline_label_fails_unconditionally(self):
         # Same bug class as above, but with the newline in the middle of the
         # label rather than at the very end.
         node = [("A\nB", "x")]
-        rep = check_xml(node)
-        assert [a.code for a in rep] == ["key.sanitized"]
-
-        text = write_xml(node)
-        assert read_xml(text) == [("A_B", "x")]
+        with pytest.raises(WriteError) as ei:
+            check_xml(node)
+        assert ei.value.code == "write.unsupported-value"
 
 
 # ------------------------------------------------- D-3 codec adjustment diagnostics

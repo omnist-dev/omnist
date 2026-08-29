@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.9.0
+omnist 0.9.1
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -103,15 +103,18 @@ exits `2`, `--json` or not.
 
 ```sh
 $ omnist check examples/cli/lossy.json --from json --to toml --json
-[{"path": "$.age", "code": "null.omitted", "message": "null value dropped (TOML has no null)", "severity": "warning"}]
+{"ok": false, "message": "$.age: null has no representation in TOML", "errors": [{"path": "$.age", "code": "write.unsupported-value", "message": "$.age: null has no representation in TOML"}]}
+# exit 1 -- a null leaf has no legal TOML representation at all (issues #323/#324/#325),
+# so even check (which never writes) refuses unconditionally, not just under --strict
 
 $ omnist convert examples/cli/lossy.json --from json --to toml --strict --json
-{"ok": false, "message": "warning: $.age: null value dropped (TOML has no null)", "errors": []}
+{"ok": false, "message": "$.age: null has no representation in TOML", "errors": [{"path": "$.age", "code": "write.unsupported-value", "message": "$.age: null has no representation in TOML"}]}
 # exit 1
 
 $ omnist schema compatible-with examples/cli/v1.osd examples/cli/v2.osd --json
 {"compatible": true}
 ```
+<!-- verified-by: tests/test_cli.py::TestGlobalJson -->
 
 ### Scripting `omnist`
 
@@ -235,19 +238,34 @@ $ cat examples/cli/person.toml | omnist convert - --from toml --to json
 {"person": {"name": "Ann", "age": 30}}
 ```
 
-`--report`/`--strict`, on a document TOML can't hold losslessly
-(`examples/cli/lossy.json` is `{"name": "Ann", "age": null}`):
+`--report`/`--strict`, on a document with a value that has no legal
+representation in the target format at all (`examples/cli/lossy.json` is
+`{"name": "Ann", "age": null}` -- TOML has no `null`, and there's no safe
+substitute for one, per issues #323/#324/#325's "fail, don't invent" rule):
 
 ```sh
 $ omnist convert examples/cli/lossy.json --from json --to toml --report
-name = "Ann"
-# stderr:
-warning: $.age: null value dropped (TOML has no null)
+# exit 1, nothing written, stderr:
+error: $.age: null has no representation in TOML
 
 $ omnist convert examples/cli/lossy.json --from json --to toml --strict
-# exit 1, nothing written, stderr:
-error: warning: $.age: null value dropped (TOML has no null)
+# exit 1, nothing written, stderr (identical to --report above --
+# unconditional, not a strict-only refusal):
+error: $.age: null has no representation in TOML
 ```
+<!-- verified-by: tests/test_cli_examples.py::TestConvertExamples -->
+
+A value that still has a lossy-but-safe substitute -- a temporal value
+written to a format with no date/time type, say -- keeps the older
+"adjust and report" behavior instead of failing:
+
+```sh
+$ echo 'd: 2024-01-01' | omnist convert - --from yaml --to json --report
+{"d": "2024-01-01"}
+# stderr:
+warning: $.d: temporal value written as an ISO-8601 string
+```
+<!-- doc-illustrative -->
 
 ## `omnist check`
 
@@ -261,18 +279,24 @@ Reports what `write_<to>` would adjust (`check_json`/`check_yaml`/
 producing (or risking producing) any output. Unlike `convert`,
 `--from`/`--to` may be equal.
 
-By default, `check` always exits `0` — it's purely informational.
-`--strict` turns it into a CI gate: exit `0` if nothing would need
-adjusting, `1` if anything would.
+By default, `check` exits `0` for a value that would still adjust and
+succeed -- it's purely informational there. `--strict` turns that case into
+a CI gate: exit `0` if nothing would need adjusting, `1` if anything would.
+A value with no legal representation at all (issues #323/#324/#325) is a
+different case: `check` refuses it with exit `1` unconditionally, lenient
+or `--strict` alike, the same as `convert` does -- there is no adjustment
+to opt out of inspecting for.
 
 ```sh
 $ omnist check examples/cli/lossy.json --from json --to toml
-warning: $.age: null value dropped (TOML has no null)
+# exit 1, stderr: error: $.age: null has no representation in TOML
+# (same unconditional refusal as `convert` above -- issues #323/#324/#325 --
+# even though `check` never writes anything)
 
 $ omnist check examples/cli/lossy.json --from json --to toml --strict
-warning: $.age: null value dropped (TOML has no null)
-# exit 1
+# exit 1, stderr: error: $.age: null has no representation in TOML
 ```
+<!-- verified-by: tests/test_cli_examples.py::TestCheckExamples -->
 
 ## `omnist infer`
 

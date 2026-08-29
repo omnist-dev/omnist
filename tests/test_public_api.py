@@ -219,7 +219,13 @@ FROZEN_METHOD_SIGNATURES = {
                      "code: 'Optional[str]' = None, path: 'Optional[str]' = None) -> None"),
     },
     "WriteError": {
-        "__init__": "(self, message: str, report: 'WriteReport | None' = None) -> None",
+        # Issues #323/#324/#325: code/path (same additive-only shape as
+        # ParseError's #308 addition above) let write.unsupported-value
+        # failures carry a structured code/path -- every existing
+        # WriteError(msg) / WriteError(msg, report) call stays
+        # call-compatible, so this is not a deprecation-cycle case.
+        "__init__": ("(self, message: str, report: 'WriteReport | None' = None, *, "
+                     "code: 'Optional[str]' = None, path: 'Optional[str]' = None) -> None"),
     },
     "Doc": {
         "__init__": "(self, node: 'Any', path: 'str' = '$', depth: 'int' = 0) -> 'None'",

@@ -85,17 +85,31 @@ class DetachedNode(DocumentError):
 
 
 class WriteError(OmnistError):
-    """A document cannot be represented losslessly in the target format.
+    """A document cannot be represented in the target format.
 
-    Raised only in ``strict=True`` mode.  ``.report`` holds the full
+    Raised in ``strict=True`` mode for any recorded adjustment, and
+    unconditionally (regardless of ``strict``) when the value has no legal
+    representation at all in the target format -- see
+    ``docs/08-conformance-and-errors.md`` Sec8.3.8/8.3.9 in the
+    ``omnist-spec`` submodule -- carrying ``code="write.unsupported-value"``
+    and the offending ``path`` (issues #323/#324/#325). ``code``/``path`` are
+    optional structured attributes, ``None`` unless the raiser passed them,
+    so every existing ``raise WriteError("msg")`` call keeps working
+    unchanged. ``.report`` holds the full
     :class:`~omnist.report.WriteReport` of every adjustment that would have
-    been needed, so callers can inspect the structured list, not just the text.
+    been needed (empty for an unconditional failure raised before any
+    adjustment was recorded), so callers can inspect the structured list,
+    not just the text.
     """
 
-    def __init__(self, message: str, report: "WriteReport | None" = None) -> None:
-        """Initialize WriteError with an adjustment report."""
+    def __init__(self, message: str, report: "WriteReport | None" = None, *,
+                 code: "Optional[str]" = None, path: "Optional[str]" = None) -> None:
+        """Initialize WriteError with an adjustment report and, optionally,
+        a structured machine-readable code and the path it applies to."""
         super().__init__(message)
         self.report = report
+        self.code = code
+        self.path = path
 
 
 class UnsafeXMLWarning(UserWarning):
