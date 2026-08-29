@@ -102,18 +102,21 @@ Doc.of({"tag": ["x", "y"]}).to_json()         # '{"tag": ["x", "y"]}'
 > a plain `str` unless `schema=` is given on the way back in. See
 > [adjustment reports](../api.md#adjustment-reports-lossy-writes).
 >
-> JSON has no `NaN`/`Infinity`. Lenient (default) `write_json` substitutes
-> `null` at a `NaN`/`Infinity`/`-Infinity` leaf so the output is always valid
-> JSON; the adjustment report still names the leaf, as `float.special`, an
-> error-severity adjustment whose message notes the substitution
-> (`"inf is not valid JSON; wrote null"`). `strict=True` raises `WriteError`
-> instead of substituting.
+> JSON has no `NaN`/`Infinity`, and there's no safe substitute: a
+> substituted `null` is indistinguishable, on read-back, from a leaf that
+> was genuinely `null` to begin with. `write_json` now fails unconditionally
+> on a `NaN`/`Infinity`/`-Infinity` leaf -- `code="write.unsupported-value"`
+> -- lenient or `strict=True` alike (issue #325).
 
 ```python
-from omnist import write_json
+from omnist import WriteError, write_json
 
-write_json([("a", float("inf"))])              # '{"a": null}'
+try:
+    write_json([("a", float("inf"))])
+except WriteError as e:
+    e.code                                      # 'write.unsupported-value'
 ```
+<!-- verified-by: tests/test_docs.py::test_formats_json_docs_special_float_write_fails -->
 
 `write_json`/`check_json` raise `WriteError` (naming the limit) if a
 Document nests past 200 levels — the same limit `read_json` already

@@ -121,31 +121,38 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 # '<order>\n  <id>A1</id>\n</order>\n'
 ```
 
-> A key that isn't a legal XML element name is sanitized on write (e.g.
-> `"a b"` → `<a_b>`, reported as `key.sanitized`), and a date/time value is
-> written as text (`temporal.stringified`).
+> A date/time value is written as text (`temporal.stringified`), and a
+> non-string scalar (int/float/bool) is written as text too
+> (`value.stringified`) -- both still-succeeds adjustments. See
+> [adjustment reports](../api.md#adjustment-reports-lossy-writes) to
+> inspect either, or `strict=True` to raise instead of adjusting.
 >
-> **An empty internal node (zero edges, `[]`) is indistinguishable from an
-> empty-string leaf (`""`)** once written: both serialize to `<tag />`, and
-> `read_xml` always reconstructs the empty-string leaf. Writing `[]` is
-> reported as `shape.empty_ambiguous` so you know ahead of time that it won't
-> round-trip; writing `""` round-trips fine and is not flagged.
+> Four other cases have **no safe substitute at all**, and fail
+> unconditionally (`WriteError`, `code="write.unsupported-value"`) instead
+> of substituting and reporting a warning -- issues #323/#325 found each of
+> the old substitutions could collide, on read-back, with some other,
+> genuinely different, independently-valid input:
 >
-> **A string containing a character XML 1.0 cannot represent** (most C0
-> control characters -- everything below U+0020 except tab/LF/CR -- or a
-> UTF-16 surrogate) would otherwise produce text that isn't well-formed XML,
-> so `write_xml` replaces each such character with U+FFFD (the standard
-> replacement character) and reports `string.illegal_xml_char` with
-> `"error"` severity -- `strict=True` raises instead of silently substituting.
+> - **A key that isn't a legal XML element name** (e.g. `"a b"`) used to be
+>   sanitized (`"a b"` → `<a_b>`); now it fails outright, since two
+>   different labels can sanitize to the same tag with no way to tell them
+>   apart afterward.
+> - **A string containing a character XML 1.0 cannot represent** (most C0
+>   control characters -- everything below U+0020 except tab/LF/CR -- or a
+>   UTF-16 surrogate) used to be replaced with U+FFFD; now it fails outright,
+>   for the same collision reason.
+> - **An empty internal node (zero edges, `[]`)** is indistinguishable from
+>   an empty-string leaf (`""`) once written -- both would serialize to
+>   `<tag />`, and `read_xml` always reconstructs the empty-string leaf.
+>   Writing `[]` now fails outright; writing `""` still round-trips fine and
+>   is not flagged.
 >
-> **A string containing `\r`** is legal XML, but XML mandates line-ending
-> normalization on parse (`\r` and `\r\n` both become `\n`), so it doesn't
-> round-trip byte-for-byte. `write_xml` leaves `\r` as-is (no substitution
-> needed) and reports it as `string.cr_normalized` so you know ahead of time
-> the read-back value will differ.
->
-> See [adjustment reports](../api.md#adjustment-reports-lossy-writes) to
-> inspect any of these, or `strict=True` to raise instead of adjusting.
+> **A string containing `\r`**, by contrast, now writes *losslessly*: issue
+> #326 escapes it as the numeric character reference `&#13;` (and `\r\n` as
+> `&#13;\n`), which is exempt from XML's line-ending normalization on parse
+> and so survives byte-for-byte -- nothing to report here at all anymore
+> (previously `string.cr_normalized`, a warning-severity adjustment for the
+> old raw-byte-write behavior).
 
 `write_xml`/`check_xml` raise `WriteError` (naming the limit) if a
 Document nests past 200 levels — the same limit `read_xml` already

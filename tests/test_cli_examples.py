@@ -63,14 +63,19 @@ class TestVersionAndHelpExample:
 
 class TestMachineModeJsonExamples:
     def test_check_lossy_json_flag(self, capsys):
+        # Issues #323/#324/#325: a null leaf has no representation in TOML
+        # and no safe substitute, so this now fails unconditionally
+        # (write.unsupported-value) -- even from `check`, which never
+        # writes -- instead of succeeding with a null.omitted warning.
         code, out, err = run(
             ["check", "examples/cli/lossy.json", "--from", "json", "--to", "toml", "--json"],
             capsys)
-        assert code == 0
+        assert code == 1
         assert err == ""
         assert out == (
-            '[{"path": "$.age", "code": "null.omitted", '
-            '"message": "null value dropped (TOML has no null)", "severity": "warning"}]\n')
+            '{"ok": false, "message": "$.age: null has no representation in TOML", '
+            '"errors": [{"path": "$.age", "code": "write.unsupported-value", '
+            '"message": "$.age: null has no representation in TOML"}]}\n')
 
     def test_convert_strict_lossy_json_flag(self, capsys):
         code, out, err = run(
@@ -79,8 +84,9 @@ class TestMachineModeJsonExamples:
         assert code == 1
         assert err == ""
         assert out == (
-            '{"ok": false, "message": "warning: $.age: null value dropped '
-            '(TOML has no null)", "errors": []}\n')
+            '{"ok": false, "message": "$.age: null has no representation in TOML", '
+            '"errors": [{"path": "$.age", "code": "write.unsupported-value", '
+            '"message": "$.age: null has no representation in TOML"}]}\n')
 
     def test_compatible_with_json_flag(self, capsys):
         code, out, err = run(
@@ -134,12 +140,14 @@ class TestConvertExamples:
         assert out == '{"person": {"name": "Ann", "age": 30}}\n'
 
     def test_report_on_lossy_json_to_toml(self, capsys):
+        # Issue #324: a null leaf now fails unconditionally, lenient
+        # (--report) or --strict alike -- nothing is written either way.
         code, out, err = run(
             ["convert", "examples/cli/lossy.json", "--from", "json", "--to", "toml", "--report"],
             capsys)
-        assert code == 0
-        assert out == 'name = "Ann"\n'
-        assert err == "warning: $.age: null value dropped (TOML has no null)\n"
+        assert code == 1
+        assert out == ""
+        assert err == "error: $.age: null has no representation in TOML\n"
 
     def test_strict_on_lossy_json_to_toml(self, capsys):
         code, out, err = run(
@@ -147,22 +155,26 @@ class TestConvertExamples:
             capsys)
         assert code == 1
         assert out == ""
-        assert err == "error: warning: $.age: null value dropped (TOML has no null)\n"
+        assert err == "error: $.age: null has no representation in TOML\n"
 
 
 class TestCheckExamples:
     def test_lossy_json_to_toml(self, capsys):
+        # Issue #324: check() gives the same unconditional refusal as
+        # convert() for a value with no legal TOML representation.
         code, out, err = run(
             ["check", "examples/cli/lossy.json", "--from", "json", "--to", "toml"], capsys)
-        assert code == 0
-        assert out == "warning: $.age: null value dropped (TOML has no null)\n"
+        assert code == 1
+        assert out == ""
+        assert err == "error: $.age: null has no representation in TOML\n"
 
     def test_lossy_json_to_toml_strict(self, capsys):
         code, out, err = run(
             ["check", "examples/cli/lossy.json", "--from", "json", "--to", "toml", "--strict"],
             capsys)
         assert code == 1
-        assert out == "warning: $.age: null value dropped (TOML has no null)\n"
+        assert out == ""
+        assert err == "error: $.age: null has no representation in TOML\n"
 
 
 class TestInferExample:

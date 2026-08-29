@@ -166,10 +166,13 @@ def _cmd_convert(args: argparse.Namespace) -> int:
             args.to, node, strict=args.strict, report=write_report, compact=args.compact,
             arrays=args.arrays)
     except WriteError as exc:
-        if exc.report is not None:
-            # --strict refused a lossy write -- a definite "no," not a
-            # usage/parse failure, so it's grouped with exit 1 (§1/§6 of
-            # the CLI spec), not the generic exit 2 main() would give it.
+        if exc.report is not None or exc.code == "write.unsupported-value":
+            # --strict refused a lossy write, or the value has no legal
+            # representation in the target format at all (issues
+            # #323/#324/#325 -- unconditional, not just under --strict) --
+            # either way a definite "no," not a usage/parse failure, so
+            # it's grouped with exit 1 (§1/§6 of the CLI spec), not the
+            # generic exit 2 main() would give it.
             return _fail(args, exc, 1)
         raise  # a structural failure (e.g. multi-root XML) -- exit 2 via main()
     _write_output(args.output, text)
@@ -184,7 +187,19 @@ def _cmd_convert(args: argparse.Namespace) -> int:
 
 def _cmd_check(args: argparse.Namespace) -> int:
     node = _READERS[args.from_](_read_input(args.input))
-    rep = _CHECKERS[args.to](node)
+    try:
+        rep = _CHECKERS[args.to](node)
+    except WriteError as exc:
+        # Same unconditional refusal convert() gives -- check() never
+        # writes, but a value with no legal representation at all (issues
+        # #323/#324/#325) is a definite "no," not a mere would-be
+        # adjustment to report and move on from. (Unlike convert(), there
+        # is no other WriteError check_*() can raise here to distinguish
+        # from that case: every node reaching this point already came
+        # through a depth-checked reader, so the only other thing
+        # check_*() could ever raise -- the shared nesting-depth guard --
+        # is unreachable from this call site.)
+        return _fail(args, exc, 1)
     fmt = "json" if getattr(args, "json", False) else args.result_format
     print(_encode_write_report(rep, fmt))
     if args.strict:
@@ -223,13 +238,17 @@ def _schema_error_as_errors(exc: SchemaError) -> "list[Error]":
 def _json_error(exc: Exception) -> str:
     """The uniform --json failure payload for any data/parse/IO error:
     {"ok": false, "message": str(exc), "errors": [...]} -- errors come from
-    ParseError.errors or a structured SchemaError's code/path when
-    applicable, else []. Single source of the error shape (delegates to
+    ParseError.errors or a structured SchemaError's/WriteError's code/path
+    when applicable, else []. Single source of the error shape (delegates to
     _json_validate_errors)."""
     if isinstance(exc, ParseError):
         errors = exc.errors
     elif isinstance(exc, SchemaError):
         errors = _schema_error_as_errors(exc)
+    elif isinstance(exc, WriteError) and exc.code is not None:
+        # Same single-problem shape as a structured SchemaError (issues
+        # #323/#324/#325's unconditional write.unsupported-value failures).
+        errors = [Error(exc.path or "", str(exc), exc.code)]
     else:
         errors = []
     return _json_validate_errors(str(exc), errors)

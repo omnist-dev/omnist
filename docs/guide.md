@@ -268,22 +268,27 @@ Doc.from_yaml("name: Ann\n").to_json()
 XML is single-rooted — its document element is the one top-level edge — and
 preserves interleaving on read; writing requires a single top-level edge.
 
-Writing is lenient by default: a value a format can't hold losslessly (TOML has
-no `null`; JSON/XML have no date type) is adjusted, and the adjustment is
-recorded rather than lost silently.
+Writing is lenient by default: a value a format can't hold the way it was
+typed (JSON/XML have no date type) is adjusted, and the adjustment is
+recorded rather than lost silently. A value with **no legal representation
+at all** (TOML has no `null`, and there's no safe substitute for one) fails
+unconditionally instead — see
+[Adjustment reports](api.md#adjustment-reports-lossy-writes) for both cases.
 
 ```python
 from omnist import doc, WriteReport, WriteError
+import datetime
 
-d = doc({"a": 1, "b": None})
-d.to_toml()                          # 'a = 1\n' -- 'b' dropped, silently
+d = doc({"d": datetime.date(2024, 1, 1)})
+d.to_json()                          # '{"d": "2024-01-01"}' -- stringified, still succeeds
 
 rep = WriteReport()
-d.to_toml(report=rep)                # inspect what changed
-[(a.code, a.severity) for a in rep]  # [('null.omitted', 'warning')]
+d.to_json(report=rep)                # inspect what changed
+[(a.code, a.severity) for a in rep]  # [('temporal.stringified', 'warning')]
 
-d.to_toml(strict=True)               # raises WriteError instead of adjusting
+d.to_json(strict=True)               # raises WriteError instead of adjusting
 ```
+<!-- doc-illustrative -->
 
 `check_json` / `check_yaml` / `check_toml` / `check_xml` simulate a write and
 return the report without producing output — and so do the matching `Doc`
@@ -291,8 +296,9 @@ methods, `d.check_toml()` etc., so you don't need to drop down to `to_data()`
 just to ask "would this be lossy":
 
 ```python
-d.check_toml()                       # same report d.to_toml(report=...) would fill
+d.check_json()                       # same report d.to_json(report=...) would fill
 ```
+<!-- doc-illustrative -->
 
 See [the API reference](api.md#adjustment-reports-lossy-writes) for the full
 list of adjustment codes.

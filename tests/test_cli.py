@@ -236,15 +236,18 @@ class TestConvert:
 
 class TestConvertReportStrict:
     def test_report_writes_and_prints_adjustment_to_stderr(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
-        dst = tmp_path / "out.toml"
+        # A YAML date -> JSON: temporal.stringified is a still-succeeds
+        # adjustment (unlike the now-unconditional-failure null/TOML case
+        # exercised in TestStrictUnconditionalFailure below -- issue #324).
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
+        dst = tmp_path / "out.json"
         code, out, err = run(
-            ["convert", str(p), "--from", "json", "--to", "toml", "--report", "-o", str(dst)],
+            ["convert", str(p), "--from", "yaml", "--to", "json", "--report", "-o", str(dst)],
             capsys=capsys, monkeypatch=None)
         assert code == 0
         assert out == ""
-        assert "null" in err
+        assert "temporal" in err
         assert dst.exists()   # the write still happened
 
     def test_report_with_no_adjustments_still_prints(self, tmp_path, capsys):
@@ -257,10 +260,10 @@ class TestConvertReportStrict:
         assert err == "no adjustments\n"
 
     def test_report_result_format_json(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
         code, out, err = run(
-            ["convert", str(p), "--from", "json", "--to", "toml",
+            ["convert", str(p), "--from", "yaml", "--to", "json",
              "--report", "--result-format", "json"],
             capsys=capsys, monkeypatch=None)
         assert code == 0
@@ -268,10 +271,10 @@ class TestConvertReportStrict:
         assert '"code"' in err
 
     def test_result_format_without_report_has_no_effect(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
         code, out, err = run(
-            ["convert", str(p), "--from", "json", "--to", "toml", "--result-format", "json"],
+            ["convert", str(p), "--from", "yaml", "--to", "json", "--result-format", "json"],
             capsys=capsys, monkeypatch=None)
         assert code == 0
         assert err == ""   # no --report -> nothing printed regardless of --result-format
@@ -317,26 +320,69 @@ class TestConvertReportStrict:
         assert err.startswith("error: ")
 
 
+class TestConvertUnconditionalWriteFailure:
+    """Issues #323/#324/#325: a value with no legal representation at all
+    (a null leaf to TOML, here) now fails unconditionally, lenient or
+    strict alike -- distinct from TestConvertReportStrict's still-succeeds
+    adjustment cases above."""
+
+    def test_lenient_also_fails_now(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        dst = tmp_path / "out.toml"
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "toml", "--report", "-o", str(dst)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert out == ""
+        assert err == "error: $.a: null has no representation in TOML\n"
+        assert not dst.exists()
+
+    def test_strict_is_the_same(self, tmp_path, capsys):
+        p = tmp_path / "in.json"
+        p.write_text('{"a": null}')
+        dst = tmp_path / "out.toml"
+        code, out, err = run(
+            ["convert", str(p), "--from", "json", "--to", "toml", "--strict", "-o", str(dst)],
+            capsys=capsys, monkeypatch=None)
+        assert code == 1
+        assert out == ""
+        assert err == "error: $.a: null has no representation in TOML\n"
+        assert not dst.exists()
+
+
 class TestCheck:
     def test_reports_without_writing_exit_always_0_by_default(self, tmp_path, capsys):
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
+        code, out, err = run(
+            ["check", str(p), "--from", "yaml", "--to", "json"], capsys=capsys, monkeypatch=None)
+        assert code == 0
+        assert "temporal" in out
+        assert err == ""
+
+    def test_unconditional_failure_exits_1_not_0(self, tmp_path, capsys):
+        # Issues #323/#324/#325: unlike a still-succeeds adjustment (above),
+        # a value with no legal representation at all is a definite "no"
+        # even from `check`, which never writes -- "always exits 0" only
+        # holds for the would-still-succeed case.
         p = tmp_path / "in.json"
         p.write_text('{"a": null}')
         code, out, err = run(
             ["check", str(p), "--from", "json", "--to", "toml"], capsys=capsys, monkeypatch=None)
-        assert code == 0
-        assert "null" in out
-        assert err == ""
-
+        assert code == 1
+        assert out == ""
+        assert err == "error: $.a: null has no representation in TOML\n"
 
     def test_report_result_format_oml(self, tmp_path, capsys):
         # covers the oml branch of the adjustments encoder (cli.py _encode_adjustments)
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
         code, out, err = run(
-            ["check", str(p), "--from", "json", "--to", "toml",
+            ["check", str(p), "--from", "yaml", "--to", "json",
              "--result-format", "oml"], capsys=capsys, monkeypatch=None)
         assert code == 0
-        assert "adjustments" in out and "null" in out
+        assert "adjustments" in out and "temporal" in out
 
     def test_no_adjustments_prints_no_adjustments(self, tmp_path, capsys):
         p = tmp_path / "in.json"
@@ -355,10 +401,10 @@ class TestCheck:
         assert out == "no adjustments\n"
 
     def test_strict_exits_1_when_something_would_adjust(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
         code, out, err = run(
-            ["check", str(p), "--from", "json", "--to", "toml", "--strict"],
+            ["check", str(p), "--from", "yaml", "--to", "json", "--strict"],
             capsys=capsys, monkeypatch=None)
         assert code == 1
 
@@ -371,17 +417,17 @@ class TestCheck:
         assert code == 0
 
     def test_without_strict_always_exits_0_even_with_adjustments(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
         code, out, err = run(
-            ["check", str(p), "--from", "json", "--to", "toml"], capsys=capsys, monkeypatch=None)
+            ["check", str(p), "--from", "yaml", "--to", "json"], capsys=capsys, monkeypatch=None)
         assert code == 0
 
     def test_result_format_json(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
         code, out, err = run(
-            ["check", str(p), "--from", "json", "--to", "toml", "--result-format", "json"],
+            ["check", str(p), "--from", "yaml", "--to", "json", "--result-format", "json"],
             capsys=capsys, monkeypatch=None)
         assert code == 0
         assert out.startswith("[{")
@@ -1217,14 +1263,20 @@ class TestGlobalJson:
         assert "not supported" in json.loads(out)["message"]
 
     def test_convert_writeerror_under_strict_json_exit_1(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
-        dst = tmp_path / "out.toml"
+        # A still-succeeds adjustment (temporal.stringified), refused only
+        # because of --strict -- WriteError.code is None here, unlike the
+        # unconditional write.unsupported-value failures (issues
+        # #323/#324/#325) exercised elsewhere, so this is what exercises the
+        # plain (non-structured) branch of cli.py's _json_error.
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
+        dst = tmp_path / "out.json"
         code, out, err = run(
-            ["convert", str(p), "--from", "json", "--to", "toml", "--strict",
+            ["convert", str(p), "--from", "yaml", "--to", "json", "--strict",
              "-o", str(dst), "--json"],
             capsys=capsys, monkeypatch=None)
         self._assert_json_error(out, err, code, 1)
+        assert json.loads(out)["errors"] == []
         assert not dst.exists()
 
     def test_check_error_json(self, tmp_path, capsys):
@@ -1289,13 +1341,13 @@ class TestGlobalJson:
     # --- success path for result-bearing commands: matches --result-format json ---
 
     def test_check_success_json_matches_result_format(self, tmp_path, capsys):
-        p = tmp_path / "in.json"
-        p.write_text('{"a": null}')
+        p = tmp_path / "in.yaml"
+        p.write_text("d: 2024-01-01\n")
         _, ref, _ = run(
-            ["check", str(p), "--from", "json", "--to", "toml", "--result-format", "json"],
+            ["check", str(p), "--from", "yaml", "--to", "json", "--result-format", "json"],
             capsys=capsys, monkeypatch=None)
         code, out, err = run(
-            ["check", str(p), "--from", "json", "--to", "toml", "--json"],
+            ["check", str(p), "--from", "yaml", "--to", "json", "--json"],
             capsys=capsys, monkeypatch=None)
         assert code == 0
         assert err == ""

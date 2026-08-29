@@ -46,6 +46,7 @@ from omnist import (
     DocumentError,
     ParseError,
     SchemaError,
+    WriteError,
     check_json,
     check_oml,
     check_toml,
@@ -238,32 +239,40 @@ def test_oml_round_trip_is_exact_with_arrays(node):
 # ---------------------------------------------------------------------------
 
 _ALLOWED_CODES = {
-    "json": {"temporal.stringified", "float.special", "format.interleaving-lost"},
+    "json": {"temporal.stringified", "format.interleaving-lost"},
     "yaml": {"temporal.stringified", "format.interleaving-lost"},
-    "toml": {"null.omitted", "format.interleaving-lost"},
-    "xml": {"null.omitted", "temporal.stringified", "value.stringified",
-            "key.sanitized", "shape.empty_ambiguous"},
+    "toml": {"format.interleaving-lost"},
+    "xml": {"null.omitted", "temporal.stringified", "value.stringified"},
 }
 
 
 @_SUPPRESS
+@example(node=[("a", float("nan"))])  # deterministically covers the
+                                       # write.unsupported-value except
+                                       # branch below -- too rare for
+                                       # hypothesis to reliably find on its
+                                       # own, per issue #295's CI coverage
+                                       # gate (same convention as the
+                                       # XML zero-adjustments @example above).
 @given(node=nodes)
 def test_json_round_trip_modulo_documented_adjustments(node):
-    rep = check_json(node)
+    # Issue #325: a NaN/Infinity leaf now fails unconditionally
+    # (write.unsupported-value) instead of substituting `null` and
+    # reporting float.special -- no round-trip to compare in that case.
+    try:
+        rep = check_json(node)
+    except WriteError as exc:
+        assert exc.code == "write.unsupported-value", exc
+        return
     assert {a.code for a in rep} <= _ALLOWED_CODES["json"], rep
     text = write_json(node)
     back = read_json(text)
     # temporal values come back as strings (date/time -> str) -- a documented
     # adjustment, safe to compare through the grouped projection (which also
     # accepts the temporal stringification since str != date is expected for
-    # those leaves only). float.special (NaN/Infinity) is *not* identity
-    # either, as of #157/S1: lenient write_json now substitutes `null` at
-    # those leaves (rather than emitting the non-standard `NaN`/`Infinity`
-    # tokens Python's own json.loads used to read back as the same float), so
-    # a document containing one no longer round-trips to an equal value --
-    # skip the comparison for it too, same as temporal.stringified.
+    # those leaves only).
     codes = {a.code for a in rep}
-    if not (codes & {"temporal.stringified", "float.special"}):
+    if not (codes & {"temporal.stringified"}):
         assert nan_safe_equal_grouped(back, node), \
             f"JSON round-trip mismatch: {node!r} -> {back!r}"
 
@@ -295,19 +304,31 @@ def test_yaml_round_trip_modulo_documented_adjustments(node):
 
 
 @_SUPPRESS
+@example(node=[("a", None)])  # deterministically covers the
+                               # write.unsupported-value except branch below
+                               # -- too rare for hypothesis to reliably find
+                               # on its own, per issue #295's CI coverage gate.
 @given(node=nodes)
 def test_toml_round_trip_modulo_documented_adjustments(node):
-    rep = check_toml(node)
+    # Issue #324: a null leaf now fails unconditionally
+    # (write.unsupported-value) instead of being dropped and reported as
+    # null.omitted -- no round-trip to compare in that case.
+    try:
+        rep = check_toml(node)
+    except WriteError as exc:
+        assert exc.code == "write.unsupported-value", exc
+        return
     assert {a.code for a in rep} <= _ALLOWED_CODES["toml"], rep
     if not isinstance(node, list):
         return  # TOML requires a top-level table; non-object roots are out of scope
-    # Once the root is a list, write_toml never actually raises for this
-    # generator's domain -- _grouped always yields a dict for a list root,
-    # tomli_w.dumps is permissive for every scalar/date/time/datetime shape
-    # produced here, and depth is capped below _MAX_DEPTH. Verified directly
-    # (3000-example run, zero exceptions) rather than assumed; no try/except
-    # needed, unlike the crash-freedom fuzzing below which targets malformed
-    # *text* input, not well-formed nodes.
+    # Once the root is a list and contains no null leaf, write_toml never
+    # actually raises for this generator's domain -- _grouped always yields a
+    # dict for a list root, tomli_w.dumps is permissive for every
+    # scalar/date/time/datetime shape produced here, and depth is capped
+    # below _MAX_DEPTH. Verified directly (3000-example run, zero
+    # exceptions) rather than assumed; no try/except needed here, unlike the
+    # crash-freedom fuzzing below which targets malformed *text* input, not
+    # well-formed nodes.
     text = write_toml(node)
     back = read_toml(text)
     if not rep.adjustments:
@@ -354,6 +375,11 @@ def test_xml_safe_node_classifies_empty_nonempty_and_control_chars():
                                 # only shape with zero adjustments at all) got
                                 # too rare for hypothesis to reliably find on
                                 # its own, per issue #295's CI coverage gate.
+@example(label="a b", node="x")  # deterministically covers the
+                                  # write.unsupported-value except branch
+                                  # below (an XML-name-invalid label) -- too
+                                  # rare for hypothesis to reliably find on
+                                  # its own, per issue #295's CI coverage gate.
 @given(label=_labels, node=nodes)
 def test_xml_round_trip_modulo_documented_adjustments(label, node):
     if not _xml_safe_node(node):
@@ -361,7 +387,15 @@ def test_xml_round_trip_modulo_documented_adjustments(label, node):
     # XML needs exactly one top-level document element -- wrap every
     # generated node under a single synthetic root label.
     rooted = [(label, node)]
-    rep = check_xml(rooted)
+    # Issues #323/#325: a label that isn't a valid XML name, or an empty
+    # internal node, now fail unconditionally (write.unsupported-value)
+    # instead of sanitizing/substituting and reporting key.sanitized /
+    # shape.empty_ambiguous -- no round-trip to compare in that case.
+    try:
+        rep = check_xml(rooted)
+    except WriteError as exc:
+        assert exc.code == "write.unsupported-value", exc
+        return
     assert {a.code for a in rep} <= _ALLOWED_CODES["xml"], rep
     text = write_xml(rooted)
     back = read_xml(text)
