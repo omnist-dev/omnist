@@ -428,6 +428,27 @@ def test_run_write_text_mismatch(tmp_path, monkeypatch):
     assert status == "fail" and "expected text" in msg
 
 
+def test_run_write_xml_whitespace_normalized_passes(tmp_path, monkeypatch):
+    # Sec8.5.3: indented vs. compact XML output must compare equal once
+    # insignificant inter-tag whitespace is stripped from both sides.
+    monkeypatch.setattr(vr.cli_runner, "_run",
+                        lambda args: ("<root>\n  <x>a&#13;b</x>\n</root>\n", "[]", 0))
+    v = {"input": {"format": "xml", "document": {"edges": []}},
+         "expect": {"ok": True, "text": "<root><x>a&#13;b</x></root>"}}
+    status, msg = vr.run_write(v, tmp_path)
+    assert status == "pass"
+
+
+def test_run_write_xml_genuine_mismatch_still_fails(tmp_path, monkeypatch):
+    # Normalizing whitespace must not mask a real content difference.
+    monkeypatch.setattr(vr.cli_runner, "_run",
+                        lambda args: ("<root><x>wrong</x></root>", "[]", 0))
+    v = {"input": {"format": "xml", "document": {"edges": []}},
+         "expect": {"ok": True, "text": "<root><x>a&#13;b</x></root>"}}
+    status, msg = vr.run_write(v, tmp_path)
+    assert status == "fail" and "expected text" in msg
+
+
 def test_run_write_diagnostics_non_json_stderr(tmp_path, monkeypatch):
     monkeypatch.setattr(vr.cli_runner, "_run", lambda args: ("out", "not json", 0))
     v = {"input": {"format": "json", "document": {"edges": []}},

@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -243,6 +244,16 @@ def run_materialize(v: Dict[str, Any], tmp: Path) -> Result:
     return "pass", "ok"
 
 
+def _normalize_xml_whitespace(text: str) -> str:
+    """Sec8.5.3: strip whitespace strictly between '>' and '<' before
+    comparing a write vector's expected/actual text for XML. Safe because an
+    omnist writer never produces mixed-content XML (Document model Sec2: a
+    node has either child edges or one scalar value, never both), so this
+    whitespace can only ever be inter-tag formatting, never real text data.
+    """
+    return re.sub(r">\s+<", "><", text)
+
+
 def run_write(v: Dict[str, Any], tmp: Path) -> Result:
     inp = v["input"]
     expect = v["expect"]
@@ -268,8 +279,12 @@ def run_write(v: Dict[str, Any], tmp: Path) -> Result:
         return "pass", "ok"
     if code != 0:
         return "fail", f"expected success, got exit {code}: {stderr.strip()}"
-    if "text" in expect and stdout.strip() != expect["text"].strip():
-        return "fail", f"expected text {expect['text']!r}, got {stdout.strip()!r}"
+    if "text" in expect:
+        got, want = stdout.strip(), expect["text"].strip()
+        if fmt == "xml":
+            got, want = _normalize_xml_whitespace(got), _normalize_xml_whitespace(want)
+        if got != want:
+            return "fail", f"expected text {expect['text']!r}, got {stdout.strip()!r}"
     if "diagnostics" in expect:
         try:
             report = json.loads(stderr)
