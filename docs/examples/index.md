@@ -47,7 +47,7 @@ format after pyproject.toml, is the only one of the four with zero
    format, it's chosen by whoever writes the file. `[tool]` in
    pyproject.toml, `dependencies` in package.json, `jobs` in GitHub
    Actions workflows. OSD records are closed by design — see
-   [the openness design record](../design/openness.md) for why that's
+   [the schema model's refusals section](https://spec.omnist.dev/03-schema-model/#32-what-this-model-refuses-and-why) for why that's
    deliberate, not an oversight.
 3. **Cross-field constraint** — a rule spanning sibling fields, like
    pyproject.toml's `version` being required unless `"version"` appears

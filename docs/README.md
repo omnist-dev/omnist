@@ -15,9 +15,9 @@ Start here, in roughly this order:
 | **[CLI](cli.md)** | The `omnist` command-line tool, fully implemented: `format`, `convert`, `check`, `validate`, `infer`, and seven `schema` subcommands (`format`/`normalize`/`prune`/`is-empty`/`extract`/`compatible-with`/`equivalent`), specified in [the CLI spec](design/cli-spec.md). |
 | **[Schema-directed deserialization](deserialization.md)** | What changes (and what doesn't) about a Document's Python types when a schema is, vs. isn't, passed to a reader — the conversion rules, and why they're unambiguous. |
 | **[Formats](formats/overview.md)** | How each format maps to the model and its caveats — [OML](formats/oml.md) · [JSON](formats/json.md) · [YAML](formats/yaml.md) · [TOML](formats/toml.md) · [XML](formats/xml.md). |
-| **[Model spec](design/model.md)** | The formal definitions of the Document and Schema models — self-contained, no paper required. |
-| **[OML-Core grammar](design/oml-grammar.md)** | The formal ABNF grammar for OML, verified against the parser: tokens, disambiguation rules, escaping, and documented limits. |
-| **[OSD grammar](design/schema-osd-grammar.md)** | The formal ABNF grammar for OSD, verified against the parser: keywords, field syntax, cardinality, and the seven scalars. |
+| **[Document Model](https://spec.omnist.dev/02-document-model/) / [Schema Model](https://spec.omnist.dev/03-schema-model/)** (spec.omnist.dev) | The formal definitions of the Document and Schema models — self-contained, no paper required. |
+| **[OML grammar](https://spec.omnist.dev/04-oml-grammar/)** (spec.omnist.dev) | The formal ABNF grammar for OML, verified against the parser: tokens, disambiguation rules, escaping, and documented limits. |
+| **[OSD grammar](https://spec.omnist.dev/05-osd-grammar/)** (spec.omnist.dev) | The formal ABNF grammar for OSD, verified against the parser: keywords, field syntax, cardinality, and the seven scalars. |
 | **[Glossary](glossary.md)** | One definition per term used across the docs and code, grouped by concept area. |
 | **[Testing](testing.md)** | The test suite: layout, coverage tooling and target, the fuzzing approach, and what CI runs. |
 | **[Repo layout](layout.md)** | How the repo itself is organized: `omnist/*.py` module responsibilities, the docs page map, and the test file map. |

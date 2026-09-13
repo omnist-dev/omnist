@@ -11,7 +11,7 @@ it can only ever check a document against a shape; it has no way to relate
 two shapes to each other.
 
 Omnist designs the Document and the Schema as one formalism from the start
-(see the [model spec](design/model.md)): a Document is a canonical edge
+(see [the Document Model chapter](https://spec.omnist.dev/02-document-model/)): a Document is a canonical edge
 list, and a Schema is a closed-by-default, exactly-typed grammar over
 those same edges. Because every field has exactly one type -- never an
 enum or a union with competing candidates; even the `any` type (v0.5.0)
@@ -84,7 +84,7 @@ v2.compatible_with(v1)   # False -- a v2 document with a port isn't valid under 
 ```
 
 One method call. The answer is decidable because every Omnist field has
-exactly one type (Section 5 of the [model spec](design/model.md)) -- there's
+exactly one type ([the Schema Model chapter](https://spec.omnist.dev/03-schema-model/)) -- there's
 no union or enum branch that could make "is A's document set a subset of
 B's" ambiguous.
 
@@ -142,7 +142,7 @@ Omnist is not trying to be a bigger hammer than it is. Specifically:
   you need "a string matching this regex," Omnist isn't the tool.
 - **No enums or unions.** "Either an integer or the string `unlimited`" or
   "one of `a`, `b`, `c`" can't be expressed. This is deliberate (see
-  [the model spec, Section 2](design/model.md#2-why-the-model-looks-this-way)):
+  [the Document Model chapter](https://spec.omnist.dev/02-document-model/)):
   a value that matches more than one candidate has no principled Python
   type to materialize to. If your data needs literal-value validation,
   you'll need something else for that part.
@@ -199,7 +199,7 @@ Omnist is not trying to be a bigger hammer than it is. Specifically:
   algebra reasons over, which is the property that makes `compatible_with`,
   `equivalent`, `normalize`, and `infer` well-defined in the first place
   (see the [thesis](#the-thesis) above and
-  [the openness decision record](design/openness.md)). If you need schemas
+  [the schema model's refusals section](https://spec.omnist.dev/03-schema-model/#32-what-this-model-refuses-and-why)). If you need schemas
   that are open-by-default everywhere, Omnist's model isn't going to do
   that for you.
 
@@ -231,7 +231,7 @@ wire format there, and OML where humans read the files.
 
 ## See also
 
-- [Model spec](design/model.md) -- the formal Document and Schema
+- [Document Model](https://spec.omnist.dev/02-document-model/) / [Schema Model](https://spec.omnist.dev/03-schema-model/) chapters of spec.omnist.dev -- the formal Document and Schema
   definitions this page's claims are checked against.
 - [Schema model & OSD](schema.md) -- `compatible_with`, `equivalent`,
   `normalize`, and `infer` in full.

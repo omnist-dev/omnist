@@ -208,7 +208,7 @@ already in the document) versus what deserialization additionally converts
 (and rejects) for each `Scalar` kind — along with the "`bool` never
 satisfies `integer`/`number`," "`number` always deserializes to `float`,"
 and "`date`/`datetime` stay mutually exclusive" notes that go with it —
-lives in one place: [model spec §10](design/model.md#10-scalar-and-python-type),
+lives in one place: [the Scalar/Python type table](schema.md#scalar-kinds-and-their-python-types),
 the formal definition this page's examples are derived from.
 
 ## Inside `any`: no conversions, by design

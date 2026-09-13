@@ -221,5 +221,5 @@ v2.compatible_with(v1)        # False -- a v2 order with a port doesn't
 - [OML](formats/oml.md) — Omnist's own format, with zero loss either way.
 - [The Schema model & OSD](schema.md) — a focused introduction to schemas on their own.
 - [Formats](formats/overview.md) — how each format maps to the model, and its caveats.
-- [Model spec](design/model.md) — the formal definitions.
+- [Document Model](https://spec.omnist.dev/02-document-model/) / [Schema Model](https://spec.omnist.dev/03-schema-model/) chapters of spec.omnist.dev — the formal definitions.
 - [`examples/canonical_model.py`](https://github.com/omnist-dev/omnist/blob/master/examples/canonical_model.py) — a runnable version.

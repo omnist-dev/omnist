@@ -8,7 +8,7 @@ what the fuzz tests actually fuzz, and what CI runs on every push and PR.
 All tests live in `tests/`, run with `pytest`.
 
 - **`tests/test_canonical.py`** — the core test file for the canonical
-  (current) Document/Schema model described in `docs/design/model.md`: the
+  (current) Document/Schema model described at [spec.omnist.dev](https://spec.omnist.dev/02-document-model/): the
   edge-list `Doc`, the `record`/`Ref` schema model with its seven scalar
   kinds and field cardinality, OSD, validation (`Schema.validate`,
   `accepts`), the schema operations (`compatible_with`, `equivalent`,
@@ -263,7 +263,7 @@ kinds and at least one edge-list is always present — the structural
 guarantee that makes every `any`-containment False concretely vindicated
 by a counterexample document rather than left unresolved (a `Record`
 accepts no scalar leaf; a `Scalar` accepts no edge-list; see
-[any-type-spec.md §5.3](design/any-type-spec.md)) — and a family of schemas
+[the `any` type chapter, §5.3](https://spec.omnist.dev/03-schema-model/#37-the-any-type)) — and a family of schemas
 (systematic single-record schemas covering every scalar x cardinality
 combination, a few structural schemas, plus seeded-random two-record
 schemas). For each schema `s`, the ground-truth language is computed

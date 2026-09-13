@@ -74,7 +74,7 @@ s.validate(doc1).ok              # True
 s.validate(doc2).ok              # True -- same result; validation ignores order
 ```
 
-See [Validation](../schema.md#validation) for the schema side of this.
+See [Validation](https://spec.omnist.dev/03-schema-model/#36-validation) for the schema side of this.
 
 ## Scalars are typed by their spelling, not a tag
 
@@ -98,7 +98,7 @@ Bare words are never strings — `name: Ann` is a syntax error; quote it:
 
 `read_oml` doesn't build a special OML object — it builds exactly the same
 canonical node every other reader builds: a scalar, or a list of
-`(label, value)` edges (see [the model spec](../design/model.md)). Each OML
+`(label, value)` edges (see [the Document Model chapter](https://spec.omnist.dev/02-document-model/)). Each OML
 scalar spelling becomes one specific Python type, with no ambiguity:
 
 | OML spelling | Python type |
@@ -415,7 +415,7 @@ process.
   *represent* (every Document already round-trips); they're optional input
   sugar for later.
 - For the full formal grammar, see
-  [the OML-Core grammar](../design/oml-grammar.md).
+  [the OML grammar chapter](https://spec.omnist.dev/04-oml-grammar/).
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how OML maps every other format's special-cased features, feature by
   feature.

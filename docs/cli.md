@@ -305,7 +305,7 @@ omnist infer <input>... --from FMT [--compact] [--allow-any] [-o OUTPUT]
 ```
 
 All inputs must be the same format. Each is read as a `Doc`,
-[`infer(docs)`](schema.md#operations-compare-and-infer) drafts a schema
+[`infer(docs)`](https://spec.omnist.dev/06-schema-algebra/) drafts a schema
 from them, written out as OSD. `--compact` emits a single-line form
 (`to_osd(schema, indent=None)`) instead of the pretty-printed default.
 Passing `--arrays` here is an **error** (exit code `2`): the output is OSD,
@@ -445,7 +445,7 @@ omnist schema format <schema-file> [--compact] [-o OUTPUT]
 Canonicalizes an OSD ([Omnist Schema Definition](schema.md)) file —
 `parse_schema` then `to_osd`. Same records, same names, just canonical
 whitespace/field order; it never changes a schema's structure (contrast
-[`Schema.normalize()`](schema.md#operations-compare-and-infer), which
+[`Schema.normalize()`](https://spec.omnist.dev/06-schema-algebra/), which
 computes the canonical minimal equivalent schema — fewest records,
 merging more than just plain structurally-identical ones).
 
@@ -484,7 +484,7 @@ omnist schema normalize <schema-file> [--compact] [-o OUTPUT]
 `Schema.normalize()`, written back out as OSD — unlike `schema format`,
 this *can* change a schema's structure: it computes the canonical minimal
 schema equivalent to the input (fewest env records, unique up to naming;
-see [the schema doc](schema.md#operations-compare-and-infer)).
+see [the Schema Algebra chapter](https://spec.omnist.dev/06-schema-algebra/)).
 `duplicate-records.osd` defines `Employee` and `Customer` with the exact
 same shape (just a `name`); normalizing merges them into one:
 
@@ -518,7 +518,7 @@ omnist schema prune <schema-file> [--compact] [-o OUTPUT]
 `Schema.prune()`, written back out as OSD — removes everything that can
 never match: records unreachable from root, never-emittable (`max == 0`)
 fields, and optional fields whose type is an unsatisfiable record (see
-[the schema doc](schema.md#operations-compare-and-infer)). Unlike
+[the Schema Algebra chapter](https://spec.omnist.dev/06-schema-algebra/)). Unlike
 `normalize` it never merges records — it only deletes dead weight. (`max ==
 0` fields can only arise from another schema-rewriting step, not from OSD
 text -- `[0,0]` is rejected at parse time since issue #322, as redundant
@@ -592,7 +592,7 @@ omnist schema extract <schema-file> --keep label1,label2,... [--compact] [-o OUT
 `Schema.extract(*labels)`, written back out as OSD — the minimal subschema
 recognizing only documents built from `--keep`'s comma-separated labels
 (paper Algorithm 5, ExtractSubschema; see
-[the schema doc](schema.md#subschema-extraction)). Fields whose label
+[the `extract` chapter](https://spec.omnist.dev/06-schema-algebra/#69-extracts-keep)). Fields whose label
 isn't kept are dropped, and anything they made unreachable is pruned away
 too:
 
@@ -625,7 +625,7 @@ format`/`schema normalize`.
 
 If dropping a label would delete a *mandatory* field and there's no way to
 still build the record that had it (see the schema doc's
-[design decision](schema.md#subschema-extraction) on why this errors
+[design decision](https://spec.omnist.dev/06-schema-algebra/#69-extracts-keep) on why this errors
 rather than silently loosening cardinality), the error goes to stderr and
 the exit code is `1` — a definite "no valid subschema," not a parse/usage
 failure:
