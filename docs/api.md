@@ -6,7 +6,7 @@ Everything importable from `import omnist`. Types: a **Document** is held by a
 `Doc`; a **Schema** is a `root` reference plus named `Record` definitions, where
 a field's type is always exactly one `Scalar` or one `Ref`. See the
 [user guide](guide.md) for narrative and the
-[model spec](design/model.md) for the formal definitions.
+[the Document Model](https://spec.omnist.dev/02-document-model/) and [Schema Model](https://spec.omnist.dev/03-schema-model/) chapters of spec.omnist.dev for the formal definitions.
 
 ```python
 import omnist
@@ -108,7 +108,7 @@ value was `null`, independent of which kind(s) were observed; if a field
 occurred but every observed value was `null`, `infer` defaults to a
 nullable `string`. The full algorithm, with the exact collapse and default
 rules, is
-[model.md §11](design/model.md#11-inference-determining-a-fields-scalar-from-samples).
+[the `infer` chapter](https://spec.omnist.dev/06-schema-algebra/#610-infersamples).
 
 By default (`allow_any=False`) both conflict points — an object/scalar mix
 for one label, and a scalar-of-more-than-one-kind — raise `SchemaError`, so
@@ -144,7 +144,7 @@ for fb in fallbacks:
 | `nullable(scalar) -> Scalar` | a copy of `scalar` that also accepts `null` (the `?` form). Raises `SchemaError` on `t.any` — `any` already includes null |
 | `ref(name) -> Ref` | a reference to a named record |
 | `schema(root, **env) -> Schema` | assemble a `Schema` (`root` is a `Ref` or a name string) |
-| `t` | the type namespace: `t.string`, `t.integer`, `t.number`, `t.boolean`, `t.date`, `t.time`, `t.datetime` — ready-to-use `Scalar` instances — plus `t.any`, the [`any` type](schema.md#the-any-type) singleton (an `AnyType`, exported for `isinstance` checks); all passed as-is as a field's type |
+| `t` | the type namespace: `t.string`, `t.integer`, `t.number`, `t.boolean`, `t.date`, `t.time`, `t.datetime` — ready-to-use `Scalar` instances — plus `t.any`, the [`any` type](https://spec.omnist.dev/03-schema-model/#37-the-any-type) singleton (an `AnyType`, exported for `isinstance` checks); all passed as-is as a field's type |
 
 ```python
 from omnist import schema, record, field, ref, nullable, t
@@ -170,7 +170,7 @@ names an entry not present in `env`.
 | `.normalize() -> Schema` | canonical minimal equivalent schema — fewest env records, unique up to record naming (partition refinement, i.e. `prune()` then merge equivalent records) |
 | `.is_empty() -> bool` | `True` iff the root record is unsatisfiable — no finite document conforms (e.g. a mandatory ref cycle) |
 | `.prune() -> Schema` | an equivalent schema with unreachable records, never-emittable (`max == 0`) fields, and optional-but-unsatisfiable fields removed |
-| `.extract(*labels) -> Schema` | minimal subschema recognizing only documents built from `labels` (paper Algorithm 5); raises `SchemaError` if dropping a non-kept label deletes a mandatory field with no valid subschema left — see [the schema doc](schema.md#subschema-extraction) |
+| `.extract(*labels) -> Schema` | minimal subschema recognizing only documents built from `labels` (paper Algorithm 5); raises `SchemaError` if dropping a non-kept label deletes a mandatory field with no valid subschema left — see [the `extract` chapter](https://spec.omnist.dev/06-schema-algebra/#69-extracts-keep) |
 | `.to_osd(*, indent=4) -> str` | serialize back to OSD; `indent=None` for a single-line, compact form |
 | `.root`, `.env` | the root `Ref` and the name→record map |
 | `.resolve(t) -> Record` | follow a `Ref` chain to a `Record` |
@@ -188,8 +188,8 @@ documents a schema accepts. An unsatisfiable schema (`is_empty()` is
 `True`) accepts no documents at all, so it is trivially `compatible_with`
 any other schema, and any two empty schemas are `equivalent` to each other
 regardless of how their record definitions look. See
-[the schema doc](schema.md#empty-schemas) and
-[model spec §12](design/model.md#12-satisfiability-and-pruning).
+[the satisfiability chapter](https://spec.omnist.dev/06-schema-algebra/#64-is_emptys-and-satisfiability) and
+[the satisfiability chapter](https://spec.omnist.dev/06-schema-algebra/#64-is_emptys-and-satisfiability).
 
 ### Definition & type classes
 
@@ -404,4 +404,4 @@ simulating a write without producing output. The four built-ins all provide
 - [User guide](guide.md) — narrative tour with examples.
 - [A real-life example](example.md) — one schema across all four formats.
 - [Formats](formats/overview.md) — per-format mapping and caveats.
-- [Model spec](design/model.md) — the formal Document and Schema definitions.
+- [Document Model](https://spec.omnist.dev/02-document-model/) and [Schema Model](https://spec.omnist.dev/03-schema-model/) chapters of spec.omnist.dev — the formal definitions.

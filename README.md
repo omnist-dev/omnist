@@ -79,7 +79,7 @@ validates in about a third of a second
 [testing](docs/testing.md) for how the suite is built.
 
 The model is defined formally in
-[docs/design/model.md](docs/design/model.md); see
+[spec.omnist.dev](https://spec.omnist.dev/02-document-model/); see
 [the quickstart](docs/quickstart.md) for the shortest possible example, or
 [the user guide](docs/guide.md) for the practical tour.
 
@@ -175,7 +175,7 @@ Full index: **[docs/](docs/README.md)**, also browsable as a site at
   its caveats ([OML](docs/formats/oml.md) · [JSON](docs/formats/json.md) ·
   [YAML](docs/formats/yaml.md) · [TOML](docs/formats/toml.md) ·
   [XML](docs/formats/xml.md)).
-- **[Model spec](docs/design/model.md)** — the formal Document and Schema models,
+- **[Document Model](https://spec.omnist.dev/02-document-model/) / [Schema Model](https://spec.omnist.dev/03-schema-model/)** (spec.omnist.dev) — the formal Document and Schema models,
   self-contained and plain (no paper required).
 - **[Glossary](docs/glossary.md)** — one definition per term used across the
   docs and code, grouped by concept area.
@@ -209,4 +209,4 @@ The model is **inspired by** Lee & Cheung,
 [*"XML Schema Computations: Schema Compatibility Testing and Subschema
 Extraction"*](docs/paper/Lee-Cheung-2010-XML-Schema-Computations-CIKM.pdf)
 (CIKM 2010), simplified for the JSON family of formats. You don't need the
-paper to use Omnist — the [model spec](docs/design/model.md) is self-contained.
+paper to use Omnist — [spec.omnist.dev](https://spec.omnist.dev/02-document-model/) is self-contained.

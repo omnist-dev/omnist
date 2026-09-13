@@ -116,4 +116,4 @@ structural schema language can actually check.
 
 This is one of four real-world worked examples — see
 [the overview](index.md) for the full comparison table across all four,
-plus [the `any` type](../schema.md#the-any-type).
+plus [the `any` type](https://spec.omnist.dev/03-schema-model/#37-the-any-type).

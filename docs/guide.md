@@ -5,7 +5,7 @@ its own native [**OML**](formats/oml.md), and a [**schema language**](schema.md)
 to validate and compare shapes over it. (See [why Omnist](why-omnist.md) for
 the differentiation case -- why this model, instead of JSON Schema/XSD/etc --
 before diving into the how.) The model is defined formally in
-[the model spec](design/model.md); this guide is the practical tour; the
+[spec.omnist.dev](https://spec.omnist.dev/02-document-model/); this guide is the practical tour; the
 [API reference](api.md) lists every name with signatures.
 
 - [The two ideas](#the-two-ideas)
@@ -24,14 +24,14 @@ before diving into the how.) The model is defined formally in
 - A **Document** is a *tree*: a node is either a scalar value or an
   **ordered list of labeled edges**. "Many" is a label that repeats, not a
   field pointing to an array. See
-  [the model spec, §4](design/model.md#4-document-model) for the formal
+  [the Document Model chapter](https://spec.omnist.dev/02-document-model/) for the formal
   definition and why it's shaped this way.
 - A **Schema** is built from named **`record`** definitions (a closed set of
   named fields, each with a cardinality). A field's type is always exactly one
   of the seven fixed scalar kinds (optionally nullable, e.g. `string?`) or a
   `Ref` to a named record — never a composition of the two. `Ref`s are how
   reuse and recursion work. See
-  [the model spec, §5](design/model.md#5-schema-model) for the formal
+  [the Schema Model chapter](https://spec.omnist.dev/03-schema-model/) for the formal
   definition.
 
 ```python
@@ -127,7 +127,7 @@ A schema is written as **OSD** (Omnist Schema Definition): `record`
 definitions plus a `root`. **Cardinality `[min,max]`** is the only
 multiplicity knob (required / optional / array), and a field's type is
 always exactly one fixed scalar or one `Ref` — never a composition. See
-[the Schema model & OSD](schema.md#shape) for the full shape, cardinality
+[the OSD grammar chapter](https://spec.omnist.dev/05-osd-grammar/) for the full shape, cardinality
 rules, and quoting conventions (same depth of treatment as
 [the OML page](formats/oml.md) gives the native format).
 
@@ -158,8 +158,7 @@ scalar, `null`, or a subtree of any shape) while the field's label stays
 fixed and counted — only the value's shape is unconstrained. Use it for
 genuinely unowned data (third-party payloads, spec'd-open config sections);
 `compatible_with` is vacuous inside an `any` region, so checking ends
-exactly where `any` begins. See [the schema doc: the `any`
-type](schema.md#the-any-type) for the full picture, including the
+exactly where `any` begins. See [the `any` type chapter](https://spec.omnist.dev/03-schema-model/#37-the-any-type) for the full picture, including the
 opt-in-only `infer(..., allow_any=True)` bootstrap path.
 
 ## Schemas — the Python builder
@@ -187,7 +186,7 @@ s = schema(ref("User"), User=user, Address=address)
 
 `schema.validate(doc)` returns a `ValidationResult` with `.ok` and `.errors`
 (each an `Error(path, message)`); validation **ignores edge order**. See
-[the Schema model & OSD: Validation](schema.md#validation) for more on the
+[the API reference](api.md#class-error) for more on the
 result shape.
 
 ```python
@@ -204,7 +203,7 @@ print(r)
 Comparison operations are **methods on `Schema`** — `compatible_with` (is
 every document one schema accepts also accepted by another, the
 backward-compatibility check), `equivalent`, and `normalize`. See
-[the Schema model & OSD: Operations](schema.md#operations-compare-and-infer)
+[the Schema Algebra chapter](https://spec.omnist.dev/06-schema-algebra/)
 for the full set.
 
 ```python
@@ -227,7 +226,7 @@ allowed:
 v2.extract("host")         # subschema with only "host" -- "port" dropped
 ```
 
-See [the Schema model & OSD: Subschema extraction](schema.md#subschema-extraction)
+See [the `extract` chapter](https://spec.omnist.dev/06-schema-algebra/#69-extracts-keep)
 for the full algorithm and the mandatory-deletion error.
 
 A schema can also describe **no** documents at all -- a mandatory ref cycle
@@ -241,7 +240,7 @@ empty.is_empty()               # True
 empty.compatible_with(v1)      # True -- vacuous: empty accepts no documents
 ```
 
-See [the Schema model & OSD: Empty schemas](schema.md#empty-schemas) for the
+See [the satisfiability](https://spec.omnist.dev/06-schema-algebra/#64-is_emptys-and-satisfiability) and [`prune`](https://spec.omnist.dev/06-schema-algebra/#65-prunes) chapters for the
 full explanation and `prune()` semantics.
 
 `lint()` diagnoses a schema's own structural problems — unreachable or
@@ -448,7 +447,7 @@ one's caveats.
 For a fuller version — the same order validated against documents in **all four
 formats**, plus a compatibility check — see [a real-life example](example.md).
 [`examples/canonical_model.py`](https://github.com/omnist-dev/omnist/blob/master/examples/canonical_model.py) is a runnable
-end-to-end version; [the model spec](design/model.md) has the formal
+end-to-end version; [spec.omnist.dev](https://spec.omnist.dev/02-document-model/) has the formal
 definitions; and [Formats](formats/overview.md) covers each format's mapping
 and caveats.
 

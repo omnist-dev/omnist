@@ -7,7 +7,7 @@ follow the link.
 ## `omnist/*.py`
 
 The implementation of the Document/Schema model described in
-`docs/design/model.md`. `import omnist` re-exports its public surface; this
+[spec.omnist.dev](https://spec.omnist.dev/02-document-model/). `import omnist` re-exports its public surface; this
 is where the logic actually lives.
 
 - **`document.py`** -- the Document model: `Doc` and the edge-list node shape
@@ -74,7 +74,7 @@ a thin argument-parsing layer over that same public surface.
   [oml.md](formats/oml.md), [json.md](formats/json.md),
   [yaml.md](formats/yaml.md), [toml.md](formats/toml.md),
   [xml.md](formats/xml.md).
-- **`design/model.md`** ([design/model.md](design/model.md)) -- the formal
+- **[Document Model](https://spec.omnist.dev/02-document-model/) / [Schema Model](https://spec.omnist.dev/03-schema-model/) chapters** (spec.omnist.dev) -- the formal
   Document and Schema model definitions; self-contained, no paper required.
 - **`paper/`** -- the Lee & Cheung CIKM 2010 paper that inspired the model
   (background reading only, not required to use Omnist).

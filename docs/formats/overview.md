@@ -24,7 +24,7 @@ CLI.
 ## How a format becomes a Document
 
 A Document is an ordered list of labeled edges (see the
-[model spec](../design/model.md)). The mapping is the same idea for every
+[the Document Model chapter](https://spec.omnist.dev/02-document-model/)). The mapping is the same idea for every
 format:
 
 - An object / mapping / table becomes a list of edges.

@@ -21,7 +21,7 @@ for the full taxonomy and worked examples from real fixtures:
    [GitHub Actions' three-way `on`](examples/github-actions.md).
 2. **Open key set** — a record whose label set isn't fixed by the format.
    OSD records are closed by design; see
-   [the openness design record](design/openness.md) for why `Map` was
+   [the schema model's refusals section](https://spec.omnist.dev/03-schema-model/#32-what-this-model-refuses-and-why) for why `Map` was
    refused and `any` was shipped instead.
 3. **Cross-field constraint** — a rule spanning sibling fields (a field
    required unless another says otherwise). OSD's cardinality is per-field
@@ -35,7 +35,7 @@ for the full taxonomy and worked examples from real fixtures:
 
 A field typed `any` accepts any value, unchecked — the escape hatch for
 genuinely open-ended data. The cost is stated loudly in
-[the schema model docs](schema.md#the-any-type): **checking ends exactly
+[the `any` type chapter](https://spec.omnist.dev/03-schema-model/#37-the-any-type): **checking ends exactly
 where `any` begins**. `compatible_with` is vacuously `True` inside an `any`
 region, because there is no structure left to compare — a schema that's 40%
 `any` gives compatibility verdicts that are 40% meaningless while looking
@@ -64,7 +64,7 @@ root Event
 assert s.equivalent(s2)
 ```
 
-See [the openness design record](design/openness.md) for why `any` opens
+See [the schema model's refusals section](https://spec.omnist.dev/03-schema-model/#32-what-this-model-refuses-and-why) for why `any` opens
 only the value domain (never the label alphabet), and why that line is what
 keeps the algebra decidable at all.
 

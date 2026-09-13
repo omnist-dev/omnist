@@ -202,7 +202,7 @@ they trade which mistakes are easy to make.
 This is one of four real-world worked examples — see
 [the overview](index.md) for the full comparison table, the four gap
 categories found across all of them, and the consolidated "designing a
-format for OSD" lessons list. Also: [the `any` type](../schema.md#the-any-type),
-[the openness design record](../design/openness.md), and the
+format for OSD" lessons list. Also: [the `any` type](https://spec.omnist.dev/03-schema-model/#37-the-any-type),
+[the schema model's refusals section](https://spec.omnist.dev/03-schema-model/#32-what-this-model-refuses-and-why), and the
 order/address/line-item walkthrough in [example.md](../example.md) for
 the other, fully-closed worked example.

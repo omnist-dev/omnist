@@ -19,7 +19,7 @@ Changes to anything in this section go through a deprecation cycle.
 
 ### The Document and Schema models
 
-Both models as defined in [the model spec](design/model.md). On the
+Both models as defined in the [Document Model](https://spec.omnist.dev/02-document-model/) and [Schema Model](https://spec.omnist.dev/03-schema-model/) chapters of spec.omnist.dev. On the
 Document side: a Document is an **ordered list of labeled edges** (not a
 map), a node is either a scalar of one of the **seven scalar kinds**
 (`string`, `integer`, `number`, `boolean`, `date`, `time`, `datetime`)
@@ -37,8 +37,8 @@ deprecation cycle.
 
 Existing OSD and OML syntax keeps parsing, with the same meaning, across
 the beta series. The normative grammars are
-[the OML-Core grammar](design/oml-grammar.md) and
-[the OSD grammar](design/schema-osd-grammar.md), both verified against the
+[the OML grammar chapter](https://spec.omnist.dev/04-oml-grammar/) and
+[the OSD grammar chapter](https://spec.omnist.dev/05-osd-grammar/), both verified against the
 parsers.
 
 Grammar changes are **additive only**: new syntax may be introduced, but
@@ -135,7 +135,7 @@ Beta says the surfaces above are worth building on. It does **not** claim
 the model is final.
 
 v1.0 remains gated on the openness decision — specifically the `any` type
-recorded in [the openness design record](design/openness.md). `any` shipped
+recorded in [the schema model's refusals section](https://spec.omnist.dev/03-schema-model/#32-what-this-model-refuses-and-why). `any` shipped
 in v0.5.0 and is a stable part of the model *as it stands*, but the
 project's 1.0 commitment is a stronger, once-and-for-all statement about
 the whole model, and that statement is not one this project is ready to

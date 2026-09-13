@@ -89,13 +89,7 @@ nav:
       - TOML: formats/toml.md
       - XML: formats/xml.md
       - OML: formats/oml.md
-  - Design:
-      - Document & Schema model: design/model.md
-      - OML-Core grammar: design/oml-grammar.md
-      - OSD grammar: design/schema-osd-grammar.md
-      - "any type spec": design/any-type-spec.md
-      - Openness decision record: design/openness.md
-      - CLI spec: design/cli-spec.md
+  - CLI spec: design/cli-spec.md
   - Glossary: glossary.md
   - Testing: testing.md
   - Repo layout: layout.md
