@@ -6,7 +6,7 @@ of them having to import each other.
 """
 from __future__ import annotations
 
-_BOM = "﻿"
+_BOM = "\ufeff"
 
 
 def strip_bom(text: str) -> str:
