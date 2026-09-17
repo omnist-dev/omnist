@@ -34,6 +34,7 @@ import datetime as _dt
 import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
+from ._encoding import strip_bom
 from .document import _MAX_DEPTH, _MAX_INT_DIGITS, _MAX_NODES
 from .errors import ParseError, WriteError
 from .schema import _DATE_RE, _DATETIME_RE, _TIME_RE
@@ -279,8 +280,9 @@ class _Scanner:
     __slots__ = ("s", "n", "pos")
 
     def __init__(self, text: str) -> None:
-        if text.startswith("﻿"):
-            text = text[1:]
+        # No BOM handling here: read_oml applies Sec2.5 D-15 via strip_bom()
+        # before constructing the scanner, so that every read surface in the
+        # package strips exactly one mark, in exactly one place.
         self.s = text
         self.n = len(text)
         self.pos = 0
@@ -814,7 +816,7 @@ class _Parser:
 
 def read_oml(text: str, *, schema: Optional[Any] = None) -> Any:
     """Parse OML source into a canonical Document node (edge-list or leaf)."""
-    scanner = _Scanner(text)
+    scanner = _Scanner(strip_bom(text))   # Sec2.5 D-15
     node = _Parser(scanner).parse_document()
     if schema is None:
         return node

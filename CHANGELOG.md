@@ -6,6 +6,48 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.9.5] — a leading byte-order mark is stripped on every read surface
+
+- Implements omnist-spec Sec2.5 **D-15** (`v0.17.0-beta`): a `U+FEFF` at
+  offset zero is consumed and contributes nothing to the Document or Schema,
+  uniformly across OML, OSD and every codec, and no writer ever emits one.
+- **A real inconsistency fix, not a documentation gap.** Measured against
+  this port before the change, three of the six read surfaces rejected a
+  BOM-prefixed input that the other three accepted:
+
+  | surface | before | after |
+  | --- | --- | --- |
+  | `read_oml` | stripped | stripped |
+  | `read_xml` | stripped | stripped |
+  | `read_yaml` | stripped | stripped |
+  | `read_json` | `ParseError` `parse.syntax` | stripped |
+  | `read_toml` | `ParseError` `parse.syntax` | stripped |
+  | `parse_schema` | `SchemaError` `parse.unexpected-token` | stripped |
+
+  A BOM carries no data — UTF-8 has no byte-order ambiguity to mark — so
+  accepting one on some surfaces and refusing it on others is how two
+  implementations build different Documents from the same file. BOM-prefixed
+  files are routine from Windows tooling, so stripping rather than rejecting
+  is the behaviour that does not discard well-formed data over a byte the
+  author never sees.
+- Stripping is now applied in exactly one place, the new internal
+  `omnist._encoding.strip_bom()`, rather than being an incidental property of
+  whichever parser happened to tolerate it. `_Scanner.__init__`'s own
+  open-coded strip — written with an invisible literal `U+FEFF` in the source
+  — is gone, and with it a latent bug: layered on top of the new one it would
+  have consumed *two* marks, silently swallowing a second `U+FEFF` that D-15
+  defines as ordinary content.
+- Exactly one mark is stripped, and only at offset zero. A second `U+FEFF`,
+  or one anywhere else in the input, stays ordinary content: `read_json`,
+  `read_toml`, `read_oml` and `parse_schema` all reject it, and a BOM inside
+  a string value round-trips untouched. `read_yaml` and `read_xml` still
+  consume a second mark, because YAML 1.2 Sec5.2 and XML 1.0 permit it in
+  their own right and that leniency lives inside PyYAML and expat; this is
+  now pinned by a test rather than left to drift.
+- Conformance: `vendor/omnist-spec` bumped to `v0.17.0-beta`, taking the
+  three new D-15 vectors (`formats-json`, `formats-toml` and `osd-grammar`'s
+  `encoding/leading-bom-is-stripped`) from red to green.
+
 ## [v0.9.4] — DATE/TIME/DATETIME value-range validation, tz-offset bug fix
 
 - Closed [#329](https://github.com/omnist-dev/omnist/issues/329): per

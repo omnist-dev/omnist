@@ -25,6 +25,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
+from ._encoding import strip_bom
 from .errors import SchemaError
 from .schema import ANY, SCALAR_NAMES, AnyType, Field, Record, Ref, Scalar, Schema
 
@@ -291,7 +292,7 @@ class _Parser:
 
 def parse_schema(text: str) -> Schema:
     """Parse OSD text into a :class:`~omnist.schema.Schema`."""
-    return _Parser(_tokenize(text)).parse()
+    return _Parser(_tokenize(strip_bom(text))).parse()   # Sec2.5 D-15
 
 
 # ---------------------------------------------------------------------------
