@@ -20,6 +20,7 @@ import math as _math
 import re as _re
 from typing import TYPE_CHECKING, Any, Optional
 
+from ._encoding import strip_bom
 from .document import _MAX_DEPTH, _MAX_NODES, _grouped, build_node
 from .errors import DocumentError, ParseError, WriteError
 from .report import WriteReport, finish_write
@@ -136,6 +137,7 @@ def _check_json_text_depth(text: str) -> None:
 
 # --------------------------------------------------------------- JSON
 def read_json(text: str, *, schema: Optional["Schema"] = None) -> Any:
+    text = strip_bom(text)   # Sec2.5 D-15
     _check_json_text_depth(text)
     try:
         node = build_node(_json.loads(text))
@@ -189,6 +191,7 @@ def _iso(o: Any) -> str:
 
 # --------------------------------------------------------------- YAML
 def read_yaml(text: str, *, schema: Optional["Schema"] = None) -> Any:
+    text = strip_bom(text)   # Sec2.5 D-15
     yaml = _need("yaml", "pip install pyyaml")
     try:
         node = build_node(yaml.safe_load(text))
@@ -287,6 +290,7 @@ def _yaml_dumper(yaml: Any) -> type[Any]:
 
 # --------------------------------------------------------------- TOML
 def read_toml(text: str, *, schema: Optional["Schema"] = None) -> Any:
+    text = strip_bom(text)   # Sec2.5 D-15
     import tomllib
     try:
         node = build_node(tomllib.loads(text))
@@ -368,6 +372,7 @@ _XML_ILLEGAL_CHAR = _re.compile(
 
 def read_xml(text: str, *, schema: Optional["Schema"] = None,
             report: Optional[WriteReport] = None) -> Any:
+    text = strip_bom(text)   # Sec2.5 D-15
     try:
         root = _xml_fromstring(text)
     except ImportError:

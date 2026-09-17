@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.9.4"
+        assert ds.__version__ == "0.9.5"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -2992,3 +2992,99 @@ class TestTomlWriteErrors:
     def test_non_object_root_raises(self):
         with pytest.raises(WriteError, match="top-level table"):
             write_toml("bare leaf")
+
+
+class TestLeadingBomIsStripped:
+    """Sec2.5 D-15: a leading U+FEFF is consumed on *every* read surface, and
+    no writer ever emits one.
+
+    Before D-15 this implementation was measurably inconsistent -- read_oml,
+    read_xml and read_yaml stripped a BOM while read_json, read_toml and
+    parse_schema raised a parse error -- which is exactly how two
+    implementations build different Documents from the same file.
+    """
+
+    BOM = "\ufeff"
+
+    READERS = [
+        ("json", lambda t: read_json(t), '{"a":1}'),
+        ("yaml", lambda t: read_yaml(t), "a: 1\n"),
+        ("toml", lambda t: read_toml(t), "a = 1\n"),
+        ("oml", lambda t: read_oml(t), "a: 1\n"),
+    ]
+
+    @pytest.mark.parametrize("name,read,text", READERS)
+    def test_bom_prefixed_input_equals_unprefixed(self, name, read, text):
+        assert read(self.BOM + text) == read(text)
+
+    def test_xml_reader_strips_bom(self):
+        text = "<root><a>1</a></root>"
+        assert read_xml(self.BOM + text) == read_xml(text)
+
+    def test_parse_schema_strips_bom(self):
+        text = 'record R {\n    "a": string,\n}\nroot R\n'
+        assert parse_schema(self.BOM + text).isomorphic_to(
+            parse_schema(text))
+
+    # -- the other half of D-15: only at offset zero, and only one ----------
+
+    # The strict surfaces -- the two Omnist grammars, plus the two codecs
+    # whose own specs give U+FEFF no position -- reject the second mark.
+    @pytest.mark.parametrize("name,read,text", [
+        r for r in READERS if r[0] != "yaml"
+    ])
+    def test_second_bom_is_ordinary_content_not_stripped(self, name, read, text):
+        """Exactly one mark is consumed. A second U+FEFF sits at offset one,
+        where it is ordinary content the grammar does not admit."""
+        with pytest.raises(ParseError):
+            read(self.BOM + self.BOM + text)
+
+    @pytest.mark.parametrize("name,read,text", [
+        ("yaml", lambda t: read_yaml(t), "a: 1\n"),
+        ("xml", lambda t: read_xml(t), "<root><a>1</a></root>"),
+    ])
+    def test_yaml_and_xml_tolerate_a_second_bom_by_their_own_specs(
+            self, name, read, text):
+        """Not an Omnist rule, and deliberately not forced to match the
+        others.
+
+        D-15's "both ABNF grammars admit it at offset zero and nowhere else"
+        binds OML and OSD. YAML 1.2 Sec5.2 permits a BOM at the start of each
+        document in a stream and XML 1.0 permits a leading one outright, so
+        PyYAML and expat consume the second mark themselves, below the layer
+        strip_bom() operates on. Overriding that would mean reimplementing
+        two third-party grammars to be stricter than the formats they
+        implement. This test pins the real behaviour so a future change to
+        it is a deliberate decision rather than a silent drift.
+        """
+        assert read(self.BOM + self.BOM + text) == read(text)
+
+    def test_second_bom_is_ordinary_content_in_osd(self):
+        with pytest.raises(SchemaError):
+            parse_schema(self.BOM + self.BOM + "record R {\n}\nroot R\n")
+
+    @pytest.mark.parametrize("name,read,text", READERS)
+    def test_bom_inside_a_string_value_survives(self, name, read, text):
+        """A BOM that is genuinely data is data -- it is only special at
+        offset zero of the input."""
+        del text
+        quoted = {
+            "json": '{"a":"x\ufeffy"}',
+            "yaml": 'a: "x\ufeffy"\n',
+            "toml": 'a = "x\ufeffy"\n',
+            "oml": 'a: "x\ufeffy"\n',
+        }[name]
+        assert read(quoted) == [("a", "x\ufeffy")]
+
+    # -- writers -----------------------------------------------------------
+
+    def test_no_writer_emits_a_leading_bom(self):
+        node = [("a", 1)]
+        schema = parse_schema('record R {\n    "a": integer,\n}\nroot R\n')
+        outputs = [
+            write_json(node), write_yaml(node),
+            write_toml(node), write_xml(node),
+            write_oml(node), to_osd(schema),
+        ]
+        for out in outputs:
+            assert not out.startswith(self.BOM), repr(out[:20])
