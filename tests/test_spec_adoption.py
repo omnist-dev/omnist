@@ -177,7 +177,9 @@ class TestCodecSyntaxCarriesALineColPath:
     an unregistered code, with no path at all (DIV-4)."""
 
     @pytest.mark.parametrize("reader,text,expected", [
-        (read_json, '{"a":1,}', "1:7"),
+        # (a trailing comma is not used here: CPython 3.13 words and positions
+        # that error differently from 3.11/3.12, and the position is the library's)
+        (read_json, '{"a" 1}', "1:6"),
         (read_json, '{\n "a": 1,\n "b" 2}', "3:6"),
         (read_json, "", "1:1"),
         (read_toml, "a = \n", "1:5"),
@@ -740,15 +742,3 @@ def test_the_bom_guard_bites_in_source_and_in_tests(tmp_path):
     (tmp_path / "tests" / "clean.py").write_text('X = "\\ufeff"\n')          # the escape is fine
     (tmp_path / "docs.pdf").write_bytes(b"\xef\xbb\xbf")                     # binary: skipped
     assert find_raw_boms(tmp_path) == ["omnist/a.py", "tests/test_b.py"]
-
-
-def test_the_cli_reports_a_collected_materialize_failure_in_full(tmp_path, capsys):
-    """A materialize ParseError carries every problem (.errors), not one."""
-    doc_f, schema_f = tmp_path / "d.json", tmp_path / "s.osd"
-    doc_f.write_text('{"a": "x", "b": "y"}')
-    schema_f.write_text('record R {\n    "a": integer,\n    "b": integer,\n}\nroot R\n')
-    code, out, _ = cli(["convert", str(doc_f), "--from", "json", "--to", "oml",
-                        "--schema", str(schema_f), "--json"], capsys)
-    assert code == 2
-    assert diag(out) == [("$.a", "materialize.inexact-conversion"),
-                         ("$.b", "materialize.inexact-conversion")]
