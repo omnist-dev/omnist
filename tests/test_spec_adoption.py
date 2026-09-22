@@ -742,3 +742,15 @@ def test_the_bom_guard_bites_in_source_and_in_tests(tmp_path):
     (tmp_path / "tests" / "clean.py").write_text('X = "\\ufeff"\n')          # the escape is fine
     (tmp_path / "docs.pdf").write_bytes(b"\xef\xbb\xbf")                     # binary: skipped
     assert find_raw_boms(tmp_path) == ["omnist/a.py", "tests/test_b.py"]
+
+
+def test_the_cli_reports_a_collected_materialize_failure_in_full(tmp_path, capsys):
+    """A materialize ParseError carries every problem (.errors), not one."""
+    doc_f, schema_f = tmp_path / "d.json", tmp_path / "s.osd"
+    doc_f.write_text('{"a": "x", "b": "y"}')
+    schema_f.write_text('record R {\n    "a": integer,\n    "b": integer,\n}\nroot R\n')
+    code, out, _ = cli(["convert", str(doc_f), "--from", "json", "--to", "oml",
+                        "--schema", str(schema_f), "--json"], capsys)
+    assert code == 2
+    assert diag(out) == [("$.a", "materialize.inexact-conversion"),
+                         ("$.b", "materialize.inexact-conversion")]
