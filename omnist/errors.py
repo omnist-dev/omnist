@@ -72,7 +72,21 @@ class DocumentError(OmnistError):
     would produce something outside the Document model — an unsupported Python
     type, a non-string object key, a cycle — or when an operation doesn't fit the
     node (e.g. ``get`` on a scalar).  The message carries the offending path.
+
+    ``code``/``path`` are optional structured attributes, ``None`` unless the
+    raiser passed them. The reader-side failures that have a ``document.*``
+    code (``docs/08-conformance-and-errors.md`` Sec8.3.2: a safety limit
+    exceeded, an input construct with no label to become an edge) set them;
+    ``path`` is then a Document path (E-11), never a text position.
     """
+
+    def __init__(self, message: str, *, code: "Optional[str]" = None,
+                 path: "Optional[str]" = None) -> None:
+        """Initialize DocumentError with a human-readable message and,
+        optionally, a structured code and the Document path it applies to."""
+        super().__init__(message)
+        self.code = code
+        self.path = path
 
 
 class DetachedNode(DocumentError):

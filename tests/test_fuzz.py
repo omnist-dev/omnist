@@ -239,10 +239,10 @@ def test_oml_round_trip_is_exact_with_arrays(node):
 # ---------------------------------------------------------------------------
 
 _ALLOWED_CODES = {
-    "json": {"temporal.stringified", "format.interleaving-lost"},
-    "yaml": {"temporal.stringified", "format.interleaving-lost"},
+    "json": {"format.temporal-stringified", "format.interleaving-lost"},
+    "yaml": {"format.temporal-stringified", "format.interleaving-lost"},
     "toml": {"format.interleaving-lost"},
-    "xml": {"null.omitted", "temporal.stringified", "value.stringified"},
+    "xml": {"null.omitted", "format.temporal-stringified", "format.value-stringified"},
 }
 
 
@@ -272,7 +272,7 @@ def test_json_round_trip_modulo_documented_adjustments(node):
     # accepts the temporal stringification since str != date is expected for
     # those leaves only).
     codes = {a.code for a in rep}
-    if not (codes & {"temporal.stringified"}):
+    if not (codes & {"format.temporal-stringified"}):
         assert nan_safe_equal_grouped(back, node), \
             f"JSON round-trip mismatch: {node!r} -> {back!r}"
 
@@ -370,7 +370,7 @@ def test_xml_safe_node_classifies_empty_nonempty_and_control_chars():
 @_SUPPRESS
 @example(label="A", node="x")  # deterministically covers the zero-adjustments
                                 # branch below -- #288 made a non-string scalar
-                                # leaf always report value.stringified, so a
+                                # leaf always report format.value-stringified, so a
                                 # random node hitting an all-string tree (the
                                 # only shape with zero adjustments at all) got
                                 # too rare for hypothesis to reliably find on

@@ -236,7 +236,7 @@ class TestConvert:
 
 class TestConvertReportStrict:
     def test_report_writes_and_prints_adjustment_to_stderr(self, tmp_path, capsys):
-        # A YAML date -> JSON: temporal.stringified is a still-succeeds
+        # A YAML date -> JSON: format.temporal-stringified is a still-succeeds
         # adjustment (unlike the now-unconditional-failure null/TOML case
         # exercised in TestStrictUnconditionalFailure below -- issue #324).
         p = tmp_path / "in.yaml"
@@ -586,7 +586,7 @@ class TestValidate:
         )
         assert len(payload["errors"]) == 2
 
-    def test_json_flag_syntax_failure_has_empty_errors(self, tmp_path, capsys):
+    def test_json_flag_syntax_failure_reports_the_coded_position(self, tmp_path, capsys):
         doc_f = tmp_path / "d.json"
         doc_f.write_text('{not valid json')
         schema_f = tmp_path / "s.osd"
@@ -598,7 +598,8 @@ class TestValidate:
         assert err == ""
         payload = json.loads(out)
         assert payload["ok"] is False
-        assert payload["errors"] == []
+        assert [(e["path"], e["code"]) for e in payload["errors"]] == [
+            ("1:2", "parse.codec-syntax")]
         assert "invalid JSON" in payload["message"]
 
     def test_json_flag_missing_schema_file_has_empty_errors(self, tmp_path, capsys):
@@ -1269,7 +1270,7 @@ class TestGlobalJson:
         assert "not supported" in json.loads(out)["message"]
 
     def test_convert_writeerror_under_strict_json_exit_1(self, tmp_path, capsys):
-        # A still-succeeds adjustment (temporal.stringified), refused only
+        # A still-succeeds adjustment (format.temporal-stringified), refused only
         # because of --strict -- WriteError.code is None here, unlike the
         # unconditional write.unsupported-value failures (issues
         # #323/#324/#325) exercised elsewhere, so this is what exercises the

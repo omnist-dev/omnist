@@ -275,7 +275,9 @@ class TestValidateExamples:
         assert code == 2
         assert out == (
             '{"ok": false, "message": "invalid JSON: Expecting property name enclosed '
-            'in double quotes: line 1 column 2 (char 1)", "errors": []}\n'
+            'in double quotes: line 1 column 2 (char 1)", "errors": [{"path": "1:2", '
+            '"code": "parse.codec-syntax", "message": "invalid JSON: Expecting property '
+            'name enclosed in double quotes: line 1 column 2 (char 1)"}]}\n'
         )
 
 

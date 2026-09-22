@@ -26,7 +26,8 @@ import re
 from typing import List, Optional
 
 from ._encoding import strip_bom
-from .errors import SchemaError
+from ._position import line_col, position
+from .errors import SchemaError, WriteError
 from .schema import ANY, SCALAR_NAMES, AnyType, Field, Record, Ref, Scalar, Schema
 
 RESERVED_TYPE_NAMES = SCALAR_NAMES | {"any"}
@@ -34,11 +35,17 @@ RESERVED_TYPE_NAMES = SCALAR_NAMES | {"any"}
 _TOKEN = re.compile(r"""
       (?P<ws>\s+)
     | (?P<comment>\#[^\n]*)
-    | (?P<string>"(?:\\.|[^"\\])*")
+    | (?P<string>"(?:\\[\s\S]|[^"\\])*")
     | (?P<number>-?\d+\.\d+|-?\d+)
     | (?P<name>[A-Za-z_][A-Za-z0-9_]*)
     | (?P<punct>[{}\[\]:,?])
 """, re.VERBOSE)
+
+
+def _where(text: str, offset: int) -> str:
+    """``line L, col C`` for an error message (the path is ``L:C``)."""
+    line, col = line_col(text, offset)
+    return f"line {line}, col {col}"
 
 
 class _Tok:
@@ -59,10 +66,12 @@ def _tokenize(text: str) -> List[_Tok]:
             # every other unmatched-character case before falling back to
             # the generic parse.unexpected-token.
             if text[i] == '"':
-                raise SchemaError(f"unterminated string starting at {i}",
-                                  code="parse.unterminated-string", path=str(i))
-            raise SchemaError(f"unexpected character {text[i]!r} at {i}",
-                              code="parse.unexpected-token", path=str(i))
+                # E-23: a string error reports the opening quote -- and here
+                # the failed match began exactly at it.
+                raise SchemaError(f"unterminated string starting at {_where(text, i)}",
+                                  code="parse.unterminated-string", path=position(text, i))
+            raise SchemaError(f"unexpected character {text[i]!r} at {_where(text, i)}",
+                              code="parse.unexpected-token", path=position(text, i))
         i = m.end()
         kind = m.lastgroup
         if kind in ("ws", "comment"):
@@ -74,12 +83,15 @@ def _tokenize(text: str) -> List[_Tok]:
             # can't express "no control characters", so check the matched
             # text after the fact rather than complicating the pattern.
             text_val = m.group()
-            for offset, ch in enumerate(text_val):
+            for ch in text_val:
                 if ord(ch) < 0x20:
-                    pos = m.start() + offset
+                    # E-23: reported at the string's opening quote, not at the
+                    # offending character inside it (the ban covers every raw
+                    # byte in the body, one after a backslash included).
                     raise SchemaError(
-                        f"control character U+{ord(ch):04X} in string at {pos}",
-                        code="parse.control-character", path=str(pos))
+                        f"control character U+{ord(ch):04X} in the string at "
+                        f"{_where(text, m.start())}",
+                        code="parse.control-character", path=position(text, m.start()))
         toks.append(_Tok(kind or "", m.group() or "", m.start()))
     toks.append(_Tok("eof", "", len(text)))
     return toks
@@ -90,9 +102,16 @@ def _unquote(s: str) -> str:
 
 
 class _Parser:
-    def __init__(self, toks: List[_Tok]) -> None:
+    def __init__(self, toks: List[_Tok], text: str) -> None:
         self.toks = toks
+        self.text = text
         self.i = 0
+
+    def _at(self, pos: int) -> str:
+        return position(self.text, pos)
+
+    def _where(self, pos: int) -> str:
+        return _where(self.text, pos)
 
     def _peek(self) -> _Tok:
         return self.toks[self.i]
@@ -106,8 +125,8 @@ class _Parser:
         t = self._next()
         if t.kind != kind or (text is not None and t.text != text):
             want = text or kind
-            raise SchemaError(f"expected {want!r} at {t.pos}, got {t.text!r}",
-                              code="parse.unexpected-token", path=str(t.pos))
+            raise SchemaError(f"expected {want!r} at {self._where(t.pos)}, got {t.text!r}",
+                              code="parse.unexpected-token", path=self._at(t.pos))
         return t
 
     def parse(self) -> Schema:
@@ -127,11 +146,11 @@ class _Parser:
                         code="schema.duplicate-root", path="$")
                 root = self._expect("name").text
             else:
-                raise SchemaError(f"expected 'record' or 'root' at {t.pos}, "
+                raise SchemaError(f"expected 'record' or 'root' at {self._where(t.pos)}, "
                                   f"got {t.text!r}",
-                                  code="parse.unexpected-token", path=str(t.pos))
+                                  code="parse.unexpected-token", path=self._at(t.pos))
         if root is None:
-            raise SchemaError("a schema must declare a root", code="schema.no-root")
+            raise SchemaError("a schema must declare a root", code="schema.no-root", path="$")
         return Schema(Ref(root), env)
 
     def _define(self, env: dict[str, Record], name: str, rec: Record,
@@ -140,7 +159,7 @@ class _Parser:
             if name == "any":
                 raise SchemaError(
                     "'any' is a reserved type name and cannot be used as a "
-                    f"record name at {name_pos}",
+                    f"record name at {self._where(name_pos)}",
                     code="schema.reserved-name", path=name)
             raise SchemaError(
                 f"{name!r} is a reserved scalar name; a record cannot be "
@@ -166,6 +185,14 @@ class _Parser:
             else:
                 break
         self._expect("punct", "}")
+        seen: set[str] = set()
+        for f in fields:
+            if f.label in seen:
+                raise SchemaError(
+                    f"field label {f.label!r} is declared more than once in "
+                    f"record {name!r}",
+                    code="schema.duplicate-field", path=name)
+            seen.add(f.label)
         return name, Record(fields), name_tok.pos
 
     def _field(self, record_name: str) -> Field:
@@ -176,7 +203,7 @@ class _Parser:
             # "the label itself is the problem" convention: path is the
             # enclosing record, not a text offset -- there's no usable
             # label to append as record.label yet.
-            raise SchemaError(f"expected a quoted field name at {label_tok.pos}, "
+            raise SchemaError(f"expected a quoted field name at {self._where(label_tok.pos)}, "
                               f"got {label_tok.text!r}",
                               code="schema.unquoted-label", path=record_name)
         label = _unquote(label_tok.text)
@@ -185,7 +212,7 @@ class _Parser:
             # OSD string generally, but a label is an identifier, not a
             # value -- an empty label names nothing a caller could ever
             # reference.
-            raise SchemaError(f"empty field label at {label_tok.pos}",
+            raise SchemaError(f"empty field label at {self._where(label_tok.pos)}",
                               code="schema.empty-label", path=record_name)
         if "[" in label or "]" in label:
             # Issue #330/omnist-spec Sec5.4: Sec3.6.1's diagnostic-path
@@ -198,7 +225,7 @@ class _Parser:
             # path-escaping convention itself.
             raise SchemaError(
                 f"field label {label!r} contains a bracket character ('[' "
-                f"or ']') at {label_tok.pos} -- this would collide with the "
+                f"or ']') at {self._where(label_tok.pos)} -- this would collide with the "
                 "diagnostic path convention that appends '[i]' to a "
                 "repeated label's later occurrences",
                 code="schema.bracket-in-label", path=record_name)
@@ -206,7 +233,7 @@ class _Parser:
         hi: Optional[int] = 1
         if self._peek().text == "[":
             card_pos = self._peek().pos
-            lo, hi = self._cardinality()
+            lo, hi = self._cardinality(f"{record_name}.{label}")
             if lo < 0 or (hi is not None and hi < lo) or (lo, hi) == (0, 0):
                 # Issue #322/omnist-spec Sec5.5: covers all three
                 # normatively-invalid shapes with the one code -- a negative
@@ -220,61 +247,64 @@ class _Parser:
                 # defense-in-depth backstop for direct construction.
                 raise SchemaError(
                     f"field {label!r} has an invalid cardinality [{lo},{hi}] "
-                    f"at {card_pos}",
+                    f"at {self._where(card_pos)}",
                     code="schema.invalid-cardinality", path=f"{record_name}.{label}")
         self._expect("punct", ":")
-        typ = self._type()
+        typ = self._type(record_name, label)
         return Field(label, typ, lo, hi)
 
-    def _cardinality(self) -> tuple[int, Optional[int]]:
+    def _cardinality(self, field_path: str) -> tuple[int, Optional[int]]:
         self._expect("punct", "[")
         first: Optional[int] = None
         if self._peek().kind == "number":
-            first = self._cardinality_int()
+            first = self._cardinality_int(field_path)
         if self._peek().text == ",":
             self._next()
             second: Optional[int] = None
             if self._peek().kind == "number":
-                second = self._cardinality_int()
+                second = self._cardinality_int(field_path)
             lo = first if first is not None else 0
             hi = second
         else:
             if first is None:
-                raise SchemaError(f"empty cardinality at {self._peek().pos}",
-                                  code="schema.empty-cardinality",
-                                  path=str(self._peek().pos))
+                raise SchemaError(
+                    f"empty cardinality at {self._where(self._peek().pos)}",
+                    code="schema.empty-cardinality", path=field_path)
             lo = hi = first
         self._expect("punct", "]")
         return lo, hi
 
-    def _cardinality_int(self) -> int:
+    def _cardinality_int(self, field_path: str) -> int:
         t = self._next()
         if "." in t.text:
             raise SchemaError(f"cardinality must be a whole number, got {t.text!r} "
-                              f"at {t.pos}",
-                              code="schema.non-integer-cardinality", path=str(t.pos))
+                              f"at {self._where(t.pos)}",
+                              code="schema.non-integer-cardinality", path=field_path)
         return int(t.text)
 
-    def _type(self) -> Scalar | Ref | AnyType:
+    def _type(self, record_name: str, label: str) -> Scalar | Ref | AnyType:
         t = self._next()
         if t.kind != "name":
             # A quoted string in type position gets its own code (Sec5.2's
-            # quoting rule, the mirror image of schema.unquoted-label) --
-            # any other wrong token kind is a plain unexpected-token.
-            code = "schema.quoted-type" if t.kind == "string" else "parse.unexpected-token"
+            # quoting rule, the mirror image of schema.unquoted-label) and,
+            # like it, the enclosing record's Schema path -- any other wrong
+            # token kind is a plain unexpected-token at its text position.
+            quoted = t.kind == "string"
             raise SchemaError(
-                f"expected a scalar name or a reference at {t.pos}, got {t.text!r} "
+                f"expected a scalar name or a reference at {self._where(t.pos)}, "
+                f"got {t.text!r} "
                 "(enums and literal-valued fields are not supported -- a "
                 "field's type is always one scalar or a reference to a "
                 "named record)",
-                code=code, path=str(t.pos))
+                code="schema.quoted-type" if quoted else "parse.unexpected-token",
+                path=record_name if quoted else self._at(t.pos))
         if t.text == "any":
             if self._peek().text == "?":
                 q = self._next()
                 raise SchemaError(
                     "'any' already includes null; 'any?' is redundant at "
-                    f"{q.pos}",
-                    code="schema.nullable-any", path=str(q.pos))
+                    f"{self._where(q.pos)}",
+                    code="schema.nullable-any", path=f"{record_name}.{label}")
             return ANY
         nullable = False
         if self._peek().text == "?":
@@ -286,13 +316,14 @@ class _Parser:
             raise SchemaError(
                 f"'?' cannot apply to the reference {t.text!r}; use "
                 "cardinality [0,1] for an optional field",
-                code="schema.nullable-ref", path=t.text)
+                code="schema.nullable-ref", path=f"{record_name}.{label}")
         return Ref(t.text)
 
 
 def parse_schema(text: str) -> Schema:
     """Parse OSD text into a :class:`~omnist.schema.Schema`."""
-    return _Parser(_tokenize(strip_bom(text))).parse()   # Sec2.5 D-15
+    text = strip_bom(text)   # Sec2.5 D-15; a second mark fails as a stray character (D-21)
+    return _Parser(_tokenize(text), text).parse()
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +340,16 @@ def to_osd(schema: Schema, *, indent: Optional[int] = 4) -> str:
     ``indent=None`` convention. A non-``None`` int sets the pretty-mode
     indent width (default 4, matching the prior hardcoded behavior). Both
     forms round-trip through ``parse_schema``.
+
+    A field label is written between double quotes with exactly two
+    escapes (Sec5.9, OSD-15): a backslash is doubled and a double quote gets
+    a backslash in front of it, nothing else -- OSD's unescaping is weak, so
+    those two are all that is needed for every label to read back as itself.
+    A label with a C0
+    control character (below ``U+0020``) has no OSD spelling at all, so
+    writing it raises :class:`~omnist.errors.WriteError` with
+    ``code="write.unsupported-value"`` and ``path`` the Schema path of the
+    *record* holding the field (OSD-14, E-26), unconditionally.
     """
     parts: List[str] = [_record(name, rec, indent) for name, rec in schema.env.items()]
     parts.append(f"root {schema.root.name}")
@@ -319,19 +360,32 @@ def to_osd(schema: Schema, *, indent: Optional[int] = 4) -> str:
 
 def _record(name: str, rec: Record, indent: Optional[int]) -> str:
     if indent is None:
-        fields = ", ".join(_field(f) for f in rec.fields)
+        fields = ", ".join(_field(f, name) for f in rec.fields)
         return f"record {name} {{ {fields} }}"
     pad = " " * indent
     out = [f"record {name} {{"]
     for f in rec.fields:
-        out.append(f"{pad}{_field(f)},")
+        out.append(f"{pad}{_field(f, name)},")
     out.append("}")
     return "\n".join(out)
 
 
-def _field(f: Field) -> str:
+def _quote_label(label: str, record: str) -> str:
+    """``label`` as an OSD string literal (OSD-15), or a write failure for a
+    label OSD cannot spell (OSD-14). Records are named in the diagnostic's
+    path, never the label: Sec8.4 has no way to quote one in a path."""
+    for ch in label:
+        if ord(ch) < 0x20:
+            raise WriteError(
+                f"a field label in record {record!r} contains the control "
+                f"character U+{ord(ch):04X}, which has no OSD spelling",
+                code="write.unsupported-value", path=record)
+    return '"' + label.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _field(f: Field, record: str) -> str:
     card = "" if (f.min, f.max) == (1, 1) else f" {_card(f.min, f.max)}"
-    return f'"{f.label}"{card}: {_type(f.type)}'
+    return f"{_quote_label(f.label, record)}{card}: {_type(f.type)}"
 
 
 def _card(lo: int, hi: Optional[int]) -> str:

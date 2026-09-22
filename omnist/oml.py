@@ -35,6 +35,7 @@ import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
 from ._encoding import strip_bom
+from ._position import line_col
 from .document import _MAX_DEPTH, _MAX_INT_DIGITS, _MAX_NODES
 from .errors import ParseError, WriteError
 from .schema import _DATE_RE, _DATETIME_RE, _TIME_RE
@@ -290,24 +291,23 @@ class _Scanner:
     def line_col(self, pos: int) -> Tuple[int, int]:
         """1-based (line, col) for byte offset ``pos``, computed lazily --
         only ever called while building a ParseError message."""
-        s = self.s
-        line = s.count("\n", 0, pos) + 1
-        nl = s.rfind("\n", 0, pos)
-        col = pos - nl if nl != -1 else pos + 1
-        return line, col
+        return line_col(self.s, pos)
 
-    def error_at(self, pos: int, msg: str, code: str = "parse.unexpected-token") -> ParseError:
+    def error_at(self, pos: int, msg: str, code: str = "parse.unexpected-token",
+                 path: Optional[str] = None) -> ParseError:
+        """A ParseError positioned at ``pos``. ``path`` is the ``line:col``
+        text position (E-11) unless the code is a ``document.*`` one, whose
+        path must be a Document path -- the caller then passes it."""
         line, col = self.line_col(pos)
-        return ParseError(f"line {line}, col {col}: {msg}", code=code, path=f"{line}:{col}")
+        return ParseError(f"line {line}, col {col}: {msg}", code=code,
+                          path=path if path is not None else f"{line}:{col}")
 
     def error_eof(self, msg: str, code: str = "parse.unexpected-token") -> ParseError:
-        # Quirk preserved from the original scanner: its EOF token was
-        # constructed with no pos=/col= args (`Token(Tok.EOF, "")`), so any
-        # error naming "got EOF" always reported line 0, col 0 rather than
-        # the source's actual end position. Used only where the *current
-        # token* being reported in the message is EOF itself -- byte-
-        # identical to v0.2.26, verified by differential fuzzing (see PR).
-        return ParseError(f"line 0, col 0: {msg}", code=code, path="0:0")
+        """A ParseError for a token the *end of input* stood in for. Reported
+        at the position just past the last character, a real 1-based
+        ``line:col`` as E-11 requires (it used to be the placeholder
+        ``0:0``, which is no position at all)."""
+        return self.error_at(self.n, msg, code)
 
     def next(self) -> Tuple[str, int, int]:
         """Advance past (and return) the next significant token as
@@ -550,10 +550,10 @@ class _Parser:
             self._advance()
 
     def _error_for(self, kind: str, pos: int, msg: str) -> ParseError:
-        """Build a ParseError positioned at `pos`, *unless* the token being
-        reported is EOF, in which case it uses the line-0/col-0 quirk (see
-        ``_Scanner.error_eof``) -- centralizes the "is this token EOF"
-        branch so every call site doesn't have to repeat it."""
+        """Build a ParseError positioned at `pos`, or at the end of input
+        when the token being reported is EOF (see ``_Scanner.error_eof``) --
+        centralizes the "is this token EOF" branch so every call site
+        doesn't have to repeat it."""
         if kind == "EOF":
             return self.sc.error_eof(msg)
         return self.sc.error_at(pos, msg)
@@ -574,7 +574,7 @@ class _Parser:
             raise self.sc.error_at(
                 self.start,
                 f"unexpected trailing content after the document body "
-                f"(token {self.kind} {text!r})")
+                f"(token {self.kind} {text!r})", code="parse.trailing-content")
         return node
 
     def _looks_like_edge(self) -> bool:
@@ -604,7 +604,8 @@ class _Parser:
         if self.node_count > _MAX_NODES:
             raise ParseError(
                 f"too many nodes materialized (over {_MAX_NODES}) -- "
-                "likely a runaway or maliciously large document")
+                "likely a runaway or maliciously large document",
+                code="document.limit.nodes", path="$")
         edges: List[Tuple[str, Any]] = []
         self.skip_sep()
         while self.kind not in (RBRACE, "EOF"):
@@ -621,10 +622,23 @@ class _Parser:
             else:
                 value = self.parse_value(depth)
                 edges.append((label, value))
-            if self.kind in (RBRACE, "EOF"):
+            if self.kind == "EOF" or (self.kind == RBRACE and depth > 0):
                 break
             if self.kind != "SEP":
                 text = self._tok_text(self.kind, self.start, self.end)
+                # OML-26/OML-27: the code depends on whether the document has
+                # ended, not on what is missing. At top level (depth 0) a
+                # complete edge can end the document, so a token standing
+                # there with no separator is content after it; inside `{...}`
+                # a closing `}` is still owed, so the same token is one the
+                # grammar does not allow (parse.unexpected-token).
+                if depth == 0:
+                    raise self.sc.error_at(
+                        self.start,
+                        f"unexpected trailing content after the edge for "
+                        f"{label!r} (token {self.kind} {text!r}); separate "
+                        "edges with a newline or ';'",
+                        code="parse.trailing-content")
                 raise self.sc.error_at(
                     self.start,
                     f"expected a separator (newline or ';') or '}}' after "
@@ -658,7 +672,7 @@ class _Parser:
                 raise self.sc.error_at(
                     start,
                     f"{text!r} is a reserved word and cannot be a bare "
-                    f'label; quote it: "{text}"')
+                    f'label; quote it: "{text}"', code="parse.reserved-word-label")
             return text
         text = self._tok_text(kind, start, end)
         raise self._error_for(kind, start, f"expected a label, got {kind} {text!r}")
@@ -670,7 +684,8 @@ class _Parser:
                 # scanner exactly: it raises a bare ParseError for this one
                 # message rather than going through its usual self.error()
                 # position-prefixing helper.
-                raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+                raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                                 code="document.limit.depth", path="$")
             self._advance()
             self.skip_sep()
             edges = self.parse_node_edges(depth + 1)
@@ -694,14 +709,17 @@ class _Parser:
         self._advance()  # consume '['
         self.skip_sep()
         if self.kind == RBRACKET:
-            raise self.sc.error_at(open_start, "empty array is not allowed")
+            raise self.sc.error_at(open_start, "empty array is not allowed",
+                                   code="parse.empty-array")
         elements: List[Any] = []
         while True:
             if self.kind == LBRACKET:
                 raise self.sc.error_at(
                     self.start, "nested array is not allowed (arrays may only "
-                    "contain scalars, null, or brace subtrees)")
+                    "contain scalars, null, or brace subtrees)",
+                    code="parse.nested-array")
             elements.append(self.parse_value(depth))
+            had_separator = self.kind == "SEP"
             self.skip_sep()
             if self.kind == COMMA:
                 self._advance()
@@ -713,6 +731,15 @@ class _Parser:
         close_kind, close_start, close_end = self._advance()
         if close_kind != RBRACKET:
             text = self._tok_text(close_kind, close_start, close_end)
+            if had_separator and close_kind not in ("EOF", RBRACE, COLON):
+                # A newline or ';' stood where the comma belongs and another
+                # element follows it (4.3.1): that separator is the error,
+                # reported at the token after it. An array that simply ends
+                # (EOF) or is closed by the wrong delimiter is not this.
+                raise self.sc.error_at(
+                    close_start,
+                    f"a newline or ';' cannot separate array elements; use ',' "
+                    f"(got {close_kind} {text!r})", code="parse.separator-in-array")
             raise self._error_for(
                 close_kind, close_start,
                 f"expected ',' or ']' in array, got {close_kind} {text!r}")
@@ -735,11 +762,15 @@ class _Parser:
             text = self.sc.s[start:end]
             digits = text[1:] if text[0] == "-" else text
             if len(digits) > _MAX_INT_DIGITS:
+                # A document.* code takes a Document path (E-11); the
+                # literal's own path is not tracked by this parser, so the
+                # whole-document `$` is reported.
                 raise self.sc.error_at(
                     start,
                     f"integer literal has {len(digits)} digits, exceeding "
                     f"the {_MAX_INT_DIGITS}-digit limit (security: "
-                    "unbounded-digit int-to-str conversion is superlinear)")
+                    "unbounded-digit int-to-str conversion is superlinear)",
+                    code="document.limit.int-digits", path="$")
             return int(text)
         if kind == NUMDEC or kind == NUMEXP:
             return float(self.sc.s[start:end])
@@ -797,7 +828,7 @@ class _Parser:
             raise self.sc.error_at(
                 start,
                 f"bare word {text!r} is not a valid value here; strings "
-                "must be quoted")
+                "must be quoted", code="parse.bare-word")
         text = self._tok_text(kind, start, end)
         raise self._error_for(kind, start, f"expected a value, got {kind} {text!r}")
 

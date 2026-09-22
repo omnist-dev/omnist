@@ -6,6 +6,146 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.10.0] — adopts omnist-spec v0.21.0-beta; the conformance runner is strict
+
+This is a **minor** bump under the beta rule (a batch of behaviour changes, some
+of them breaking for code that matched on the old, unregistered error codes --
+listed under "Breaking" below), not a patch. `vendor/omnist-spec` moves from
+`v0.17.0-beta` to `v0.21.0-beta`.
+
+**Conformance, before and after** (track 2, `test-suite/`, 273 vectors at the
+new pin; track 1 stays 19 / 0 / 0 with the referee self-test 10 / 10 throughout):
+
+| step | comparison mode | pass | fail | skip |
+| --- | --- | --- | --- | --- |
+| new pin, old runner | code-agnostic (`ok` + paths; skips any expected diagnostic with no path) | 159 | 17 | 97 |
+| strict runner, library untouched | `(path, code)` sets | 160 | 73 | 40 |
+| + the CLI reports the `code`/`path` a `ParseError` already carried | `(path, code)` sets | 174 | 59 | 40 |
+| + D-14 / D-21 (invalid UTF-8 and a second BOM) | `(path, code)` sets | 186 | 47 | 40 |
+| + `parse.codec-syntax` positions, `document.*`/`format.*` codes, XML profile | `(path, code)` sets | 193 | 40 | 40 |
+| + YAML merge keys in source order | `(path, code)` sets | 195 | 38 | 40 |
+| + OML-25/26/27 and the value-grammar codes | `(path, code)` sets | 210 | 23 | 40 |
+| + OSD positions (E-11/E-23) and Schema paths (E-13) | `(path, code)` sets | 222 | 11 | 40 |
+| + OSD-14/OSD-15 (the OSD writer) | `(path, code)` sets | 226 | 7 | 40 |
+| + `algebra.*` codes | `(path, code)` sets | **233** | **0** | **40** |
+
+The old runner's 97 skips and 17 "failures" were mostly not real: 63 vectors
+asserting a diagnostic were *skipped* because a syntax failure carried no
+path, 3 of its 17 failures were the YAML merge order, and the other 14 were
+the `bytes_hex` vectors it could not read. It reported clean on every vector it
+skipped, and passed vectors the reference did not satisfy (`nan: 1`,
+`null: 1`, `a: 1 b: 2` -- right `ok`, right position, wrong code).
+
+**The 40 skips, all E-20 "not yet implemented", none an E-21 divergence:**
+28 OSD-OML extension vectors (`parse_schema_oml`/`write_schema_oml`; tracked by
+[#341](https://github.com/omnist-dev/omnist/issues/341)), 6 `declared_max_*`
+safety-limit vectors (the limits are module constants, not runtime-configurable
+-- Sec2.4 says an implementation MAY expose them), and the 6
+`declared_max_alias_expansion` vectors (D-18, [DIV-3](vendor/omnist-spec/docs/09-divergence-ledger.md);
+never run against the default limit instead, which would be a false pass). D-18,
+D-19 and D-20 are **not implemented here**.
+
+### The runner (`tools/conformance/`)
+
+- `vector_runner.py` compares diagnostics as `(path, code)` **sets** (E-17),
+  prints the comparison mode on every run, and tallies skips by reason. There is
+  no runner-side "known failing" list (E-22). An unknown `operation` and an
+  unknown `declared_*` limit key are a **fail**, never a skip. Every
+  message-text heuristic is gone. Mutation-tested: renaming one expected code in
+  a scratch copy of the suite gives a named `[FAIL]` and exit 1.
+- `bytes_hex` vectors (E-27) run through the CLI -- this omnist's byte-oriented
+  entry point -- as raw bytes in a file, never decoded with replacement. All
+  14 run and pass.
+- Write vectors expecting failure now compare their diagnostics
+  ([#343](https://github.com/omnist-dev/omnist/issues/343)); `extract` and `infer`
+  failures compare `(path, code)` too.
+
+### Rules adopted
+
+- **D-14** (`parse.invalid-encoding` at `1:1`). The CLI decodes files and stdin
+  on the caller's behalf, so it is a byte-oriented entry point: invalid UTF-8 is
+  one diagnostic, never a replacement character. Before: an uncaught
+  `UnicodeDecodeError`, exit 1, no diagnostic (DIV-6). Line endings are no
+  longer translated on read. A `str`-typed reader still treats its input as
+  already decoded (Sec2.5). New `omnist._encoding.decode_utf8`.
+- **D-21**: a second leading `U+FEFF` is rejected at `1:1` on all six surfaces
+  (`parse.codec-syntax` on JSON/YAML/TOML/XML, `parse.unexpected-token` on
+  OML/OSD). YAML and XML swallowed it before; JSON/TOML gave `parse.syntax` with
+  no path; OSD reported path `0`. One helper: `strip_bom(text, reject_second=)`.
+- **`parse.codec-syntax`** with a `line:col` path for malformed JSON, YAML, TOML
+  and XML (the library's own position). Before: `parse.syntax`, no path.
+- **E-11/E-23**: every OSD `parse.*` diagnostic is `line:col`, and a string
+  error reports the opening quote (`"a\<control>b"` included -- a backslash
+  followed by a newline used to be an unterminated string). `schema.*` diagnostics
+  use Schema paths (E-13): `R.a` for cardinality, nullable and unknown-type
+  errors, `R` for a duplicate field or a quoted type, `$` for a missing or
+  undefined root. `schema.unknown-type` and `schema.duplicate-field` now carry
+  their codes (they had none). An OML error at end of input reports the real
+  end position instead of the placeholder `0:0`.
+- **OML-25/26/27**: a scalar or a complete top-level edge followed by leftover
+  content is `parse.trailing-content` at the first leftover token (`nan: 1`,
+  `a: 1 b: 2`, `a: 1 }`, `a: 2024-01-01T99`); a missing separator inside `{...}`
+  or `[...]` stays `parse.unexpected-token`, an unterminated array is
+  `parse.unexpected-token` (never `parse.separator-in-array`), and `[1` newline
+  `2]` is `parse.separator-in-array`. The reference never emitted
+  `parse.trailing-content` before. Also coded now: `parse.reserved-word-label`,
+  `parse.bare-word`, `parse.empty-array`, `parse.nested-array`,
+  `parse.separator-in-array` (all were `parse.unexpected-token`).
+- **YAML merge keys** flatten in **source order** (PyYAML flattens a merge
+  sequence in reverse): merged entries first, the local key wins in the merged
+  key's position, the earliest alias wins among merged, nested and repeated
+  aliases resolve as the spec says. Implemented by overriding PyYAML's
+  `flatten_mapping` in a `SafeLoader` subclass, not by forking it. A
+  self-referential anchor or merge still fails cleanly or reads; it never
+  recurses forever (D-20's rejection itself is DIV-3 work).
+- **OSD-15 / OSD-14** ([#348](https://github.com/omnist-dev/omnist/issues/348)):
+  `to_osd` escapes a backslash as `\\` and a double quote as `\"` and nothing
+  else (`a\b` used to read back as `ab`; `a"b` was unparseable), and raises
+  `WriteError` (`write.unsupported-value`, path = the record's Schema path) for a
+  label containing a C0 control character instead of emitting a byte its own
+  reader rejects. Property-tested: `parse_schema(to_osd(s)) == s` for arbitrary
+  labels without brackets or C0 controls.
+- **XML data profile** ([#345](https://github.com/omnist-dev/omnist/issues/345)):
+  `format.dtd-forbidden`, `format.entity-forbidden` (attribute values included)
+  and `format.mixed-content` at path `$`, refusals of well-formed input. A
+  `DOCTYPE` is refused on sight; an entity reference only once the rest of the
+  document is known to be well-formed, so malformed XML with an entity is
+  `parse.codec-syntax`. A multi-root write is `format.multiple-roots`.
+- **`document.*`** codes on reader failures: `document.unlabeled-element`
+  (`$.m[0]` for a JSON array of arrays), `document.limit.depth`/`nodes`/
+  `int-digits`. `DocumentError` gains optional `code`/`path`.
+- **`algebra.*`** codes: `algebra.extract-invalidates-root` (path = the record),
+  `algebra.infer-no-samples`/`-scalar-root` (`$`), `-conflicting-scalars`/
+  `-mixed-shape` (`Record.label`).
+- The `--json` payload's `errors` list is now filled for every coded failure
+  (syntax, document and write errors), not only for a collected `materialize`
+  list.
+
+### Breaking (beta: a minor bump)
+
+- Codes: `parse.syntax` is gone (it was never registered), replaced by
+  `parse.codec-syntax` and the `format.*`/`document.*` codes above. Adjustment
+  codes are renamed to the registered spellings: `temporal.stringified` to
+  `format.temporal-stringified`, `value.stringified` to `format.value-stringified`,
+  `string.line-break-char` to `format.string-line-break-char`. (`null.omitted`,
+  XML's null-as-empty-element, has no code in Sec8.3.8 and keeps its name.) Match
+  on the new spellings.
+- `read_yaml` and `read_xml` now reject a second leading `U+FEFF` (they consumed
+  it before); a `read_yaml` document merging a *sequence* of aliases reads its
+  keys in a different order (the values are unchanged).
+- `schema.nullable-ref`'s `path` is the field (`R.a`), not the referenced name.
+
+### Checked and left as it was
+
+- [#347](https://github.com/omnist-dev/omnist/issues/347) (`parse_schema` accepts
+  `"a\qb"`): **not a bug.** OSD unescaping is deliberately weak (Sec5.3.1, OSD-1:
+  `\X` becomes `X`, there is no named-escape table), so no OSD escape is
+  invalid and OSD can never raise `parse.invalid-escape`; a control character
+  after a backslash *is* an error, and is `parse.control-character`. Pinned by a
+  test.
+- Not done: #344 (S-8 Name domain at programmatic construction), D-18/D-19/D-20,
+  the OSD-OML extension.
+
 ## [v0.9.5] — a leading byte-order mark is stripped on every read surface
 
 - Implements omnist-spec Sec2.5 **D-15** (`v0.17.0-beta`): a `U+FEFF` at

@@ -121,9 +121,9 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 # '<order>\n  <id>A1</id>\n</order>\n'
 ```
 
-> A date/time value is written as text (`temporal.stringified`), and a
+> A date/time value is written as text (`format.temporal-stringified`), and a
 > non-string scalar (int/float/bool) is written as text too
-> (`value.stringified`) -- both still-succeeds adjustments. See
+> (`format.value-stringified`) -- both still-succeeds adjustments. See
 > [adjustment reports](../api.md#adjustment-reports-lossy-writes) to
 > inspect either, or `strict=True` to raise instead of adjusting.
 >
@@ -162,8 +162,15 @@ enforces on parse. See [the API reference](../api.md#reading--writing-formats).
 
 **Mixed content** — non-whitespace text alongside child elements (either the
 element's own leading text, or a child's trailing "tail" text) — is outside
-the data-XML profile. `read_xml` raises `ParseError`, naming the element,
-rather than silently discarding the text (which is what it used to do):
+the data-XML profile. `read_xml` raises `ParseError` (`code="format.mixed-content"`,
+`path="$"`; the message names the element) rather than silently discarding
+the text (which is what it used to do). A `DOCTYPE` declaration
+(`format.dtd-forbidden`) and any entity reference other than the five
+predefined ones (`format.entity-forbidden`, inside an attribute value too) are
+refused the same way -- as refusals of well-formed input, not syntax errors. A
+`DOCTYPE` is refused on sight; an entity reference only once the rest of the
+input is known to be well-formed, so malformed XML that also contains one is
+`parse.codec-syntax`:
 
 ```python
 from omnist import read_xml, ParseError

@@ -128,11 +128,12 @@ ANY = AnyType()
 def nullable(scalar: Scalar) -> Scalar:
     """A copy of ``scalar`` that also accepts ``null`` (the ``?`` form)."""
     if isinstance(scalar, AnyType):
-        raise SchemaError("any already includes null; 'any?' is redundant")
+        raise SchemaError("any already includes null; 'any?' is redundant",
+                          code="schema.nullable-any")
     if isinstance(scalar, Ref):
         raise SchemaError(
             "nullable() cannot be applied to a Ref; use cardinality [0,1] "
-            "for an optional record")
+            "for an optional record", code="schema.nullable-ref")
     return scalar if scalar.nullable else Scalar(scalar.name, True)
 
 
@@ -169,7 +170,8 @@ class Field:
             raise SchemaError(
                 f"field {label!r} type must be a Ref, Scalar, or t.any, got {type!r}")
         if min < 0 or (max is not None and max < min):
-            raise SchemaError(f"field {label!r} has an invalid cardinality [{min},{max}]")
+            raise SchemaError(f"field {label!r} has an invalid cardinality [{min},{max}]",
+                              code="schema.invalid-cardinality")
         # Note: [0,0] is deliberately still legal to construct directly here
         # (issue #322 only makes it illegal in OSD *text* -- osd.py's
         # _field() -- not as a Python-model invariant; prune()/minimize()
@@ -210,7 +212,8 @@ class Record:
         seen = set()
         for f in self.fields:
             if f.label in seen:
-                raise SchemaError(f"duplicate field label {f.label!r} in a record")
+                raise SchemaError(f"duplicate field label {f.label!r} in a record",
+                                  code="schema.duplicate-field")
             seen.add(f.label)
             self._by_label[f.label] = f
 
@@ -287,7 +290,7 @@ class Schema:
         if isinstance(t, Scalar):
             return t
         if t.name not in self.env:
-            raise SchemaError(f"unknown type {t.name!r}")
+            raise SchemaError(f"unknown type {t.name!r}", code="schema.unknown-type")
         return self.env[t.name]
 
     def check_refs(self) -> None:
@@ -299,15 +302,19 @@ class Schema:
                 raise SchemaError(
                     f"record name {name!r} shadows a scalar keyword; type "
                     "position resolves a bare name to a builtin first, so "
-                    "this record could never be referenced")
+                    "this record could never be referenced",
+                    code="schema.reserved-name", path=name)
 
-        def walk(t: Type) -> None:
+        def walk(t: Type, path: str) -> None:
             if isinstance(t, Ref) and t.name not in self.env:
-                raise SchemaError(f"unknown type {t.name!r}")
-        walk(self.root)
-        for rec in self.env.values():
+                # E-13: a Schema path -- the field that names the missing
+                # record, or `$` when it is the root declaration itself.
+                raise SchemaError(f"unknown type {t.name!r}",
+                                  code="schema.unknown-type", path=path)
+        walk(self.root, "$")
+        for name, rec in self.env.items():
             for f in rec.fields:
-                walk(f.type)
+                walk(f.type, f"{name}.{f.label}")
         # every env value is now known to be a Record (checked above), and
         # root is always a Ref (checked in __init__), so resolve(root) always
         # lands on a Record once the walk above confirms root.name is known.

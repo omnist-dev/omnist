@@ -92,7 +92,7 @@ Doc.of({"name": "Ada"}).to_yaml()
 
 > YAML carries `date`/`datetime` natively, but has no standalone time-of-day
 > type, so a bare `time` leaf is written as a string and reported as
-> `temporal.stringified` (a warning).
+> `format.temporal-stringified` (a warning).
 
 > Grouping same-label edges together can also lose their original relative
 > position against *other* labels -- `[(m,A),(x,X),(m,B)]` groups to
@@ -104,7 +104,7 @@ Doc.of({"name": "Ada"}).to_yaml()
 > A label or string value containing U+0085 (NEL, "next line") is written
 > double-quoted rather than plain/single-quoted, since YAML's line-break
 > normalization would otherwise turn it into a plain space on read. This is
-> reported as the `string.line-break-char` adjustment code (a warning, since
+> reported as the `format.string-line-break-char` adjustment code (a warning, since
 > it round-trips correctly — it's surfaced only so callers know the output
 > style was forced for that value). See
 > [adjustment reports](../api.md#adjustment-reports-lossy-writes).
@@ -116,8 +116,13 @@ enforces on parse. See [the API reference](../api.md#reading--writing-formats).
 ## Notes
 
 - Only YAML's JSON-compatible core is supported (string keys, standard scalars,
-  mappings and sequences). Tags, anchors-as-merge, and non-string keys are
-  outside the profile.
+  mappings and sequences). Tags and non-string keys are outside the profile.
+- The merge key `<<` flattens in **source order**: merged entries first (each
+  merged mapping in its own order, `<<: [*a, *b]` as `a` then `b`), then the
+  mapping's own; a key supplied twice is one edge at its first position,
+  carrying the mapping's own value if it writes one and otherwise the earliest
+  alias's. (PyYAML flattens a merge sequence in reverse; `read_yaml` does not
+  inherit that.)
 - Sequences of mappings (`- {…}`) are the idiomatic way to write an array of
   records, and map to a repeated label — see
   [the real-life example](../example.md).

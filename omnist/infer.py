@@ -52,9 +52,11 @@ def infer_with_report(
     for s in samples:
         nodes.append(s._node if isinstance(s, Doc) else build_node(s))
     if not nodes:
-        raise SchemaError("cannot infer a schema from zero samples")
+        raise SchemaError("cannot infer a schema from zero samples",
+                          code="algebra.infer-no-samples", path="$")
     if any(not isinstance(n, list) for n in nodes):
-        raise SchemaError("infer expects object (record) samples at the root")
+        raise SchemaError("infer expects object (record) samples at the root",
+                          code="algebra.infer-scalar-root", path="$")
     env: Dict[str, Any] = {}
     used: set[str] = set()
     fallbacks: list[AnyFallback] = []
@@ -143,7 +145,8 @@ def _infer_type(child_nodes: List[Any], label: str, record_name: str,
                 f"{record_name}.{label}", "mixes objects and values"))
             return ANY
         raise SchemaError(
-            f"label {label!r} mixes objects and values; cannot infer one type")
+            f"label {label!r} mixes objects and values; cannot infer one type",
+            code="algebra.infer-mixed-shape", path=f"{record_name}.{label}")
     # all scalars
     names: set[str] = set()
     null = False
@@ -165,5 +168,6 @@ def _infer_type(child_nodes: List[Any], label: str, record_name: str,
             return ANY
         raise SchemaError(
             f"label {label!r} has values of more than one scalar "
-            f"({', '.join(sorted(names))}); cannot infer one scalar type")
+            f"({', '.join(sorted(names))}); cannot infer one scalar type",
+            code="algebra.infer-conflicting-scalars", path=f"{record_name}.{label}")
     return Scalar(names.pop(), nullable=null)

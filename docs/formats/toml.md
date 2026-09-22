@@ -122,7 +122,7 @@ enforces on parse. See [the API reference](../api.md#reading--writing-formats).
 ## Notes
 
 - TOML round-trips `date`/`time`/`datetime` natively in both directions —
-  there's no `temporal.stringified` adjustment for TOML the way there is for
+  there's no `format.temporal-stringified` adjustment for TOML the way there is for
   JSON/XML.
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how TOML's native temporal types and array-of-tables stack up against the
