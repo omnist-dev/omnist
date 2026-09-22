@@ -19,8 +19,10 @@ import json as _json
 import math as _math
 import re as _re
 from typing import TYPE_CHECKING, Any, Optional
+from xml.parsers import expat
 
 from ._encoding import strip_bom
+from ._position import position
 from .document import _MAX_DEPTH, _MAX_NODES, _grouped, build_node
 from .errors import DocumentError, ParseError, WriteError
 from .report import WriteReport, finish_write
@@ -34,6 +36,7 @@ if TYPE_CHECKING:
 # upgrades when it's unambiguously that number, not merely parseable as
 # one (Python's own int()/float() also accept a leading '+', which this
 # deliberately excludes).
+_EXPAT_UNDEFINED_ENTITY = expat.errors.codes[expat.errors.XML_ERROR_UNDEFINED_ENTITY]
 _XML_INT_RE = _re.compile(r"-?(0|[1-9]\d*)")
 _XML_NUM_RE = _re.compile(r"-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?")
 
@@ -130,26 +133,68 @@ def _check_json_text_depth(text: str) -> None:
         elif ch in "{[":
             depth += 1
             if depth > _MAX_DEPTH:
-                raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+                raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                                 code="document.limit.depth", path="$")
         elif ch in "}]":
             depth -= 1
 
 
+def _int_digits_limit(message: str) -> ParseError:
+    """The int-digits limit (D-13, ``document.limit.int-digits``) as a reader
+    raises it: CPython's own guard fires inside the codec's library, before
+    any Document exists, so the offending literal's Document path is not
+    available and the whole-document path ``$`` is reported."""
+    return ParseError(message, code="document.limit.int-digits", path="$")
+
+
+def _yaml_position(exc: Any, text: str) -> str:
+    """The ``line:col`` (E-11) of a PyYAML failure: the problem mark where the
+    scanner or parser gives one (0-based in the library, 1-based here), the
+    reader's character offset for an unprintable character, else ``1:1``."""
+    mark = getattr(exc, "problem_mark", None) or getattr(exc, "context_mark", None)
+    if mark is not None:
+        return f"{mark.line + 1}:{mark.column + 1}"
+    offset = getattr(exc, "position", None)
+    if offset is not None:
+        return position(text, offset)
+    return "1:1"
+
+
+_TOML_AT_LINE_RE = _re.compile(r"\(at line (\d+), column (\d+)\)")
+
+
+def _toml_position(exc: Any, text: str) -> str:
+    """The ``line:col`` (E-11) of a ``tomllib`` failure. Python 3.14 exposes
+    ``lineno``/``colno``; earlier versions only put ``(at line L, column C)``
+    (or ``(at end of document)``) in the message, so read it from there."""
+    lineno, colno = getattr(exc, "lineno", None), getattr(exc, "colno", None)
+    if lineno is not None and colno is not None:
+        return f"{lineno}:{colno}"
+    message = str(exc)
+    m = _TOML_AT_LINE_RE.search(message)
+    if m is not None:
+        return f"{m[1]}:{m[2]}"
+    if "(at end of document)" in message:
+        return position(text, len(text))
+    return "1:1"
+
+
 # --------------------------------------------------------------- JSON
 def read_json(text: str, *, schema: Optional["Schema"] = None) -> Any:
-    text = strip_bom(text)   # Sec2.5 D-15
+    text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     _check_json_text_depth(text)
     try:
         node = build_node(_json.loads(text))
     except _json.JSONDecodeError as exc:
-        raise ParseError(f"invalid JSON: {exc}", code="parse.syntax") from exc
+        raise ParseError(f"invalid JSON: {exc}", code="parse.codec-syntax",
+                         path=f"{exc.lineno}:{exc.colno}") from exc
     except ValueError as exc:
         # json.loads converts integer literals to `int` while parsing, so an
         # over-digit-limit literal trips CPython's int-string-conversion
         # guard here -- before build_node ever sees a value -- as a bare
-        # ValueError, not a JSONDecodeError.  Translate it like any other
-        # parse-time failure.
-        raise ParseError(f"invalid JSON: {exc}", code="parse.syntax") from exc
+        # ValueError, not a JSONDecodeError.  That is the int-digits limit
+        # (D-13), reported like build_node's own.
+        raise _int_digits_limit(f"invalid JSON: {exc}") from exc
     return _materialize(node, schema)
 
 
@@ -169,7 +214,7 @@ def _scan_json(node: Any) -> WriteReport:
     rep = WriteReport()
     for path, v in _leaves(node):
         if isinstance(v, (_dt.date, _dt.time)):
-            rep.add(path, "temporal.stringified",
+            rep.add(path, "format.temporal-stringified",
                     "temporal value written as an ISO-8601 string", "warning")
         elif isinstance(v, float) and (_math.isnan(v) or _math.isinf(v)):
             # Issue #325: NaN/Infinity used to be substituted with `null` and
@@ -191,24 +236,124 @@ def _iso(o: Any) -> str:
 
 # --------------------------------------------------------------- YAML
 def read_yaml(text: str, *, schema: Optional["Schema"] = None) -> Any:
-    text = strip_bom(text)   # Sec2.5 D-15
+    text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     yaml = _need("yaml", "pip install pyyaml")
     try:
-        node = build_node(yaml.safe_load(text))
+        node = build_node(yaml.load(text, Loader=_yaml_loader(yaml)))
     except yaml.YAMLError as exc:
-        raise ParseError(f"invalid YAML: {exc}", code="parse.syntax") from exc
+        raise ParseError(f"invalid YAML: {exc}", code="parse.codec-syntax",
+                         path=_yaml_position(exc, text)) from exc
     except ValueError as exc:
         # Same int-string-conversion guard as read_json (see its comment):
         # PyYAML converts an integer scalar to `int` while loading.
-        raise ParseError(f"invalid YAML: {exc}", code="parse.syntax") from exc
+        raise _int_digits_limit(f"invalid YAML: {exc}") from exc
     except RecursionError as exc:
         # #307: unlike JSON's bracket grammar, YAML nesting (indentation,
         # flow collections, anchors) isn't cheap to bound from raw text
         # without reimplementing the grammar -- this is a safety net that
         # converts an uncaught crash into the same clean error a depth
         # violation always raises, rather than precise prevention.
-        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})") from exc
+        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                         code="document.limit.depth", path="$") from exc
     return _materialize(node, schema)
+
+
+_YAML_LOADER_CACHE: dict[Any, Any] = {}
+
+_YAML_MERGE_TAG = "tag:yaml.org,2002:merge"
+_YAML_VALUE_TAG = "tag:yaml.org,2002:value"
+_YAML_STR_TAG = "tag:yaml.org,2002:str"
+
+
+def _yaml_loader(yaml: Any) -> type[Any]:
+    """PyYAML's ``SafeLoader`` with the merge key (``<<``) flattened in
+    *source order*, per ``docs/formats/yaml.md`` (Sec YAML, "Merged entries
+    come first, in source order").
+
+    Stock PyYAML flattens a merge *sequence* in reverse (``submerge.reverse()``
+    in ``SafeConstructor.flatten_mapping``), so ``<<: [*a, *b]`` reads ``b``'s
+    entries before ``a``'s. That is an artefact of how it makes the earlier
+    alias win a key collision (later dict assignments overwrite earlier
+    ones), not a rule of the format, and an ordered Document cannot inherit
+    it. This subclass overrides the constructor's flatten step -- not the
+    library -- to resolve the whole merge explicitly instead:
+
+    * merged entries come first, each merged mapping in its own (already
+      flattened) order, the mappings in sequence order, then the mapping's own;
+    * a key supplied more than once yields exactly one edge, at the position
+      of its first occurrence in that order;
+    * that edge carries the referring mapping's own value when it writes the
+      key, else the value from the earliest merged mapping that supplies it.
+    """
+    cls = _YAML_LOADER_CACHE.get(yaml)
+    if cls is not None:
+        return cls  # type: ignore[no-any-return]
+    ConstructorError = yaml.constructor.ConstructorError
+    MappingNode, SequenceNode = yaml.MappingNode, yaml.SequenceNode
+
+    class _OmnistYamlLoader(yaml.SafeLoader):  # type: ignore[misc]
+        def flatten_mapping(self, node: Any) -> None:
+            merged: list[list[Any]] = []       # one entry list per merged mapping
+            index = 0
+            while index < len(node.value):
+                key_node, value_node = node.value[index]
+                if key_node.tag == _YAML_MERGE_TAG:
+                    # Deleted *before* recursing, as PyYAML does: a mapping
+                    # that merges itself (or is merged into something it
+                    # contains) then terminates instead of recursing forever.
+                    del node.value[index]
+                    if isinstance(value_node, MappingNode):
+                        self.flatten_mapping(value_node)
+                        merged.append(list(value_node.value))
+                    elif isinstance(value_node, SequenceNode):
+                        for subnode in value_node.value:
+                            if not isinstance(subnode, MappingNode):
+                                raise ConstructorError(
+                                    "while constructing a mapping", node.start_mark,
+                                    "expected a mapping for merging, but found %s"
+                                    % subnode.id, subnode.start_mark)
+                            self.flatten_mapping(subnode)
+                            merged.append(list(subnode.value))
+                    else:
+                        raise ConstructorError(
+                            "while constructing a mapping", node.start_mark,
+                            "expected a mapping or list of mappings for merging, "
+                            "but found %s" % value_node.id, value_node.start_mark)
+                elif key_node.tag == _YAML_VALUE_TAG:
+                    key_node.tag = _YAML_STR_TAG
+                    index += 1
+                else:
+                    index += 1
+            if merged:
+                node.value = self._merge_entries(node, merged)
+
+        def _merge_entries(self, node: Any, merged: list[list[Any]]) -> list[Any]:
+            """Resolve ``merged`` (source order) followed by ``node``'s own
+            entries into one entry list with each key exactly once."""
+            entries: dict[Any, Any] = {}
+            for source in merged:
+                for key_node, value_node in source:
+                    key = self._merge_key(node, key_node)
+                    if key not in entries:            # earliest merged mapping wins
+                        entries[key] = (key_node, value_node)
+            for key_node, value_node in node.value:
+                key = self._merge_key(node, key_node)
+                # the local value, in the merged key's position when it has one
+                entries[key] = (entries[key][0] if key in entries else key_node, value_node)
+            return list(entries.values())
+
+        def _merge_key(self, node: Any, key_node: Any) -> Any:
+            key = self.construct_object(key_node, deep=True)
+            try:
+                hash(key)
+            except TypeError as exc:
+                raise ConstructorError(
+                    "while constructing a mapping", node.start_mark,
+                    "found unhashable key", key_node.start_mark) from exc
+            return key
+
+    _YAML_LOADER_CACHE[yaml] = _OmnistYamlLoader
+    return _OmnistYamlLoader
 
 
 def write_yaml(node: Any, *, strict: bool = False,
@@ -226,7 +371,7 @@ def check_yaml(node: Any) -> WriteReport:
     rep = WriteReport()
     for path, v in _leaves(node):
         if isinstance(v, _dt.time):       # YAML carries date/datetime natively, not time
-            rep.add(path, "temporal.stringified",
+            rep.add(path, "format.temporal-stringified",
                     "time-of-day written as a string (YAML has no standalone time)",
                     "warning")
     _scan_yaml_labels(node, "$", rep)
@@ -249,11 +394,11 @@ def _scan_yaml_labels(node: Any, path: str, rep: WriteReport, depth: int = 0) ->
         counts[label] = i + 1
         p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
         if isinstance(label, str) and "\x85" in label:
-            rep.add(p, "string.line-break-char",
+            rep.add(p, "format.string-line-break-char",
                     "label contains U+0085 (NEL); written double-quoted to "
                     "round-trip correctly", "warning")
         if isinstance(child, str) and "\x85" in child:
-            rep.add(p, "string.line-break-char",
+            rep.add(p, "format.string-line-break-char",
                     "value contains U+0085 (NEL); written double-quoted to "
                     "round-trip correctly", "warning")
         _scan_yaml_labels(child, p, rep, depth + 1)
@@ -290,21 +435,23 @@ def _yaml_dumper(yaml: Any) -> type[Any]:
 
 # --------------------------------------------------------------- TOML
 def read_toml(text: str, *, schema: Optional["Schema"] = None) -> Any:
-    text = strip_bom(text)   # Sec2.5 D-15
+    text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     import tomllib
     try:
         node = build_node(tomllib.loads(text))
     except tomllib.TOMLDecodeError as exc:
-        raise ParseError(f"invalid TOML: {exc}", code="parse.syntax") from exc
+        raise ParseError(f"invalid TOML: {exc}", code="parse.codec-syntax",
+                         path=_toml_position(exc, text)) from exc
     except ValueError as exc:
         # Same int-string-conversion guard as read_json (see its comment):
         # tomllib converts an integer literal to `int` while loading.
-        raise ParseError(f"invalid TOML: {exc}", code="parse.syntax") from exc
+        raise _int_digits_limit(f"invalid TOML: {exc}") from exc
     except RecursionError as exc:
         # #307: same safety net as read_yaml -- TOML nesting (inline
         # tables/arrays, dotted keys) isn't cheap to bound from raw text
         # without reimplementing the grammar.
-        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})") from exc
+        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                         code="document.limit.depth", path="$") from exc
     return _materialize(node, schema)
 
 
@@ -372,13 +519,8 @@ _XML_ILLEGAL_CHAR = _re.compile(
 
 def read_xml(text: str, *, schema: Optional["Schema"] = None,
             report: Optional[WriteReport] = None) -> Any:
-    text = strip_bom(text)   # Sec2.5 D-15
-    try:
-        root = _xml_fromstring(text)
-    except ImportError:
-        raise  # missing defusedxml -- a setup problem, not a syntax one
-    except Exception as exc:
-        raise ParseError(f"invalid XML: {exc}", code="parse.syntax") from exc
+    text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
+    root = _xml_fromstring(text)
     root_local = _local(root.tag)
     # `epath` is the proper full dotted Document path (Sec8.4 convention),
     # used only for format.attribute-dropped/format.namespace-dropped --
@@ -438,22 +580,24 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
     budget[0] += 1
     if budget[0] > _MAX_NODES:
         raise DocumentError(
-            f"{path}: too many nodes materialized (over {_MAX_NODES})")
+            f"{path}: too many nodes materialized (over {_MAX_NODES})",
+            code="document.limit.nodes", path="$")
     if depth > _MAX_DEPTH:
-        raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
     children = list(elem)
     if children:
         if elem.text and elem.text.strip():
             raise ParseError(
                 f"{path}: mixed content (text alongside child elements) is "
-                "outside the data-XML profile", code="parse.syntax", path=path)
+                "outside the data-XML profile", code="format.mixed-content", path="$")
         for c in children:
             if c.tail and c.tail.strip():
                 p = f"{path}.{_local(c.tag)}"
                 raise ParseError(
                     f"{p}: mixed content (text alongside "
                     "child elements) is outside the data-XML profile",
-                    code="parse.syntax", path=p)
+                    code="format.mixed-content", path="$")
         out = []
         for c in children:
             c_local = _local(c.tag)
@@ -470,7 +614,8 @@ def write_xml(node: Any, *, strict: bool = False,
     if not (isinstance(node, list) and len(node) == 1):
         raise WriteError(
             "XML needs exactly one document element; the root node must have a "
-            "single top-level edge (a single-rooted Document)")
+            "single top-level edge (a single-rooted Document)",
+            code="format.multiple-roots", path="$")
     rep = check_xml(node)
     import xml.etree.ElementTree as ET
     (tag, content), = node
@@ -529,7 +674,7 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
     if v is None:
         rep.add(path, "null.omitted", "null written as an empty element", "warning")
     elif isinstance(v, (_dt.date, _dt.time)):
-        rep.add(path, "temporal.stringified",
+        rep.add(path, "format.temporal-stringified",
                 "temporal value written as text (reads back as a string)", "warning")
     elif isinstance(v, (bool, int, float)):
         # #288: read_xml no longer infers scalar kind from text shape, so a
@@ -538,7 +683,7 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
         # its original type. Previously silent (the old shape-based
         # coercion happened to undo this on read); now reported like every
         # other type-losing write.
-        rep.add(path, "value.stringified",
+        rep.add(path, "format.value-stringified",
                 "non-string scalar written as text (reads back as a string)", "warning")
     if isinstance(v, str):
         if _XML_ILLEGAL_CHAR.search(v):
@@ -662,7 +807,6 @@ def _xml_fromstring(text: str) -> Any:
     here (rather than subclassing it) only because `DefusedXMLParser`
     always requests a namespace-aware expat parser itself.
     """
-    import xml.parsers.expat as expat
     from xml.etree.ElementTree import TreeBuilder
     try:
         from defusedxml.common import (  # type: ignore[import-untyped]
@@ -706,8 +850,54 @@ def _xml_fromstring(text: str) -> Any:
     parser.EntityDeclHandler = _entity_decl
     parser.UnparsedEntityDeclHandler = _unparsed_entity_decl
     parser.ExternalEntityRefHandler = _external_entity_ref  # type: ignore[assignment]
-    parser.Parse(text, True)
+    try:
+        parser.Parse(text, True)
+    except DTDForbidden as exc:
+        # Reject on sight (xml.md): the DOCTYPE itself is the refusal, before
+        # any element is read, so the path is the whole document.
+        raise ParseError("a DOCTYPE declaration is outside the data-XML profile",
+                         code="format.dtd-forbidden", path="$") from exc
+    except (EntitiesForbidden, ExternalReferenceForbidden) as exc:  # pragma: no cover
+        raise ParseError("an entity declaration is outside the data-XML profile",
+                         code="format.entity-forbidden", path="$") from exc
+    except expat.ExpatError as exc:
+        if exc.code != _EXPAT_UNDEFINED_ENTITY:
+            raise _xml_syntax_error(exc) from exc
+        # An entity reference other than the five predefined ones. That is a
+        # profile *refusal* (format.entity-forbidden), not malformed input --
+        # but only once the document is known to be well-formed: expat
+        # stopped at the reference, so the rest of the text has not been
+        # checked. Re-check with every such reference neutralised to
+        # same-length filler (positions stay identical); anything expat
+        # rejects then is a genuine syntax error and is reported as one.
+        try:
+            _xml_well_formed(_XML_NONPREDEFINED_ENTITY_RE.sub(
+                lambda m: "x" * len(m.group()), text))
+        except expat.ExpatError as again:
+            raise _xml_syntax_error(again) from again
+        raise ParseError(
+            "an entity reference other than the five predefined ones is "
+            "outside the data-XML profile",
+            code="format.entity-forbidden", path="$") from exc
     return builder.close()
+
+
+def _xml_syntax_error(exc: Any) -> ParseError:
+    """A well-formedness failure as ``parse.codec-syntax`` (E-11): expat's
+    1-based line and 0-based column become the 1-based ``line:col``."""
+    return ParseError(f"invalid XML: {exc}", code="parse.codec-syntax",
+                      path=f"{exc.lineno}:{exc.offset + 1}")
+
+
+def _xml_well_formed(text: str) -> None:
+    """Raise ``expat.ExpatError`` unless ``text`` is well-formed XML (no
+    handlers, so nothing is built and no DOCTYPE processing is refused)."""
+    expat.ParserCreate().Parse(text, True)
+
+
+# Any `&name;` other than the five predefined references and numeric
+# character references.
+_XML_NONPREDEFINED_ENTITY_RE = _re.compile(r"&(?!(?:lt|gt|amp|quot|apos);)(?!#)[^\s&;<>\"']+;")
 
 
 def _need(module: str, how: str) -> Any:

@@ -283,7 +283,7 @@ d.to_json()                          # '{"d": "2024-01-01"}' -- stringified, sti
 
 rep = WriteReport()
 d.to_json(report=rep)                # inspect what changed
-[(a.code, a.severity) for a in rep]  # [('temporal.stringified', 'warning')]
+[(a.code, a.severity) for a in rep]  # [('format.temporal-stringified', 'warning')]
 
 d.to_json(strict=True)               # raises WriteError instead of adjusting
 ```

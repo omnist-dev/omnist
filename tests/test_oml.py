@@ -660,7 +660,7 @@ def test_tokenizer_scales_near_linearly_not_quadratically():
 # ---------------------------------------------------------------------------
 
 def test_bom_is_ignored():
-    assert read_oml("﻿a: 1") == [("a", 1)]
+    assert read_oml("\ufeffa: 1") == [("a", 1)]
 
 
 # ---------------------------------------------------------------------------

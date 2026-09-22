@@ -165,11 +165,13 @@ def run_infer(case_dir: Path) -> Tuple[str, str]:
 
 def _drop_messages(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Message text is never compared (Sec8.5's own matching rule 1), and
-    ``code`` is compared code-agnostically (Sec8.5.2 rule 4,
-    docs/conformance-harness.md) -- strip both, so a fixture's
-    expected.json doesn't have to pin exact wording or a
-    bare-vs-namespaced code spelling, only severity/location. Mirrors
-    vector_runner.py's lint driver, which applies the same policy."""
+    ``code`` is informational on this track (docs/conformance-harness.md
+    Sec2: a fixture's expected.json is recorded against the reference and
+    may carry the bare pre-namespacing spelling, ``unreachable-record``,
+    where the reference now emits ``lint.unreachable-record``) -- strip
+    both, compare severity and location exactly. This is Track 1's own
+    rule; Track 2 (vector_runner.py) compares ``(path, code)`` strictly,
+    so lint codes are checked there."""
     return {
         "ok": payload["ok"],
         "findings": [
@@ -245,6 +247,8 @@ def main(argv: List[str]) -> int:
         return 2
 
     operations = argv or sorted(ALL_OPERATIONS)
+    print("comparison: ok, document/schema structure, and lint severity+location "
+          "exactly; lint code informational (docs/conformance-harness.md Sec2)")
     total_pass = total_fail = total_skip = 0
     for op in operations:
         p, f, s = run_operation(op)

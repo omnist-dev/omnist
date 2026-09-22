@@ -55,7 +55,8 @@ def prune(schema_file: Path) -> Tuple[str, str, int]:
 
 
 def extract(schema_file: Path, keep: List[str]) -> Tuple[str, str, int]:
-    return _run(["schema", "extract", str(schema_file), "--keep", ",".join(keep)])
+    return _run(["schema", "extract", str(schema_file), "--keep", ",".join(keep),
+                 "--json"])
 
 
 def is_empty(schema_file: Path) -> Tuple[str, str, int]:

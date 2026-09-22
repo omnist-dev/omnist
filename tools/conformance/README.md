@@ -26,7 +26,7 @@ tools/conformance/
   runner.py        runs vendor/omnist-spec's real per-operation fixtures
                    (conformance/fixtures/, directory-per-case format)
   vector_runner.py runs vendor/omnist-spec's test-suite/ JSON-vector suite
-                   (139 vectors, envelope format -- see its own docstring)
+                   (273 vectors, envelope format -- see its own docstring)
 ```
 
 `runner.py` and `vector_runner.py` are two separate runners over two
@@ -73,20 +73,36 @@ script on `PATH`). Set `OMNIST_CLI` to test a different build.
 python3 -m tools.conformance.self_test      # referee self-check
 python3 -m tools.conformance.runner         # all wired operations (fixtures)
 python3 -m tools.conformance.runner validate normalize   # a subset
-python3 -m tools.conformance.vector_runner  # the 139-vector test-suite/
+python3 -m tools.conformance.vector_runner  # the 273-vector test-suite/
 ```
 
-`vector_runner.py` compares diagnostics in **code-agnostic mode**
-(``ok`` plus the set of ``path``s, never ``code``) -- omnist's own
-diagnostic codes predate `omnist-spec`'s Sec8.3 code taxonomy and were
-never renamed to match it. It also drives `infer`/`infer_with_report`
-through the library directly rather than through the CLI (the CLI's
-`infer` positional argument is `nargs='+'`, so a zero-samples vector can
-never reach it), and skips `document-model/limits.json`'s 6 vectors
-(a runtime-configurable safety limit this omnist doesn't expose) and any
-`oml-grammar`/`osd-grammar` vector asserting specific diagnostics on a
-syntax-level parse failure (`ParseError.errors` is empty for those by
-design). See the module's own docstring for the full reasoning.
+`vector_runner.py` is **strict**: every diagnostic list is compared as a set
+of `(path, code)` pairs (omnist-spec §8.5.2, E-17 -- message text and severity
+never compared, no partial matching), and it prints that mode with every run.
+This is the reference implementation, so it does not use E-17 rule 4's
+code-agnostic escape hatch. (Until v0.10.0 it did -- `ok` plus the set of paths
+only, skipping any expected diagnostic with no structured path -- which is how
+the reference passed vectors it did not satisfy; see the spec's DIV-4.) There
+is deliberately **no runner-side "known failing" list**: a nonzero fail count
+fails the build (E-22), and a vector is passed, failed, or skipped under
+E-20/E-21 with a true reason.
+
+Skips, all E-20 "not yet implemented", are tallied by reason at the end of
+every run: the OSD-OML extension operations (omnist#341), the six
+`declared_max_*` limit vectors (this omnist's limits are module constants,
+not runtime-configurable), and the six `declared_max_alias_expansion` vectors
+(D-18, DIV-3 -- never run against the default limit instead, which would be a
+false pass). An unknown `operation` or an unknown `declared_*` key is a
+**fail**, not a skip.
+
+`bytes_hex` vectors (E-27, D-14) are written to a file as raw bytes and
+handed to the CLI -- this omnist's byte-oriented entry point -- never decoded
+with replacement and run as text. `infer`/`infer_with_report` are driven
+through the library directly rather than through the CLI (the CLI's `infer`
+positional argument is `nargs='+'`, so a zero-samples vector can never reach
+it). Track 1 (`runner.py`) compares a `lint` fixture's `severity` and
+`location` and treats `code` as informational, as
+`docs/conformance-harness.md` §2 says of that track.
 
 Wired into CI (`.github/workflows/test.yml`'s `conformance` job) on every
 push and PR -- this is the actual point of the move from `omnist-spec`:

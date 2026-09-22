@@ -90,7 +90,7 @@ def test_all_cli_runner_functions_build_expected_args(tmp_path, monkeypatch):
     assert seen["args"] == ["schema", "prune", str(p)]
 
     cli_runner.extract(p, ["a", "b"])
-    assert seen["args"] == ["schema", "extract", str(p), "--keep", "a,b"]
+    assert seen["args"] == ["schema", "extract", str(p), "--keep", "a,b", "--json"]
 
     cli_runner.is_empty(p)
     assert seen["args"] == ["schema", "is-empty", str(p), "--result-format", "json"]

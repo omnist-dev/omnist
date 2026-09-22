@@ -96,7 +96,7 @@ that's distinctive, and concretely how OML / the Document model handles it
 - **No native date/time type.** `read_json` never produces
   `date`/`time`/`datetime` on its own; a date-looking string stays a plain
   `str` unless `schema=` upgrades it. `write_json` always stringifies a
-  temporal leaf to ISO-8601 text (`temporal.stringified`). OML has the
+  temporal leaf to ISO-8601 text (`format.temporal-stringified`). OML has the
   same gap — there's no native temporal literal in OML either, so a
   Document round-trips temporal values as typed Python objects in memory,
   but every textual format (including OML) carries them as strings
@@ -142,7 +142,7 @@ that's distinctive, and concretely how OML / the Document model handles it
   date/time/datetime grammar directly into the matching Python types with
   no schema needed — confirmed for all three kinds (`d = 2024-01-01`,
   `t = 12:00:00`, `dt = 2024-01-01T12:00:00`). Writing round-trips the
-  same way: TOML is the one format with no `temporal.stringified`
+  same way: TOML is the one format with no `format.temporal-stringified`
   adjustment in either direction. OML still has no native temporal
   literal, so going OML round-trip-equivalent would stringify where TOML
   wouldn't — this is the one case where TOML is *more* capable than OML

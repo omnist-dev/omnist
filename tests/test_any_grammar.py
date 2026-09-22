@@ -34,7 +34,7 @@ def test_any_question_mark_is_rejected():
     text = 'record Root { "data": any? }\nroot Root'
     with pytest.raises(
         SchemaError,
-        match=r"'any' already includes null; 'any\?' is redundant at \d+",
+        match=r"'any' already includes null; 'any\?' is redundant at line 1, col \d+",
     ):
         parse_schema(text)
 
@@ -45,7 +45,7 @@ def test_any_question_mark_exact_message():
         parse_schema(text)
     pos = text.index("?")
     assert str(exc.value) == (
-        f"'any' already includes null; 'any?' is redundant at {pos}"
+        f"'any' already includes null; 'any?' is redundant at line 1, col {pos + 1}"
     )
 
 
@@ -66,7 +66,7 @@ def test_record_named_any_is_rejected():
     with pytest.raises(
         SchemaError,
         match=r"'any' is a reserved type name and cannot be used as a "
-              r"record name at \d+",
+              r"record name at line 1, col \d+",
     ):
         parse_schema(text)
 
@@ -78,7 +78,7 @@ def test_record_named_any_exact_message():
     pos = text.index("any")
     assert str(exc.value) == (
         f"'any' is a reserved type name and cannot be used as a record "
-        f"name at {pos}"
+        f"name at line 1, col {pos + 1}"
     )
 
 

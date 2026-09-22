@@ -101,7 +101,8 @@ def extract(s: Schema, keep: Iterable[str]) -> Schema:
         label, record_name = first_offender
         raise SchemaError(
             f"no valid subschema: removing label {label!r} deletes a mandatory "
-            f"field of record {record_name!r}")
+            f"field of record {record_name!r}",
+            code="algebra.extract-invalidates-root", path=record_name)
 
     # Step 5: drop invalidated records and any fields (mandatory or not)
     # that still point at one -- an optional field typed to an invalidated

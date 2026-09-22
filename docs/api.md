@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.9.5"
+omnist.__version__        # "0.10.0"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -89,7 +89,11 @@ Parse OSD text (`record` / `root`) into a `Schema`. Raises
 [OSD section of the guide](guide.md#schemas--osd).
 
 ### `to_osd(schema, *, indent=4) -> str`
-Serialize a `Schema` back to OSD text. `parse_schema(to_osd(s))` is equivalent
+Serialize a `Schema` back to OSD text. A field label is written with exactly
+two escapes -- a backslash as `\\` and a double quote as `\"` -- so every
+label reads back as itself; a label containing a C0 control character (below
+`U+0020`) has no OSD spelling and raises `WriteError`
+(`code="write.unsupported-value"`, `path` the record's name). `parse_schema(to_osd(s))` is equivalent
 to `s`. `indent=None` renders a single-line, machine-oriented form instead
 of the pretty-printed default; both round-trip through `parse_schema`.
 
@@ -312,7 +316,7 @@ d.to_json()                          # '{"d": "2024-01-01"}' -- stringified, sti
 
 rep = WriteReport()
 d.to_json(report=rep)
-[(a.code, a.severity) for a in rep]  # [('temporal.stringified', 'warning')]
+[(a.code, a.severity) for a in rep]  # [('format.temporal-stringified', 'warning')]
 
 d.to_json(strict=True)               # raises WriteError
 ```
@@ -343,9 +347,9 @@ before recording anything, from `check_*` as well as `write_*` (above).
 A named tuple `Adjustment(path, code, message, severity)` — `severity` is
 `"warning"` or `"error"`. Stable codes: `null.omitted` (XML only — TOML's null
 case is an unconditional `WriteError` now, not a report entry, per above),
-`temporal.stringified`
-(JSON/YAML/XML), `value.stringified` (XML — a non-string scalar written as
-text), and `string.line-break-char`
+`format.temporal-stringified`
+(JSON/YAML/XML), `format.value-stringified` (XML — a non-string scalar written as
+text), and `format.string-line-break-char`
 (YAML — a label or value containing U+0085 NEL, which YAML's line-break rules would
 otherwise normalize to a space; written double-quoted to round-trip correctly).
 A string containing `\r` written to XML is no longer reported at all
@@ -391,9 +395,9 @@ simulating a write without producing output. The four built-ins all provide
 |---|---|
 | `OmnistError` | base class for all Omnist errors |
 | `SchemaError` | invalid schema text or structure (bad OSD, undefined `Ref`, bad cardinality) — `.code`/`.path` are set for OSD's own lexical (`parse.*`) and well-formedness (`schema.*`) failures (issue #301), `None` otherwise |
-| `ParseError` | a document couldn't be read from its format, or didn't conform to a schema — see [Schema-directed deserialization](deserialization.md) for the structured `.errors` list. For a syntax failure, `.code`/`.path` are set instead (issue #308; `None` for a schema-conformance failure, where `.errors` is populated instead) |
-| `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation |
-| `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML) |
+| `ParseError` | a document couldn't be read from its format, or didn't conform to a schema — see [Schema-directed deserialization](deserialization.md) for the structured `.errors` list. For a syntax failure, `.code`/`.path` are set instead (issue #308; `None` for a schema-conformance failure, where `.errors` is populated instead). `.path` is a `line:col` text position for a `parse.*` code (`parse.codec-syntax` for a malformed JSON/YAML/TOML/XML input, `parse.invalid-encoding` at `1:1` for invalid UTF-8 from the CLI), and `$` for a `format.*` profile refusal or a `document.limit.*` limit |
+| `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation. `.code`/`.path` are set for the reader-side failures that have a `document.*` code (a depth, node-count or integer-digit limit; an input construct with no label, such as a JSON array of arrays), with a Document `path`; `None` otherwise |
+| `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML, `code="format.multiple-roots"`), or a schema can't be written as OSD (`to_osd` of a field label with a C0 control character, `code="write.unsupported-value"`, `path` the record's Schema path) |
 | `DetachedNode` | (`DocumentError` subclass) a cursor used after its node was removed |
 | `UnsafeXMLWarning` | unused as of the fail-closed XML fix (issue #173) — kept exported for backward compatibility |
 

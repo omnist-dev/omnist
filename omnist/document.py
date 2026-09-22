@@ -71,7 +71,7 @@ def _check_int_digits(v: Any, path: str) -> None:
     raise DocumentError(
         f"{path}: integer has more than {_MAX_INT_DIGITS} digits, exceeding "
         "the digit limit (security: unbounded-digit int-to-str conversion "
-        "is superlinear)")
+        "is superlinear)", code="document.limit.int-digits", path=path)
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +103,8 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
     if budget is None:
         budget = [0]
     if depth > _MAX_DEPTH:
-        raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
     if isinstance(value, dict):
         # #309: only an actual container -- omnist-spec Sec2.2's formal
         # `node = [edge, edge, ...]` -- counts against the node budget. A
@@ -121,7 +122,7 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
                 f"{path}: too many nodes materialized (over {_MAX_NODES}) -- "
                 "likely a YAML alias/anchor amplification (a shared node "
                 "reached via more than one reference is walked in full at "
-                "each occurrence)")
+                "each occurrence)", code="document.limit.nodes", path="$")
         seen = seen or frozenset()
         if id(value) in seen:
             raise DocumentError(f"{path}: cycle detected")
@@ -129,14 +130,16 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
         edges: List[Edge] = []
         for k, v in value.items():
             if not isinstance(k, str):
-                raise DocumentError(f"{path}: object key {k!r} is not a string")
+                raise DocumentError(f"{path}: object key {k!r} is not a string",
+                                    code="document.unlabeled-element", path=path)
             kp = _join(path, k)
             for child in _children(v, kp, depth + 1, seen, budget):
                 edges.append((k, child))
         return edges
     if isinstance(value, (list, tuple)):
         raise DocumentError(f"{path}: a bare array has no labeled-edge form "
-                            "(arrays appear only as a repeated field)")
+                            "(arrays appear only as a repeated field)",
+                            code="document.unlabeled-element", path=path)
     if _is_scalar(value):
         _check_int_digits(value, path)
         return value
@@ -149,7 +152,8 @@ def _children(v: Any, path: str, depth: int, seen: frozenset[int],
         for i, item in enumerate(v):
             if isinstance(item, (list, tuple)):
                 raise DocumentError(
-                    f"{path}[{i}]: an array of arrays has no labeled-edge form")
+                    f"{path}[{i}]: an array of arrays has no labeled-edge form",
+                    code="document.unlabeled-element", path=f"{path}[{i}]")
             yield build_node(item, f"{path}[{i}]", depth + 1, seen, budget)
     else:
         yield build_node(v, path, depth, seen, budget)

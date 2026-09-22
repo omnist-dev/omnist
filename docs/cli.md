@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.9.5
+omnist 0.10.0
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -91,6 +91,15 @@ command into "machine mode" with a single, uniform guarantee:
   text (`format`, `convert`, `infer`, `schema format`/`normalize`/`prune`/`extract`)
   print that text **exactly as without `--json`** — `--json` only governs their
   error shape; wrapping their emitted text in JSON would add nothing.
+
+**Input is read as bytes and decoded as strict UTF-8** (a file, or standard
+input via `-`), as omnist-spec §2.5 D-14 requires of an entry point that
+decodes on the caller's behalf. Invalid UTF-8 is never repaired with a
+replacement character: the command fails with exit `2` and a single
+`parse.invalid-encoding` diagnostic at `1:1` (wherever the bad byte sits), and
+under `--json` that is the payload on stdout. A leading byte-order mark is
+stripped; a second one is rejected at `1:1`. Line endings are read as they
+are on disk, not translated.
 
 **Exit codes are identical with and without `--json`, in every case.** `--json`
 only changes *where* output goes (stdout vs stderr) and *its shape* — never the
@@ -413,10 +422,12 @@ and its shape, differ from the default.
 
 - Success: `{"ok": true}`.
 - Conformance failure: `{"ok": false, "message": str, "errors": [{"path": str, "code": str, "message": str}, ...]}` — one entry per problem.
-- Format-syntax failure (invalid `FMT` document text): same shape, but
-  `"errors"` is always `[]` — there's no structured per-problem list for a
-  document that couldn't even be parsed, so the parse error is only in
-  `"message"`.
+- Format-syntax failure (invalid `FMT` document text): a single-entry
+  `"errors"` list — `parse.codec-syntax` (JSON/YAML/TOML/XML) or the
+  matching OML `parse.*` code, with a `line:col` `path` — and a `document.*`
+  or `format.*` code (with a Document path) for a limit or a data-XML profile
+  refusal. It is one entry, not a list of every problem: parsing stops at the
+  first error.
 - Malformed `--schema`: a single-entry `"errors"` list (issue #301) for
   OSD's own lexical (`parse.*`) and well-formedness (`schema.*`) failures
   — `[]` for the small remainder of `SchemaError` sites that don't yet

@@ -37,7 +37,7 @@ def test_readme_at_a_glance():
                                           "server": "db1.internal.example.com",
                                           "port": 5432}],
                            "tags": ["prod", "us-east"]})).ok
-    assert ds.__version__ == "0.9.5"
+    assert ds.__version__ == "0.10.0"
 
 
 def test_quickstart():
@@ -662,7 +662,7 @@ def test_api_docs_schema_directed_deserialization():
 
 
 def test_api_docs_adjustment_reports():
-    # temporal.stringified is still a plain recorded (still-succeeds)
+    # format.temporal-stringified is still a plain recorded (still-succeeds)
     # adjustment -- TOML's null case moved to an unconditional WriteError
     # (issues #323/#324/#325), demonstrated separately below.
     import datetime
@@ -670,7 +670,7 @@ def test_api_docs_adjustment_reports():
     assert d.to_json() == '{"d": "2024-01-01"}'
     rep = WriteReport()
     d.to_json(report=rep)
-    assert [(a.code, a.severity) for a in rep] == [("temporal.stringified", "warning")]
+    assert [(a.code, a.severity) for a in rep] == [("format.temporal-stringified", "warning")]
     assert [(a.code, a.severity) for a in d.check_json()] == \
         [(a.code, a.severity) for a in rep]
     with pytest.raises(WriteError):
@@ -712,7 +712,7 @@ def test_api_docs_format_registry():
 
 
 def test_api_docs_version():
-    assert ds.__version__ == "0.9.5"
+    assert ds.__version__ == "0.10.0"
 
 
 def test_docs_version_examples_match_live_version():

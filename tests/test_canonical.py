@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.9.5"
+        assert ds.__version__ == "0.10.0"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1000,27 +1000,31 @@ class TestParseErrorCodes:
     def test_json_syntax_failure(self):
         with pytest.raises(ParseError) as exc:
             read_json("{not json")
-        assert exc.value.code == "parse.syntax"
+        assert exc.value.code == "parse.codec-syntax"
+        assert exc.value.path == "1:2"
 
     def test_yaml_syntax_failure(self):
         with pytest.raises(ParseError) as exc:
             read_yaml("a: [1, 2\n")
-        assert exc.value.code == "parse.syntax"
+        assert exc.value.code == "parse.codec-syntax"
+        assert exc.value.path == "2:1"
 
     def test_toml_syntax_failure(self):
         with pytest.raises(ParseError) as exc:
             read_toml("not [ valid toml")
-        assert exc.value.code == "parse.syntax"
+        assert exc.value.code == "parse.codec-syntax"
+        assert exc.value.path == "1:5"
 
     def test_xml_syntax_failure(self):
         with pytest.raises(ParseError) as exc:
             read_xml("<unclosed>")
-        assert exc.value.code == "parse.syntax"
+        assert exc.value.code == "parse.codec-syntax"
+        assert exc.value.path == "1:11"
 
-    def test_xml_mixed_content_is_parse_syntax(self):
+    def test_xml_mixed_content_is_a_profile_refusal_not_a_syntax_error(self):
         with pytest.raises(ParseError) as exc:
             read_xml("<p>Hello <b>w</b></p>")
-        assert exc.value.code == "parse.syntax"
+        assert exc.value.code == "format.mixed-content"
         assert exc.value.path == "$"
 
     def test_materialize_failure_leaves_code_and_path_unset(self):
@@ -1544,7 +1548,7 @@ class TestReports:
     def test_json_temporal_and_special_float(self):
         node = doc({"d": datetime.date(2024, 1, 1)}).to_data()
         rep = check_json(node)
-        assert [a.code for a in rep] == ["temporal.stringified"]
+        assert [a.code for a in rep] == ["format.temporal-stringified"]
         assert rep.warnings and not rep.errors   # .warnings is still a live public accessor
         assert write_json(node) == '{"d": "2024-01-01"}'   # actually adjusted, not just reported
         node2 = [("x", float("nan"))]
@@ -1583,7 +1587,7 @@ class TestReports:
     def test_yaml_time_is_stringified(self):
         node = doc({"t": datetime.time(9, 30)}).to_data()
         rep = check_yaml(node)
-        assert [a.code for a in rep] == ["temporal.stringified"]
+        assert [a.code for a in rep] == ["format.temporal-stringified"]
         assert "09:30:00" in write_yaml(node)
 
     def test_yaml_bare_time_is_a_sexagesimal_int_trap(self):
@@ -1603,13 +1607,13 @@ class TestReports:
         # styles; omnist forces double-quoted style for it so it round-trips.
         node = [("a", "\x85")]
         rep = check_yaml(node)
-        assert [a.code for a in rep] == ["string.line-break-char"]
+        assert [a.code for a in rep] == ["format.string-line-break-char"]
         assert read_yaml(write_yaml(node)) == node
 
     def test_yaml_nel_label_round_trips_and_is_reported(self):
         node = [("\x85", None)]
         rep = check_yaml(node)
-        assert [a.code for a in rep] == ["string.line-break-char"]
+        assert [a.code for a in rep] == ["format.string-line-break-char"]
         assert read_yaml(write_yaml(node)) == node
 
     def test_xml_bad_key_fails_unconditionally(self):
@@ -1719,7 +1723,7 @@ class TestWriteReportStr:
         assert str(WriteReport()) == "no adjustments"
 
     def test_str_with_adjustments(self):
-        # temporal.stringified (JSON) is still a plain recorded adjustment --
+        # format.temporal-stringified (JSON) is still a plain recorded adjustment --
         # TOML's null case moved to an unconditional WriteError (issue #324),
         # so it's no longer a WriteReport-str example.
         node = doc({"d": datetime.date(2024, 1, 1)}).to_data()
@@ -1778,7 +1782,7 @@ class TestOsdErrorCodes:
         with pytest.raises(SchemaError) as exc:
             parse_schema('record R { "a: integer }\nroot R')
         assert exc.value.code == "parse.unterminated-string"
-        assert exc.value.path == "11"
+        assert exc.value.path == "1:12"   # E-23: the opening quote, as line:col
 
     def test_control_character_in_string(self):
         # #303/omnist-spec Sec5.3.1: a raw control character (< U+0020) in
@@ -1788,7 +1792,7 @@ class TestOsdErrorCodes:
         with pytest.raises(SchemaError) as exc:
             parse_schema('record R { "a\x01b": integer }\nroot R')
         assert exc.value.code == "parse.control-character"
-        assert exc.value.path == "13"
+        assert exc.value.path == "1:12"   # E-23: the opening quote, not the character
         assert "U+0001" in str(exc.value)
 
     def test_escaped_backslash_n_is_not_a_control_character(self):
@@ -1819,7 +1823,7 @@ class TestOsdErrorCodes:
         with pytest.raises(SchemaError) as exc:
             parse_schema('record R { "a": integer }')
         assert exc.value.code == "schema.no-root"
-        assert exc.value.path is None
+        assert exc.value.path == "$"
 
     def test_duplicate_root_declaration_is_an_error(self):
         with pytest.raises(SchemaError) as exc:
@@ -1950,7 +1954,7 @@ class TestOsdErrorCodes:
         with pytest.raises(SchemaError) as exc:
             parse_schema('record A { "x": integer }\nrecord R { "a": A? }\nroot R')
         assert exc.value.code == "schema.nullable-ref"
-        assert exc.value.path == "A"
+        assert exc.value.path == "R.a"
 
     def test_unstructured_schemaerror_has_no_code_or_path(self):
         # any SchemaError site this issue didn't touch (most of schema.py's
@@ -2940,16 +2944,18 @@ class TestFormatAdjustmentDiagnostics:
         # "just a DOCTYPE" and "a DOCTYPE with malicious entities" is drawn,
         # since expat only reaches entity declarations after already
         # accepting the DOCTYPE that would contain them.
-        with pytest.raises(ParseError, match="invalid XML"):
+        with pytest.raises(ParseError, match="DOCTYPE") as exc:
             read_xml("<!DOCTYPE a><a/>")
+        assert (exc.value.code, exc.value.path) == ("format.dtd-forbidden", "$")
 
     def test_xml_doctype_with_entity_is_rejected_the_same_way(self):
         # The DOCTYPE itself is rejected before expat ever parses the
         # entity declaration inside it -- this is what makes the classic
         # XML entity-expansion ("billion laughs") attack unreachable here,
         # not a separate entity-specific check.
-        with pytest.raises(ParseError, match="invalid XML"):
+        with pytest.raises(ParseError, match="DOCTYPE") as exc:
             read_xml('<!DOCTYPE a [<!ENTITY x "y">]><a>&x;</a>')
+        assert (exc.value.code, exc.value.path) == ("format.dtd-forbidden", "$")
 
     @pytest.mark.parametrize("writer", [write_json, write_yaml, write_toml])
     def test_cross_label_interleaving_lost_is_reported_once_at_root(self, writer):
@@ -3028,40 +3034,36 @@ class TestLeadingBomIsStripped:
 
     # -- the other half of D-15: only at offset zero, and only one ----------
 
-    # The strict surfaces -- the two Omnist grammars, plus the two codecs
-    # whose own specs give U+FEFF no position -- reject the second mark.
-    @pytest.mark.parametrize("name,read,text", [
-        r for r in READERS if r[0] != "yaml"
+    # D-21: a second mark still at offset zero is rejected on all six surfaces,
+    # at 1:1 -- parse.codec-syntax on the four codecs, parse.unexpected-token
+    # on OML and OSD. YAML and XML need an explicit pre-check (PyYAML and
+    # expat both discard a leading mark before any grammar sees it).
+    @pytest.mark.parametrize("name,read,text,code", [
+        ("json", lambda t: read_json(t), '{"a":1}', "parse.codec-syntax"),
+        ("yaml", lambda t: read_yaml(t), "a: 1\n", "parse.codec-syntax"),
+        ("toml", lambda t: read_toml(t), "a = 1\n", "parse.codec-syntax"),
+        ("xml", lambda t: read_xml(t), "<root><a>1</a></root>", "parse.codec-syntax"),
+        ("oml", lambda t: read_oml(t), "a: 1\n", "parse.unexpected-token"),
     ])
-    def test_second_bom_is_ordinary_content_not_stripped(self, name, read, text):
-        """Exactly one mark is consumed. A second U+FEFF sits at offset one,
-        where it is ordinary content the grammar does not admit."""
-        with pytest.raises(ParseError):
+    def test_second_bom_is_rejected_at_1_1(self, name, read, text, code):
+        with pytest.raises(ParseError) as exc:
             read(self.BOM + self.BOM + text)
+        assert (exc.value.code, exc.value.path) == (code, "1:1")
+
+    def test_second_bom_is_rejected_at_1_1_in_osd(self):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema(self.BOM + self.BOM + "record R {\n}\nroot R\n")
+        assert (exc.value.code, exc.value.path) == ("parse.unexpected-token", "1:1")
 
     @pytest.mark.parametrize("name,read,text", [
+        ("json", lambda t: read_json(t), '{"a":1}'),
         ("yaml", lambda t: read_yaml(t), "a: 1\n"),
+        ("toml", lambda t: read_toml(t), "a = 1\n"),
         ("xml", lambda t: read_xml(t), "<root><a>1</a></root>"),
     ])
-    def test_yaml_and_xml_tolerate_a_second_bom_by_their_own_specs(
-            self, name, read, text):
-        """Not an Omnist rule, and deliberately not forced to match the
-        others.
-
-        D-15's "both ABNF grammars admit it at offset zero and nowhere else"
-        binds OML and OSD. YAML 1.2 Sec5.2 permits a BOM at the start of each
-        document in a stream and XML 1.0 permits a leading one outright, so
-        PyYAML and expat consume the second mark themselves, below the layer
-        strip_bom() operates on. Overriding that would mean reimplementing
-        two third-party grammars to be stricter than the formats they
-        implement. This test pins the real behaviour so a future change to
-        it is a deliberate decision rather than a silent drift.
-        """
-        assert read(self.BOM + self.BOM + text) == read(text)
-
-    def test_second_bom_is_ordinary_content_in_osd(self):
-        with pytest.raises(SchemaError):
-            parse_schema(self.BOM + self.BOM + "record R {\n}\nroot R\n")
+    def test_a_run_of_three_marks_is_rejected_too(self, name, read, text):
+        with pytest.raises(ParseError):
+            read(self.BOM * 3 + text)
 
     @pytest.mark.parametrize("name,read,text", READERS)
     def test_bom_inside_a_string_value_survives(self, name, read, text):

@@ -44,6 +44,7 @@ from . import (
     write_xml,
     write_yaml,
 )
+from ._encoding import decode_utf8
 
 FMT_CHOICES = ["json", "yaml", "toml", "xml", "oml"]
 RESULT_FORMAT_CHOICES = ["text", "json", "oml"]
@@ -75,10 +76,24 @@ _CHECKERS = {
 
 
 def _read_input(path: str) -> str:
+    """Read a file or standard input as bytes and decode it strictly.
+
+    The CLI decodes on the caller's behalf, so it is a byte-oriented entry
+    point for Sec2.5 D-14: invalid UTF-8 raises ``parse.invalid-encoding`` at
+    ``1:1`` (never a replacement character, never an uncaught
+    ``UnicodeDecodeError``). Bytes are decoded as they are -- no universal
+    newline translation -- so what the reader sees is what is on disk.
+    """
     if path == "-":
-        return sys.stdin.read()
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+        buffer = getattr(sys.stdin, "buffer", None)
+        if buffer is None:
+            # A text-only stream (an in-process stand-in for stdin) has
+            # already been decoded by whoever built it: D-14 is a rule about
+            # bytes, and a str-typed source may be treated as decoded.
+            return sys.stdin.read()
+        return decode_utf8(buffer.read())
+    with open(path, "rb") as f:
+        return decode_utf8(f.read())
 
 
 def _write_output(path: Optional[str], text: str) -> None:
@@ -224,34 +239,28 @@ def _json_validate_errors(message: str, errors: list[Error]) -> str:
     return _json.dumps(payload)
 
 
-def _schema_error_as_errors(exc: SchemaError) -> "list[Error]":
-    """SchemaError always represents exactly one problem (OSD parsing stops
-    at the first error), so a single-item list, not a collected-errors
-    list like ParseError's -- empty if the raiser didn't set a code (issue
-    #301: still true for any SchemaError site outside osd.py's own
-    lexical/well-formedness raises, which is most of schema.py's)."""
-    if exc.code is None:
+def _errors_of(exc: Exception) -> "list[Error]":
+    """The structured diagnostics an exception carries, for the ``--json``
+    payload. A ``ParseError`` from ``materialize`` carries a collected list
+    (``.errors``); every other structured failure is exactly one problem
+    (parsing stops at the first error) with a ``code`` and ``path`` -- a
+    ``ParseError`` or ``DocumentError`` from a reader, a ``SchemaError`` from
+    OSD, a ``WriteError`` from a writer -- and is reported as a one-item
+    list. Empty when the raiser set no code (a usage or plumbing failure)."""
+    if isinstance(exc, ParseError) and exc.errors:
+        return exc.errors
+    code = getattr(exc, "code", None)
+    if code is None:
         return []
-    return [Error(exc.path or "", str(exc), exc.code)]
+    return [Error(getattr(exc, "path", None) or "", str(exc), code)]
 
 
 def _json_error(exc: Exception) -> str:
     """The uniform --json failure payload for any data/parse/IO error:
-    {"ok": false, "message": str(exc), "errors": [...]} -- errors come from
-    ParseError.errors or a structured SchemaError's/WriteError's code/path
-    when applicable, else []. Single source of the error shape (delegates to
+    {"ok": false, "message": str(exc), "errors": [...]} (see
+    :func:`_errors_of`). Single source of the error shape (delegates to
     _json_validate_errors)."""
-    if isinstance(exc, ParseError):
-        errors = exc.errors
-    elif isinstance(exc, SchemaError):
-        errors = _schema_error_as_errors(exc)
-    elif isinstance(exc, WriteError) and exc.code is not None:
-        # Same single-problem shape as a structured SchemaError (issues
-        # #323/#324/#325's unconditional write.unsupported-value failures).
-        errors = [Error(exc.path or "", str(exc), exc.code)]
-    else:
-        errors = []
-    return _json_validate_errors(str(exc), errors)
+    return _json_validate_errors(str(exc), _errors_of(exc))
 
 
 def _fail(args: argparse.Namespace, exc: "str | Exception", code: int) -> int:
@@ -277,13 +286,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
             d = Doc(node)
             s = parse_schema(_read_input(args.schema))
         except (ParseError, SchemaError, DocumentError, OSError) as exc:
-            if isinstance(exc, ParseError):
-                errors = exc.errors
-            elif isinstance(exc, SchemaError):
-                errors = _schema_error_as_errors(exc)
-            else:
-                errors = []
-            print(_json_validate_errors(str(exc), errors))
+            print(_json_error(exc))
             return 2
         result = s.validate(d)
         if result.ok:

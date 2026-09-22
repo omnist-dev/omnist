@@ -98,7 +98,7 @@ Doc.of({"tag": ["x", "y"]}).to_json()         # '{"tag": ["x", "y"]}'
 ```
 
 > JSON has no date type, so a `date`/`time`/`datetime` leaf is written out as
-> an ISO-8601 string (reported as `temporal.stringified`), and reads back as
+> an ISO-8601 string (reported as `format.temporal-stringified`), and reads back as
 > a plain `str` unless `schema=` is given on the way back in. See
 > [adjustment reports](../api.md#adjustment-reports-lossy-writes).
 >
