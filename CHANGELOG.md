@@ -6,6 +6,39 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.10.1] — adopts omnist-spec v0.22.0-beta (OML-26 with a separator, E-28/E-29)
+
+A **patch** bump under the beta rule: one narrow parse-error-code change and
+runner hardening, nothing else. `vendor/omnist-spec` moves from `v0.21.0-beta`
+to `v0.22.0-beta`. Codec (JSON/YAML/TOML/XML) syntax positions are untouched
+(omnist-spec#114) and unterminated arrays are untouched (omnist-spec#115).
+
+- **OML-26 / OML-25 / OML-27.** After a complete top-level edge (or scalar
+  document), any leftover token that cannot continue the edge list is
+  `parse.trailing-content` at that token, with or without a separator before it.
+  The list continues only if a separator is followed by a STRING or IDENT
+  (which then is the next edge and reports its own error, e.g. `null: 2` is
+  `parse.reserved-word-label`). Before, `a: 1` LF `]`, `,`, `:`, `{`, `[2]`,
+  `5`, `nan` and the like were `parse.unexpected-token`. Inside `{...}` and
+  `[...]` nothing changes (OML-27).
+- **E-28 / E-29.** OML and OSD columns already counted code points and a line
+  ended at LF (CRLF one break); tests now pin a combining mark, a tab, BMP
+  non-ASCII, an astral character and CRLF.
+- **Runner:** the CLI runners now fail loudly (exit 2) when `omnist --version`
+  does not match `omnist.__version__` (omnist#350 item 2), so a stale `omnist`
+  on `PATH` can no longer be measured by mistake.
+
+**Conformance, before and after** (track 1 stays 19 / 0 / 0, referee self-test
+10 / 10):
+
+| step | pass | fail | skip |
+| --- | --- | --- | --- |
+| new pin (287 vectors), library untouched | 240 | 7 | 40 |
+| + OML-26 with a separator | 247 | 0 | 40 |
+
+The 40 skips are unchanged (28 OSD-OML omnist#341, 6 limits, 6 alias-expansion
+DIV-3).
+
 ## [v0.10.0] — adopts omnist-spec v0.21.0-beta; the conformance runner is strict
 
 This is a **minor** bump under the beta rule (a batch of behaviour changes, some

@@ -1,6 +1,6 @@
 """Adoption of omnist-spec v0.21.0-beta (D-14, D-21, E-11, E-23, E-13, E-27,
 OML-25/26/27, OSD-14/15, the YAML merge-key order, the algebra/document/format
-codes).
+codes); the v0.22.0-beta additions are the last two classes.
 
 Each test states the rule it pins and, where the behaviour used to differ,
 what the reference did before -- measured, not assumed (docs/09-divergence-
@@ -754,3 +754,110 @@ def test_the_cli_reports_a_collected_materialize_failure_in_full(tmp_path, capsy
     assert code == 2
     assert diag(out) == [("$.a", "materialize.inexact-conversion"),
                          ("$.b", "materialize.inexact-conversion")]
+
+
+# ---------------------------------------- OML-26 with a separator (v0.22.0)
+
+class TestOml26LeftoverWithOrWithoutSeparator:
+    """OML-26 / OML-25 / OML-27 as of omnist-spec v0.22.0-beta: after a complete
+    top-level edge (or scalar document) any leftover token that cannot continue
+    the edge list is `parse.trailing-content`, with or without a separator. The
+    list continues only if a separator is followed by a STRING or IDENT.
+    Before, a token other than STRING/IDENT after a separator was
+    `parse.unexpected-token` (DIV-7)."""
+
+    @pytest.mark.parametrize("text,path", [
+        # each leftover token class after LF
+        ("a: 1\n}", "2:1"), ("a: 1\n]", "2:1"), ("a: 1\n,", "2:1"),
+        ("a: 1\n:", "2:1"), ("a: 1\n{", "2:1"), ("a: 1\n[2]", "2:1"),
+        ("a: 1\n5", "2:1"), ("a: 1\nnan", "2:1"), ("a: 1\ninf", "2:1"),
+        ("a: 1\n2024-01-01", "2:1"),
+        # and after ';'
+        ("a: 1;}", "1:6"), ("a: 1;]", "1:6"), ("a: 1;,", "1:6"),
+        ("a: 1;:", "1:6"), ("a: 1;{", "1:6"), ("a: 1;[2]", "1:6"),
+        ("a: 1;5", "1:6"), ("a: 1;nan", "1:6"), ("a: 1;inf", "1:6"),
+        # blank lines, comments and indentation before the token
+        ("a: 1\n\n\n  }", "4:3"), ("a: 1 # c\n}", "2:1"), ("a: 1\n;\n\n}", "4:1"),
+        # a braced edge value, and a braced document
+        ("a: {b: 1}\n}", "2:1"), ("{a: 1}\n}", "2:1"), ("{a: 1}\nb: 2", "2:1"),
+        # the scalar branch (OML-25)
+        ("1\n}", "2:1"), ("1;}", "1:3"),
+    ])
+    def test_leftover_token(self, text, path):
+        with pytest.raises(ParseError) as exc:
+            read_oml(text)
+        assert (exc.value.code, exc.value.path) == ("parse.trailing-content", path)
+
+    @pytest.mark.parametrize("text", [
+        "a: 1\nb: 2", "a: 1;b: 2", "a: 1\n'b': 2", 'a: 1\n"b": 2',
+        "a: 1\n\n  b: 2\n",
+    ])
+    def test_a_label_after_a_separator_is_the_next_edge(self, text):
+        assert len(read_oml(text)) == 2
+
+    @pytest.mark.parametrize("text,code,path", [
+        # the next edge's OWN error is reported, not trailing-content
+        ("a: 1\nnull: 2", "parse.reserved-word-label", "2:1"),
+        ("a: 1\ntrue: 2", "parse.reserved-word-label", "2:1"),
+        ('a: 1\n"b" 2', "parse.unexpected-token", "2:5"),
+        # inside {...} a stray token stays an unexpected-token (OML-27)
+        ("a: {b: 1\n,}", "parse.unexpected-token", "2:1"),
+        ("a: {b: 1\n5}", "parse.unexpected-token", "2:1"),
+        ("a: {b: 1 c: 2}", "parse.unexpected-token", "1:10"),
+        # not specified: a document that is only '}' is left as it was
+        ("}", "parse.unexpected-token", "1:1"),
+        # open spec question omnist-spec#115: unterminated arrays untouched
+        ("a: [1, 2\n", "parse.unexpected-token", "2:1"),
+        ("a: [1\n", "parse.unexpected-token", "2:1"),
+        ("x: {a: [1, 2\n}", "parse.unexpected-token", "2:1"),
+        ("a: [1\n2]", "parse.separator-in-array", "2:1"),
+    ])
+    def test_the_rule_does_not_reach(self, text, code, path):
+        with pytest.raises(ParseError) as exc:
+            read_oml(text)
+        assert (exc.value.code, exc.value.path) == (code, path)
+
+
+class TestPositionColumnsCountCodePoints:
+    """E-28 / E-29: the column of `line:col` counts Unicode code points and a
+    line ends at LF (CRLF is one break). Pinned for OML and OSD; codec (JSON /
+    YAML / TOML / XML) syntax positions are out of scope (omnist-spec#114)."""
+
+    def _oml(self, text):
+        with pytest.raises(ParseError) as exc:
+            read_oml(text)
+        return exc.value.path
+
+    def test_oml_combining_mark(self):
+        assert self._oml('a: "e' + chr(0x301) + '" }') == "1:9"
+
+    def test_oml_tab_is_one_column(self):
+        assert self._oml("a:\t1\t}") == "1:6"
+
+    def test_oml_bmp_non_ascii(self):
+        assert self._oml('a: "' + chr(0xE9) + '" }') == "1:8"
+
+    def test_oml_astral_is_one_column(self):
+        assert self._oml('a: "' + chr(0x1F600) + '" }') == "1:8"
+
+    def test_oml_crlf_is_one_line_break(self):
+        assert self._oml("a: 1\r\n}") == "2:1"
+
+    def _osd(self, text):
+        with pytest.raises(SchemaError) as exc:
+            parse_schema(text)
+        return exc.value.path
+
+    def test_osd_combining_mark(self):
+        text = 'record R { "e' + chr(0x301) + '": string }\nroot R @'
+        assert self._osd(text) == "2:8"
+        assert self._osd('record R { "e' + chr(0x301) + '": string } @') == "1:27"
+
+    def test_osd_tab_is_one_column(self):
+        assert self._osd("record R {\n}\nroot\tR\t@") == "3:8"
+
+    def test_osd_bmp_non_ascii(self):
+        assert self._osd('record R { "' + chr(0xE9) + '": string } @') == "1:26"
+
+    def test_osd_crlf_is_one_line_break(self):
+        assert self._osd("record R {\r\n}\r\nroot R @") == "3:8"

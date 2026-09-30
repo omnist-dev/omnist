@@ -246,6 +246,11 @@ def main(argv: List[str]) -> int:
             file=sys.stderr)
         return 2
 
+    mismatch = cli_runner.check_version()
+    if mismatch:
+        print(mismatch, file=sys.stderr)
+        return 2
+
     operations = argv or sorted(ALL_OPERATIONS)
     print("comparison: ok, document/schema structure, and lint severity+location "
           "exactly; lint code informational (docs/conformance-harness.md Sec2)")
