@@ -497,6 +497,11 @@ def main(argv: List[str]) -> int:
             "(git submodule update --init)", file=sys.stderr)
         return 2
 
+    mismatch = cli_runner.check_version()
+    if mismatch:
+        print(mismatch, file=sys.stderr)
+        return 2
+
     print(f"comparison mode: {COMPARISON_MODE}")
     passed = failed = skipped = 0
     skip_tally: "collections.Counter[str]" = collections.Counter()

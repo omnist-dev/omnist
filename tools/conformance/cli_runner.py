@@ -18,6 +18,26 @@ from typing import List, Optional, Tuple
 CLI = os.environ.get("OMNIST_CLI", "omnist")
 
 
+def check_version() -> Optional[str]:
+    """None when the CLI under test is this checkout's build, else a message.
+
+    The CLI is resolved from PATH (or OMNIST_CLI), so a stale or global
+    ``omnist`` would silently be measured instead of this tree (omnist#350).
+    Compares ``omnist --version`` with ``omnist.__version__``."""
+    import omnist
+
+    try:
+        out, err, code = _run(["--version"])
+    except OSError as exc:
+        return f"cannot run the CLI {CLI!r}: {exc}"
+    expected = f"omnist {omnist.__version__}"
+    if code != 0 or out.strip() != expected:
+        return (f"the CLI {CLI!r} reports {out.strip() or err.strip()!r} "
+                f"(exit {code}), not {expected!r}: it is not this checkout's build "
+                "(activate the worktree's venv or set OMNIST_CLI)")
+    return None
+
+
 def _run(args: List[str], stdin_text: Optional[str] = None) -> Tuple[str, str, int]:
     proc = subprocess.run(
         [CLI, *args],

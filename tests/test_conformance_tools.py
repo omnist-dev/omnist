@@ -58,6 +58,49 @@ def test_compare_schema_unknown_mode_raises():
 
 # ------------------------------------------------------------ cli_runner
 
+_real_check_version = cli_runner.check_version
+
+
+@pytest.fixture(autouse=True)
+def _cli_is_this_build(monkeypatch):
+    """The mains verify `omnist --version` against this checkout; the tests
+    monkeypatch the CLI, so stub the check (its own tests re-enable it)."""
+    monkeypatch.setattr(cli_runner, "check_version", lambda: None)
+
+
+def test_check_version_accepts_this_build(monkeypatch):
+    import omnist
+    monkeypatch.setattr(cli_runner, "_run",
+                        lambda args: (f"omnist {omnist.__version__}\n", "", 0))
+    assert _real_check_version() is None
+
+
+def test_check_version_rejects_another_build(monkeypatch):
+    monkeypatch.setattr(cli_runner, "_run", lambda args: ("omnist 0.0.1\n", "", 0))
+    msg = _real_check_version()
+    assert msg and "0.0.1" in msg and "not this checkout's build" in msg
+
+
+def test_check_version_rejects_a_failing_cli(monkeypatch):
+    monkeypatch.setattr(cli_runner, "_run", lambda args: ("", "boom\n", 2))
+    msg = _real_check_version()
+    assert msg and "boom" in msg
+
+
+def test_check_version_reports_a_missing_cli(monkeypatch):
+    def gone(args):
+        raise FileNotFoundError("no such file")
+    monkeypatch.setattr(cli_runner, "_run", gone)
+    msg = _real_check_version()
+    assert msg and "cannot run the CLI" in msg
+
+
+def test_main_fails_loudly_on_a_version_mismatch(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(runner, "FIXTURES_DIR", tmp_path)
+    monkeypatch.setattr(cli_runner, "check_version", lambda: "wrong build")
+    assert runner.main([]) == 2
+    assert "wrong build" in capsys.readouterr().err
+
 def test_all_cli_runner_functions_build_expected_args(tmp_path, monkeypatch):
     seen = {}
 

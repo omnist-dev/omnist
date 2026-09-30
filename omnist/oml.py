@@ -609,6 +609,13 @@ class _Parser:
         edges: List[Tuple[str, Any]] = []
         self.skip_sep()
         while self.kind not in (RBRACE, "EOF"):
+            if depth == 0 and self.kind not in ("STRING", IDENT):
+                # OML-26: at top level the edge list continues only if a
+                # separator is followed by a STRING or IDENT (a label). Any
+                # other token is content after the document has ended, with
+                # or without the separator; parse_document reports it as
+                # parse.trailing-content at this token.
+                break
             label = self.parse_label()
             colon_kind, colon_start, colon_end = self._advance()
             if colon_kind != COLON:

@@ -674,6 +674,22 @@ def test_main_exits_nonzero_and_names_the_failing_vector_on_a_wrong_code(
     assert "1 failed" in out
 
 
+@pytest.fixture(autouse=True)
+def _cli_is_this_build(monkeypatch):
+    """The mains verify `omnist --version` against this checkout; these tests
+    monkeypatch the CLI, so stub the check (tests/test_conformance_tools.py
+    covers the check itself)."""
+    monkeypatch.setattr(vr.cli_runner, "check_version", lambda: None)
+
+
+def test_main_fails_loudly_on_a_version_mismatch(tmp_path, monkeypatch, capsys):
+    suite = _write_suite(tmp_path, [])
+    monkeypatch.setattr(vr, "VECTOR_SUITE_DIR", suite)
+    monkeypatch.setattr(vr.cli_runner, "check_version", lambda: "wrong build")
+    assert vr.main([]) == 2
+    assert "wrong build" in capsys.readouterr().err
+
+
 def test_main_missing_submodule(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(vr, "VECTOR_SUITE_DIR", tmp_path / "does-not-exist")
     assert vr.main([]) == 2
