@@ -95,7 +95,8 @@ def test_check_version_reports_a_missing_cli(monkeypatch):
     assert msg and "cannot run the CLI" in msg
 
 
-def test_main_fails_loudly_on_a_version_mismatch(monkeypatch, capsys):
+def test_main_fails_loudly_on_a_version_mismatch(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(runner, "FIXTURES_DIR", tmp_path)
     monkeypatch.setattr(cli_runner, "check_version", lambda: "wrong build")
     assert runner.main([]) == 2
     assert "wrong build" in capsys.readouterr().err
