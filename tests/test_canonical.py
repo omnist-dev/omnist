@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.10.1"
+        assert ds.__version__ == "0.11.0"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -2114,7 +2114,10 @@ class TestDocumentRobustness:
         #
         # Patches _MAX_NODES down so a tiny 10-generation chain exercises
         # the same guard fast, instead of needing to actually materialize
-        # toward the real 1,000,000-node production ceiling.
+        # toward the real 1,000,000-node production ceiling. The D-18 ratio
+        # limit (v0.11.0) now refuses this input first at the default, so the
+        # alias options are raised to their ceilings: this is the backstop
+        # behind them, which must keep working when a caller raises them.
         import omnist.document as document_module
         monkeypatch.setattr(document_module, "_MAX_NODES", 50)
 
@@ -2123,27 +2126,42 @@ class TestDocumentRobustness:
             text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
 
         with pytest.raises(DocumentError, match="too many nodes materialized"):
-            read_yaml(text)
+            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000)
 
     def test_yaml_alias_amplification_bails_fast_not_after_full_expansion(self, monkeypatch):
         # The guard must reject *during* the walk, not after fully
         # expanding the exponential structure and then checking -- confirms
         # the fix also closes the DoS/timing angle, not just eventually
-        # raising after the fact. 25 generations is deep enough that a
-        # full O(2**25) walk would not complete in any reasonable time;
-        # under a 2-second budget it must still be caught.
+        # raising after the fact. 11 generations (E about 2**12, under the raised
+        # ratio ceiling) with a 1,000-node budget: a full walk is 2**12 times
+        # the budget, and it must still be caught within 2 seconds.
         import time
 
         import omnist.document as document_module
         monkeypatch.setattr(document_module, "_MAX_NODES", 1000)
 
         text = "a0: &a0 {x: 1, y: 2}\n"
-        for i in range(1, 25):
+        for i in range(1, 12):
             text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
 
         start = time.time()
         with pytest.raises(DocumentError, match="too many nodes materialized"):
+            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000)
+        assert time.time() - start < 2.0
+
+    def test_yaml_alias_amplification_25_generations_is_refused_by_the_ratio(self):
+        # The same shape, 25 generations, at the defaults: the D-18 check
+        # refuses it before any expansion, so no node budget is needed.
+        import time
+
+        text = "a0: &a0 {x: 1, y: 2}\n"
+        for i in range(1, 25):
+            text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
+
+        start = time.time()
+        with pytest.raises(DocumentError) as info:
             read_yaml(text)
+        assert info.value.code == "document.limit.alias-expansion"
         assert time.time() - start < 2.0
 
     def test_large_legitimate_document_is_not_rejected_by_node_budget(self):
@@ -2188,7 +2206,7 @@ class TestDocumentRobustness:
             text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
 
         with pytest.raises(DocumentError, match="too many nodes materialized"):
-            read_yaml(text)
+            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000)
 
     def test_unsupported_python_type_raises(self):
         with pytest.raises(DocumentError, match="is not a Document value"):

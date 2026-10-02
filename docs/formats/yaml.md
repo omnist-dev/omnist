@@ -113,6 +113,86 @@ Doc.of({"name": "Ada"}).to_yaml()
 Document nests past 200 levels — the same limit `read_yaml` already
 enforces on parse. See [the API reference](../api.md#reading--writing-formats).
 
+## Alias limits
+
+`read_yaml` bounds alias expansion **before** it expands anything
+(omnist-spec D-18, D-18a, D-19, D-20 and D-22, section 2.4.1). It composes the
+document into PyYAML's anchor/alias graph, which is linear in the input however
+large the expansion it describes, measures that graph in one iterative pass,
+and only then constructs the value. A "billion laughs" input costs
+milliseconds, not seconds or gigabytes.
+
+| option | default | most it may be set to | refused with |
+|---|---|---|---|
+| `max_alias_expansion` | 50 | 10 000 | `document.limit.alias-expansion` |
+| `max_expanded_slots` | 1 000 000 | 10 000 000 | `document.limit.expanded-size` |
+
+Both are keyword arguments of `read_yaml` and `Doc.from_yaml`. A value that is
+not an `int` (a `bool` included) raises `TypeError`; one outside `1 .. ceiling`
+raises `ValueError`. `Doc.from_format("yaml", ...)`, the format registry and
+the CLI use the defaults.
+
+**The ratio (`max_alias_expansion`).** Every mapping and sequence, anchored or
+not, the root and an inline merge source included, is measured as `E = W / S`:
+`W` is the value slots it materializes, `S` the value slots written in it. A
+scalar and a container are one slot each, a mapping key none; an alias is one
+slot in `S` and its target's `W` in `W`; a merge key `<<` is one slot in `S`
+and contributes `W - 1` per merged mapping. An input where any `E` exceeds the
+maximum is refused, `E` equal to it is accepted. Scalars are never checked.
+A sequence in merge position (`<<: [*a, *b]`, anchored or not) is only a
+carrier: it holds no slot. `W` is a conservative count (it does not resolve
+key collisions), so a mapping whose merged keys are overridden can be refused
+though it materializes less.
+
+A mapping that merges a large block reads `E` of about `(keys + 2) / 3`:
+`job: {<<: *base, script: x}` is accepted over a 148-key `base` and refused
+over a 149-key one at the default. A hundred services each merging a 20-key
+block reads 7.3 at worst, and a 100-key block aliased 60 times at the root
+reads 38 (refused at 100 times). Raise `max_alias_expansion` if a real file
+needs more.
+
+**The size (`max_expanded_slots`).** The ratio bounds amplification, not size:
+a large document in which every container sits just under 50 is accepted by it
+and can still allocate gigabytes. So `W` of the root over `max_expanded_slots`
+is refused too, after the ratio check (an input failing both reports
+`document.limit.alias-expansion`).
+
+**The exemption, and its cliff.** The size limit applies only to an input that
+contains at least one alias or merge key. A plain, alias-free YAML file is not
+subject to it, however large, as a JSON or OML file of the same size is: a
+two-million-slot plain file is read, and adding one alias to it subjects it to
+the one-million cap. That is deliberate; the size of a plain input is the
+caller's to bound.
+
+Both codes carry the path `$`.
+
+**Also refused, by the same pass.**
+
+- A self-referential anchor, directly or through a cycle (`a: &a {<<: *a}`),
+  is `document.limit.alias-expansion`; nothing cyclic is built.
+- A merge value that is not a mapping or a sequence of mappings (`<<: 1`,
+  `<<: [1]`, `<<: [[{a: 1}]]`, `<<: *s` over scalars) is `parse.codec-syntax`
+  at the line and column of the offending node, and wins over any limit code.
+  `<<: []`, and an alias to an empty sequence, merge nothing and are accepted.
+- An anchor may be defined again; the latest definition applies to the aliases
+  after it, as YAML 1.2 allows (PyYAML alone refuses it).
+
+**What it does not bound.** PyYAML's own parse is pure Python and costs
+seconds per megabyte whatever the aliases: measured here on one machine,
+a 1.1 MB mapping of 50,000 keys took about 7 seconds (read_yaml, composing alone 8) and a 1 MB root
+sequence about 4 seconds to compose (and is then refused as a bare array). The limits above refuse an over-limit
+input after composing it, not before reading it; bound the input size
+yourself (see [SECURITY.md](https://github.com/omnist-dev/omnist/blob/master/SECURITY.md)).
+
+```python
+from omnist import read_yaml
+
+shared = "b: &b {k1: 1, k2: 2, k3: 3}\nt: {a: *b, b: *b, c: *b, d: *b}\n"
+read_yaml(shared, max_expanded_slots=22)   # accepted: W(root) is exactly 22
+read_yaml(shared, max_expanded_slots=21)   # DocumentError, code "document.limit.expanded-size"
+```
+<!-- verified-by: tests/test_yaml_alias.py::TestDocExample::test_the_size_example -->
+
 ## Notes
 
 - Only YAML's JSON-compatible core is supported (string keys, standard scalars,

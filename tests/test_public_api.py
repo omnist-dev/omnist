@@ -142,7 +142,9 @@ FROZEN_FUNCTION_SIGNATURES = {
         "(node: 'Any', *, indent: 'Optional[int]' = None, strict: 'bool' = False, "
         "report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
-    "read_yaml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> 'Any'",
+    "read_yaml": (
+        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+        "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000) -> 'Any'"),
     "write_yaml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
@@ -244,7 +246,9 @@ FROZEN_METHOD_SIGNATURES = {
         "from_oml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
         "from_toml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
         "from_xml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
-        "from_yaml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
+        "from_yaml": (
+            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+            "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000) -> \"'Doc'\""),
         "get": "(self, label: 'str') -> \"List['Doc']\"",
         "get_one": "(self, label: 'str') -> \"'Doc'\"",
         "labels": "(self) -> 'List[str]'",

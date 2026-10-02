@@ -624,8 +624,8 @@ class TestYamlMergeKeyOrder:
 
 
 class TestYamlAnchorsNeverCrashOrHang:
-    """D-18/D-19/D-20 are NOT implemented (DIV-3), but a self-referential
-    definition must fail cleanly or read, never crash or hang."""
+    """A self-referential definition fails cleanly, never crashes or hangs
+    (D-20 is enforced since v0.11.0: tests/test_yaml_alias.py pins the code)."""
 
     @pytest.mark.parametrize("text", [
         "a: &A\n  b: *A\n",
