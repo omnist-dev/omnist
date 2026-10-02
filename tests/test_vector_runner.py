@@ -595,10 +595,120 @@ def test_declared_limit_vectors_are_an_e20_skip(key):
     assert vr.skip_reason(_v("parse", format="oml", text="x", **{key: 3})) == vr.SKIP_LIMITS
 
 
-def test_alias_expansion_key_is_skipped_citing_div3_never_run_against_the_default():
-    v = _v("parse", format="yaml", text="a: 1", declared_max_alias_expansion=3)
-    assert vr.skip_reason(v) == vr.SKIP_ALIAS and "DIV-3" in vr.SKIP_ALIAS
-    assert vr.run_vector(v) == ("skip", vr.SKIP_ALIAS)
+@pytest.mark.parametrize("key", sorted(vr._ALIAS_KEYS))
+def test_alias_limit_keys_are_not_skipped(key):
+    v = _v("parse", format="yaml", text="a: 1", **{key: 3})
+    assert vr.skip_reason(v) is None
+    assert vr.run_vector(v) == ("pass", "ok") or vr.run_vector(v)[0] == "fail"
+
+
+ALIAS_BOMB = "b: &b {k1: 1, k2: 2, k3: 3}\nt: {a: *b, b: *b, c: *b, d: *b}\n"
+
+
+def _alias_vector(expect, text=ALIAS_BOMB, **declared):
+    inp = {"format": "yaml", "text": text, **declared}
+    return {"name": "n", "operation": "parse", "input": inp, "expect": expect}
+
+
+def test_alias_vector_runs_with_exactly_the_declared_maxima_and_a_missing_one_keeps_its_default():
+    reject = {"ok": False, "diagnostics": [{"path": "$", "code": "document.limit.expanded-size"}]}
+    ratio = {"ok": False, "diagnostics": [{"path": "$", "code": "document.limit.alias-expansion"}]}
+    # W(root) is 22 and the widest E is 3.4: the declared value is what decides
+    assert vr.run_vector(_alias_vector(reject, declared_max_expanded_slots=21)) == ("pass", "ok")
+    assert vr.run_vector(_alias_vector(ratio, declared_max_alias_expansion=3)) == ("pass", "ok")
+    # a limit not declared keeps its default: the same input at the defaults is a success,
+    # so expecting a failure is a fail, not a skip and not a pass
+    status, msg = vr.run_vector(_alias_vector(ratio, declared_max_expanded_slots=22))
+    assert status == "fail" and "expected failure" in msg
+
+
+def test_alias_vector_success_compares_the_document():
+    doc = {"edges": [["a", {"scalar": {"kind": "integer", "value": 1}}]]}
+    ok = {"ok": True, "document": doc}
+    one = _alias_vector(ok, text="a: 1\n", declared_max_expanded_slots=5)
+    assert vr.run_vector(one) == ("pass", "ok")
+    two = {"edges": [["a", {"scalar": {"kind": "integer", "value": 2}}]]}
+    other = {"ok": True, "document": two}
+    assert vr.run_vector(_alias_vector(other, text="a: 1\n", declared_max_expanded_slots=5)) == (
+        "fail", "parsed document does not match expected")
+    status, msg = vr.run_vector(_alias_vector(ok, text="a: [\n", declared_max_expanded_slots=5))
+    assert status == "fail" and "expected success" in msg
+
+
+def test_alias_vector_failure_expected_but_the_read_succeeds_is_a_fail():
+    status, msg = vr.run_vector(_alias_vector(
+        {"ok": False, "diagnostics": [{"path": "$", "code": "document.limit.expanded-size"}]},
+        text="a: 1\n", declared_max_expanded_slots=5))
+    assert status == "fail" and msg == "expected failure, the read succeeded"
+
+
+def test_alias_vector_wrong_code_or_wrong_path_is_a_fail():
+    for path, code in (("$", "document.limit.alias-expansion"),
+                       ("$.t", "document.limit.expanded-size")):
+        status, msg = vr.run_vector(_alias_vector(
+            {"ok": False, "diagnostics": [{"path": path, "code": code}]},
+            declared_max_expanded_slots=21))
+        assert status == "fail" and "diagnostics differ" in msg
+
+
+def test_alias_vector_must_be_yaml_text():
+    v = {"name": "n", "operation": "parse", "input": {"format": "json", "text": "{}",
+                                                      "declared_max_expanded_slots": 3},
+         "expect": {"ok": True}}
+    status, msg = vr.run_vector(v)
+    assert status == "fail" and "alias-limit vector is YAML text" in msg
+
+
+# ------------------------------------------------- E-32 placeholder, canonical
+
+SYNTAX_PLACEHOLDER = [{"path": "line:col", "code": "parse.codec-syntax"}]
+
+
+@pytest.mark.parametrize("path", ["1:1", "2:7", "10:3", "100:200"])
+def test_placeholder_is_satisfied_by_a_well_formed_position(path):
+    actual = [{"path": path, "code": "parse.codec-syntax"}]
+    assert vr._diff(SYNTAX_PLACEHOLDER, actual) is None
+
+
+@pytest.mark.parametrize("path", ["0:0", "0:1", "1:0", "01:1", "1:01", "+1:1", "-1:1", "1: 1",
+                                  " 1:1", "1:1 ", "1", "1:1:1", "line:col", "$", "", None, 11])
+def test_placeholder_is_not_satisfied_by_a_malformed_or_missing_path(path):
+    actual = [{"path": path, "code": "parse.codec-syntax"}]
+    assert vr._diff(SYNTAX_PLACEHOLDER, actual)[0] == "fail"
+
+
+def test_placeholder_still_compares_the_code():
+    actual = [{"path": "1:1", "code": "parse.unexpected-token"}]
+    assert vr._diff(SYNTAX_PLACEHOLDER, actual)[0] == "fail"
+
+
+def test_placeholder_leaves_no_room_for_an_extra_diagnostic():
+    actual = [{"path": "1:1", "code": "parse.codec-syntax"},
+              {"path": "2:1", "code": "parse.codec-syntax"}]
+    assert vr._diff(SYNTAX_PLACEHOLDER, actual)[0] == "fail"
+    assert vr._diff(SYNTAX_PLACEHOLDER, [])[0] == "fail"
+
+
+def test_placeholder_is_only_the_sole_diagnostic_otherwise_a_literal():
+    expected = SYNTAX_PLACEHOLDER + [{"path": "$", "code": "document.limit.depth"}]
+    actual = [{"path": "1:1", "code": "parse.codec-syntax"},
+              {"path": "$", "code": "document.limit.depth"}]
+    assert vr._diff(expected, actual)[0] == "fail"
+
+
+def test_a_real_position_is_compared_byte_for_byte_without_the_placeholder():
+    expected = [{"path": "2:7", "code": "parse.codec-syntax"}]
+    assert vr._diff(expected, [{"path": "2:7", "code": "parse.codec-syntax"}]) is None
+    assert vr._diff(expected, [{"path": "2:8", "code": "parse.codec-syntax"}])[0] == "fail"
+
+
+def test_canonical_comparison_is_byte_for_byte_but_for_the_cli_newline():
+    assert vr._canonical_equal("record R {\n}\nroot R\n", "record R {\n}\nroot R\n")
+    assert vr._canonical_equal("record R {\n}\nroot R\n", "record R {\n}\nroot R")
+    assert vr._canonical_equal("record R {\n}\nroot R", "record R {\n}\nroot R\n")
+    assert not vr._canonical_equal("record R {\n}\nroot R\n\n", "record R {\n}\nroot R\n")
+    assert not vr._canonical_equal("record  R {\n}\nroot R\n", "record R {\n}\nroot R\n")
+    assert not vr._canonical_equal(" record R {\n}\nroot R\n", "record R {\n}\nroot R\n")
 
 
 def test_an_ordinary_vector_is_not_skipped():
