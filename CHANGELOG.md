@@ -6,11 +6,11 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
-## [v0.11.0] — adopts omnist-spec v0.26.0-beta: YAML alias limits (D-18, D-22)
+## [v0.11.0] — adopts omnist-spec v0.27.0-beta: YAML alias limits (D-18, D-22)
 
 A **minor** bump under the beta rule: a new public option, a denial-of-service
 fix and new error codes. `vendor/omnist-spec` moves from `v0.22.0-beta` to
-`v0.26.0-beta` (v0.23 to v0.26). Python was the last port without the spec's
+`v0.27.0-beta` (v0.23 to v0.27). Python was the last port without the spec's
 alias rules; the divergence ledger's DIV-3 closes with this release.
 
 - **`read_yaml` / `Doc.from_yaml` take `max_alias_expansion` (default 50, at
@@ -24,7 +24,8 @@ alias rules; the divergence ledger's DIV-3 closes with this release.
   (D-22), an alias-free input never is (the cliff is deliberate). New codes
   `document.limit.alias-expansion` and `document.limit.expanded-size`, path
   `$`, raised as `DocumentError`. Options are validated: a non-`int` is a
-  `TypeError`, a value outside `1 .. ceiling` a `ValueError`. The CLI, the
+  `TypeError`, a value outside `1 .. ceiling` a `ValueError` (so `0` raises, as in omnist-j; the TypeScript, Go and Rust
+  ports read `0` as "use the default"). The CLI, the
   registry and `Doc.from_format` use the defaults. See `docs/formats/yaml.md`.
 - **Behaviour changes to documents that used to read.** Input with an
   expansion factor over 50 (for example a mapping that merges a block of more
@@ -34,13 +35,17 @@ alias rules; the divergence ledger's DIV-3 closes with this release.
   uncoded "cycle detected", or silently accepted for `a: &a {<<: *a}`).
 - **Malformed merges are `parse.codec-syntax`** at the node's line and column
   (`<<: 1`, `<<: [1]`, `<<: [[{a: 1}]]`, `<<: *s` over scalars), before any
-  limit is counted. `<<: []` merges nothing and is accepted.
+  limit is counted. `<<: []` (and `<<: *s` over an
+  empty sequence) is a well-formed carrier that merges nothing and is accepted
+  (v0.27.0-beta). A container used as a mapping key is counted like a value (the
+  spec is silent; PyYAML refuses the unhashable key later, so only the reported
+  error differs).
 - **A redefined anchor now reads** (the latest definition applies, as in
   YAML 1.2); PyYAML alone refused it as `parse.codec-syntax`.
 - **Runner:** E-32's `line:col` placeholder, the alias vectors run with their
   declared maxima through the library, and `normalize`/`prune`/`extract`/
-  `parse_schema` compare canonical text byte for byte. The vendored suite is
-  331 vectors; the pin changes were otherwise already satisfied (BOM and invalid
+  `parse_schema` compare canonical text byte for byte, trailing newline
+  included. The vendored suite is 338 vectors; the pin changes were otherwise already satisfied (BOM and invalid
   UTF-8, E-27, codec positions, OML-26/27/28, canonical comparison).
 
 ## [v0.10.1] — adopts omnist-spec v0.22.0-beta (OML-26 with a separator, E-28/E-29)

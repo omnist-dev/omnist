@@ -1,4 +1,4 @@
-"""YAML alias limits: omnist-spec v0.26.0-beta D-18, D-18a, D-19, D-20, D-22
+"""YAML alias limits: omnist-spec v0.27.0-beta D-18, D-18a, D-19, D-20, D-22
 (docs/02-document-model.md section 2.4.1, docs/formats/yaml.md).
 
 Every boundary is tested as a pair, an input at the limit that is accepted and
@@ -282,6 +282,42 @@ def _compose(text: str) -> tuple[Any, bool]:
 
 # --------------------------------------------------------- malformed merges
 
+class TestEmptyMergeCarrier:
+    """omnist-spec v0.27.0-beta: an empty merge sequence is a well-formed carrier
+    that merges nothing; an empty sequence outside merge position is an ordinary
+    node (and, as a value, yields no edge)."""
+
+    def test_an_empty_carrier_merges_nothing(self):
+        assert read_yaml("config: {<<: []}\n") == [("config", [])]
+        assert read_yaml("t: {<<: [], c: 3}\n") == [("t", [("c", 3)])]
+
+    def test_alias_to_an_empty_sequence_in_merge_position(self):
+        assert read_yaml("s: &s []\nt: {<<: *s, c: 3}\n") == [("t", [("c", 3)])]
+
+    def test_an_anchored_empty_carrier_and_a_later_alias_to_it(self):
+        text = "t: {<<: &s [], c: 3}\nu: {<<: *s}\n"
+        assert read_yaml(text) == [("t", [("c", 3)]), ("u", [])]
+
+    def test_an_empty_sequence_value_yields_no_edge(self):
+        assert read_yaml("k: []\nj: 1\n") == [("j", 1)]
+
+    def test_size_cap_boundary(self):
+        # t: {<<: []}: W(root) = 1 + 1 = 2, S(root) = 1 + 1 + 1 = 3
+        assert outcome("t: {<<: []}\n", max_expanded_slots=2) is None
+        assert outcome("t: {<<: []}\n", max_expanded_slots=1) == (SIZE, "$")
+
+    def test_ratio_boundary(self):
+        # E(root) = 2 / 3 and E(t) = 1 / 2: nothing over the smallest maximum
+        assert outcome("t: {<<: []}\n", max_alias_expansion=1) is None
+
+    def test_an_empty_carrier_contributes_exactly_zero_to_w(self):
+        # z: {<<: [*e, *e], m: *b} over b of 8 slots: W = 1 + 0 + 9, S = 4 (E = 2.5)
+        text = f"e: &e {{}}\nb: &b {{{keys(8)}}}\nz: {{<<: [], m: *b}}\n"
+        assert outcome(text, max_expanded_slots=1_000) is None
+        boundary(f"b: &b {{{keys(7)}}}\nz: {{<<: [], m: *b}}\n",
+                 f"b: &b {{{keys(8)}}}\nz: {{<<: [], m: *b}}\n", max_alias_expansion=3)
+
+
 class TestMalformedMerges:
     @pytest.mark.parametrize("text, position", [
         ("a:\n  <<: 1\n", "2:7"),
@@ -351,16 +387,28 @@ class TestCycles:
     def test_a_cycle_through_a_merge_source_is_rejected_before_construction(self):
         assert outcome("a: &a {k: 1, <<: {<<: *a}}\n") == (ALIAS, "$")
 
-    def test_a_complex_key_is_counted(self):
-        # a key that is itself a container is walked; PyYAML then refuses to build
-        # an unhashable key, as it always did.
-        with pytest.raises(OmnistError):
-            read_yaml("? {a: 1}\n: 2\n")
-        with pytest.raises(OmnistError):
-            read_yaml("? [1, 2]\n: 2\n")
+    def test_a_complex_key_is_counted_like_a_value(self):
+        # The spec is silent on a container used as a mapping key; it is counted
+        # like any value so it cannot hide a bomb. Pinned on the composed graph
+        # (PyYAML only refuses the unhashable key later, when it constructs).
+        # b: 11 slots. The key {x: *b} is W = 12 over S = 2 (E = 6); the root is
+        # W = 1 + 11 + 12 + 1 = 25 over S = 1 + 11 + 2 + 1 = 15.
+        root, saw = _compose(f"b: &b {{{keys(10)}}}\n? {{x: *b}}\n: 1\n")
+        check_alias_limits(root, yaml.nodes, saw_alias=saw, max_alias_expansion=6)
+        with pytest.raises(DocumentError) as info:
+            check_alias_limits(root, yaml.nodes, saw_alias=saw, max_alias_expansion=5)
+        assert (info.value.code, info.value.path) == (ALIAS, "$")
+        # an aliased container key is one slot in S and W(b) in W: W = 24, S = 14
+        root, saw = _compose(f"b: &b {{{keys(10)}}}\n? *b\n: 1\n")
+        check_alias_limits(root, yaml.nodes, saw_alias=saw, max_alias_expansion=2)
+        with pytest.raises(DocumentError):
+            check_alias_limits(root, yaml.nodes, saw_alias=saw, max_alias_expansion=1)
 
-    def test_a_complex_key_alias_counts_as_an_alias(self):
-        assert outcome("k: &k {a: 1}\n? *k\n: 2\n", max_alias_expansion=50) is not None
+    def test_a_complex_key_is_then_refused_by_pyyaml_as_unhashable(self):
+        for text in ("? {a: 1}\n: 2\n", "? [1, 2]\n: 2\n", "k: &k {a: 1}\n? *k\n: 2\n"):
+            with pytest.raises(ParseError) as info:
+                read_yaml(text)
+            assert info.value.code == SYNTAX and "unhashable" in str(info.value)
 
 
 # ---------------------------------------------------------------- options

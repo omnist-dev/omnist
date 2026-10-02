@@ -374,10 +374,10 @@ def run_write(v: Dict[str, Any], tmp: Path) -> Result:
 
 
 def _canonical_equal(actual: str, expected: str) -> bool:
-    """``canonical`` (Sec8.5.3, 3.3/5.9): the schema text byte for byte. The one
-    allowance is the CLI's own newline after its output, which is not part of
-    the schema; no other whitespace is normalised."""
-    return actual.removesuffix("\n") == expected.removesuffix("\n")
+    """``canonical`` (Sec8.5.3, 3.3/5.9): the implementation's canonical output
+    text against the expected text, byte for byte, no re-parse and no
+    whitespace normalised -- the trailing newline is part of the text."""
+    return actual == expected
 
 
 def _run_schema_producing(v: Dict[str, Any], tmp: Path, cli_fn: Any) -> Result:

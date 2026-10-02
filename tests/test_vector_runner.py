@@ -702,10 +702,10 @@ def test_a_real_position_is_compared_byte_for_byte_without_the_placeholder():
     assert vr._diff(expected, [{"path": "2:8", "code": "parse.codec-syntax"}])[0] == "fail"
 
 
-def test_canonical_comparison_is_byte_for_byte_but_for_the_cli_newline():
+def test_canonical_comparison_is_byte_for_byte_the_trailing_newline_included():
     assert vr._canonical_equal("record R {\n}\nroot R\n", "record R {\n}\nroot R\n")
-    assert vr._canonical_equal("record R {\n}\nroot R\n", "record R {\n}\nroot R")
-    assert vr._canonical_equal("record R {\n}\nroot R", "record R {\n}\nroot R\n")
+    assert not vr._canonical_equal("record R {\n}\nroot R\n", "record R {\n}\nroot R")
+    assert not vr._canonical_equal("record R {\n}\nroot R", "record R {\n}\nroot R\n")
     assert not vr._canonical_equal("record R {\n}\nroot R\n\n", "record R {\n}\nroot R\n")
     assert not vr._canonical_equal("record  R {\n}\nroot R\n", "record R {\n}\nroot R\n")
     assert not vr._canonical_equal(" record R {\n}\nroot R\n", "record R {\n}\nroot R\n")

@@ -174,15 +174,25 @@ Both codes carry the path `$`.
   `<<: [1]`, `<<: [[{a: 1}]]`, `<<: *s` over scalars) is `parse.codec-syntax`
   at the line and column of the offending node, and wins over any limit code.
   `<<: []`, and an alias to an empty sequence, merge nothing and are accepted.
+- An empty merge sequence (`<<: []`, or `<<: *s` over `s: &s []`) is a
+  well-formed carrier that merges nothing (omnist-spec v0.27.0-beta); an empty
+  sequence anywhere else is an ordinary node and, as a value, yields no edge.
+- A container used as a mapping key is counted like any value, so it cannot
+  hide a bomb; the specification is silent on it, and PyYAML then refuses the
+  unhashable key when it constructs, so only the reported error differs.
+- Limit options of `0` or less raise `ValueError` (as in omnist-j); the
+  TypeScript, Go and Rust ports treat `0` as "use the default".
 - An anchor may be defined again; the latest definition applies to the aliases
   after it, as YAML 1.2 allows (PyYAML alone refuses it).
 
 **What it does not bound.** PyYAML's own parse is pure Python and costs
-seconds per megabyte whatever the aliases: measured here on one machine,
-a 1.1 MB mapping of 50,000 keys took about 7 seconds (read_yaml, composing alone 8) and a 1 MB root
-sequence about 4 seconds to compose (and is then refused as a bare array). The limits above refuse an over-limit
-input after composing it, not before reading it; bound the input size
-yourself (see [SECURITY.md](https://github.com/omnist-dev/omnist/blob/master/SECURITY.md)).
+seconds per megabyte whatever the aliases: measured on one machine
+(the alias check adds under 1.2 seconds per 100,000 nodes), a 1.1 MB block
+mapping of 50,000 keys takes about 4 seconds in `read_yaml` (the same as before
+the limits existed), a 150,000-item root sequence (0.94 MB) 5 to 6 seconds to
+compose, and a 1.8 MB plain file 20 to 23 seconds. The limits above refuse an
+over-limit input after composing it, not before reading it; bound the input
+size yourself (see [SECURITY.md](https://github.com/omnist-dev/omnist/blob/master/SECURITY.md)).
 
 ```python
 from omnist import read_yaml

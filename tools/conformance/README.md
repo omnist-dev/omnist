@@ -26,7 +26,7 @@ tools/conformance/
   runner.py        runs vendor/omnist-spec's real per-operation fixtures
                    (conformance/fixtures/, directory-per-case format)
   vector_runner.py runs vendor/omnist-spec's test-suite/ JSON-vector suite
-                   (331 vectors, envelope format -- see its own docstring)
+                   (338 vectors, envelope format -- see its own docstring)
 ```
 
 `runner.py` and `vector_runner.py` are two separate runners over two
@@ -73,7 +73,7 @@ script on `PATH`). Set `OMNIST_CLI` to test a different build.
 python3 -m tools.conformance.self_test      # referee self-check
 python3 -m tools.conformance.runner         # all wired operations (fixtures)
 python3 -m tools.conformance.runner validate normalize   # a subset
-python3 -m tools.conformance.vector_runner  # the 331-vector test-suite/
+python3 -m tools.conformance.vector_runner  # the 338-vector test-suite/
 ```
 
 `vector_runner.py` is **strict**: every diagnostic list is compared as a set
@@ -101,7 +101,7 @@ An expected path of the placeholder `line:col` (E-32) is satisfied by a
 `parse.codec-syntax` whose path is `^[1-9][0-9]*:[1-9][0-9]*$`, as the sole
 diagnostic; every other path is compared byte for byte. `normalize`, `prune`,
 `extract` and `parse_schema`'s `schema` compare the canonical text byte for
-byte (the CLI's trailing newline aside).
+byte, the trailing newline included.
 
 `bytes_hex` vectors (E-27, D-14) are written to a file as raw bytes and
 handed to the CLI -- this omnist's byte-oriented entry point -- never decoded
