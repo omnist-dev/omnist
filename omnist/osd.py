@@ -376,6 +376,16 @@ def _quote_label(label: str, record: str) -> str:
     """``label`` as an OSD string literal (OSD-15), or a write failure for a
     label OSD cannot spell (OSD-14). Records are named in the diagnostic's
     path, never the label: Sec8.4 has no way to quote one in a path."""
+    try:
+        label.encode("utf-8")
+    except UnicodeEncodeError:
+        # S-22 applies to every label that reaches a writer, including one
+        # added to a Record after the Schema was built (Field and Record do
+        # not know the record's name, so only Schema and the writer can give
+        # the record path R).
+        raise SchemaError(
+            f"a field label of record {record!r} does not encode to UTF-8: "
+            f"{label!r}", code="schema.invalid-label", path=record) from None
     for ch in label:
         if ord(ch) < 0x20:
             raise WriteError(

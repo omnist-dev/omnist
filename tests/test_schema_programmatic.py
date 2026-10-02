@@ -191,3 +191,13 @@ def test_infer_record_names_are_identifiers(label: str) -> None:
     for name in s.env:
         assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name), name
     assert parse_schema(s.to_osd()) == s
+
+
+def test_to_osd_rechecks_a_label_added_after_construction() -> None:
+    s = Schema(Ref("Root"), {"Root": _rec("a")})
+    s.env["Root"].fields.append(Field("a" + chr(0xDC80), t.string))
+    with pytest.raises(SchemaError) as ei:
+        s.to_osd()
+    assert (ei.value.code, ei.value.path) == ("schema.invalid-label", "Root")
+    with pytest.raises(SchemaError):
+        s.to_osd(indent=None)

@@ -8,8 +8,11 @@ deprecation cycle, not silently between releases.
 
 ## [v0.12.0] — adopts omnist-spec v0.28.0-beta: programmatic schema rules (S-8, S-22, S-23, S-24)
 
-A **minor** bump under the beta rule (as v0.11.0 was): new public error codes,
-and inputs that used to construct now raise. `vendor/omnist-spec` moves from
+A **minor** bump under the beta rule, and all five ports take a minor for this
+spec version: new public error codes (`schema.invalid-label`,
+`schema.invalid-name` at `$`), inputs that used to be accepted are now rejected
+(bad names and labels, `[0,0]` in the writer), and `infer` derives record names
+differently. `vendor/omnist-spec` moves from
 `v0.27.0-beta` to `v0.28.0-beta`. No conformance vector pins these rules
 (divergence ledger DIV-5), so `tests/test_schema_programmatic.py` is the only
 pin. Conformance is unchanged: Track 1 19/19, Track 2 304 passed, 0 failed,
@@ -18,7 +21,10 @@ pin. Conformance is unchanged: Track 1 19/19, Track 2 304 passed, 0 failed,
 - **`schema.invalid-label` (S-22).** A field label that does not encode to
   UTF-8 (a lone surrogate such as `"a\udc80"`) raises `SchemaError` when the
   `Schema` is built, at the record path (never the label), also for OSD text
-  decoded from a string holding one. `to_osd()` used to emit it.
+  decoded from a string holding one. `to_osd()` re-checks every label it
+  writes, so a `Field` appended to a record after the `Schema` was built is
+  caught there too. `Field` and `Record` do not check: the record name, hence
+  the path, is unknown to them. `to_osd()` used to emit such a label.
 - **`schema.invalid-name` (S-8), programmatic.** A record name or `Ref` target
   that does not match `[A-Za-z_][A-Za-z0-9_]*` (for example `"bad name"`)
   raises `SchemaError` at `$`, with the name in the message only. `Ref(...)`
