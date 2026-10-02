@@ -80,9 +80,15 @@ def _unique(base: str, used: set[str]) -> str:
     return cand
 
 
+_NAME_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+
+
 def _identifier(s: str) -> str:
-    out = "".join(c if (c.isalnum() or c == "_") else "_" for c in s)
-    return out.lstrip("0123456789_") or out
+    # ASCII only (S-8): str.isalnum() admits accented letters and non-ASCII
+    # digits, which are not valid record-name characters.
+    out = "".join(c if (c in _NAME_CHARS) else "_" for c in s)
+    return out.lstrip("0123456789_")
 
 
 def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],

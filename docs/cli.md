@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.11.0
+omnist 0.12.0
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -533,7 +533,8 @@ fields, and optional fields whose type is an unsatisfiable record (see
 `normalize` it never merges records — it only deletes dead weight. (`max ==
 0` fields can only arise from another schema-rewriting step, not from OSD
 text -- `[0,0]` is rejected at parse time since issue #322, as redundant
-with not declaring the field at all; `ghost` below is dead a different way,
+with not declaring the field at all, and a schema built in code that still
+holds one cannot be written as OSD (`write.unsupported-value`); `ghost` below is dead a different way,
 by referencing an unsatisfiable record.)
 
 ```sh

@@ -349,7 +349,9 @@ def to_osd(schema: Schema, *, indent: Optional[int] = 4) -> str:
     control character (below ``U+0020``) has no OSD spelling at all, so
     writing it raises :class:`~omnist.errors.WriteError` with
     ``code="write.unsupported-value"`` and ``path`` the Schema path of the
-    *record* holding the field (OSD-14, E-26), unconditionally.
+    *record* holding the field (OSD-14, E-26), unconditionally. So does a
+    field with cardinality ``[0,0]`` (``max = 0``), which is representable in
+    the model but has no text spelling (S-15, OSD-16, S-24).
     """
     parts: List[str] = [_record(name, rec, indent) for name, rec in schema.env.items()]
     parts.append(f"root {schema.root.name}")
@@ -384,6 +386,14 @@ def _quote_label(label: str, record: str) -> str:
 
 
 def _field(f: Field, record: str) -> str:
+    if f.max == 0:
+        # S-15, OSD-16, S-24: `max = 0` has no OSD spelling (no reader accepts
+        # `[0]`), so the writer fails rather than approximate. The path is the
+        # record `R`, never the label (E-26).
+        raise WriteError(
+            f"a field of record {record!r} has max = 0, which has no OSD "
+            "spelling; prune() the schema (or drop the field) before writing",
+            code="write.unsupported-value", path=record)
     card = "" if (f.min, f.max) == (1, 1) else f" {_card(f.min, f.max)}"
     return f"{_quote_label(f.label, record)}{card}: {_type(f.type)}"
 

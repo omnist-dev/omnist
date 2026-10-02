@@ -137,12 +137,27 @@ def nullable(scalar: Scalar) -> Scalar:
     return scalar if scalar.nullable else Scalar(scalar.name, True)
 
 
+_NAME_RE = _re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _check_name(name: Any) -> None:
+    """S-8: a record name or a ``Ref`` target is ``[A-Za-z_][A-Za-z0-9_]*``.
+    Reached programmatically the diagnostic is at ``$`` and the name appears in
+    the message only (it may be malformed, so it stays out of the path)."""
+    if not (isinstance(name, str) and _NAME_RE.fullmatch(name)):
+        raise SchemaError(
+            f"invalid name {name!r}: a record or reference name must match "
+            "[A-Za-z_][A-Za-z0-9_]*",
+            code="schema.invalid-name", path="$")
+
+
 class Ref:
     """A reference to a named record."""
 
     __slots__ = ("name",)
 
     def __init__(self, name: str) -> None:
+        _check_name(name)
         self.name = name
 
     def __repr__(self) -> str:
@@ -294,6 +309,8 @@ class Schema:
         return self.env[t.name]
 
     def check_refs(self) -> None:
+        for name in self.env:
+            _check_name(name)
         for name, rec in self.env.items():
             if not isinstance(rec, Record):
                 raise SchemaError(
@@ -304,6 +321,16 @@ class Schema:
                     "position resolves a bare name to a builtin first, so "
                     "this record could never be referenced",
                     code="schema.reserved-name", path=name)
+            for f in rec.fields:
+                try:
+                    f.label.encode("utf-8")
+                except UnicodeEncodeError:
+                    # S-22: reported at the record path, never with the label
+                    # in the path (E-30); the message escapes it via repr().
+                    raise SchemaError(
+                        f"a field label of record {name!r} does not encode "
+                        f"to UTF-8: {f.label!r}",
+                        code="schema.invalid-label", path=name) from None
 
         def walk(t: Type, path: str) -> None:
             if isinstance(t, Ref) and t.name not in self.env:
