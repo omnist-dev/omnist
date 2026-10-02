@@ -26,14 +26,18 @@ what's actually been considered and tested, and what hasn't.
   JSON/TOML use the standard library, and XML never resolves external
   entities. There's no `eval`, `exec`, or `pickle` anywhere in a read path.
 
-- **YAML anchors/aliases are supported and validated in time proportional to
-  the number of *unique* objects, not the number of alias references.** A
-  small payload that *looks* like it could expand to billions of elements
-  (the "billion laughs" pattern) parses and validates in a fraction of a
-  second, because PyYAML shares the underlying object across references and
-  Omnist's own post-parse validation does too — see
-  [docs/formats/yaml.md](docs/formats/yaml.md). A genuine cycle (a value that
-  contains itself) is rejected with `ParseError`.
+- **YAML anchors/aliases are bounded before they are expanded.** `read_yaml`
+  measures the anchor/alias graph in one iterative pass, in time linear in
+  the input, and refuses an input whose expansion factor exceeds 50
+  (`document.limit.alias-expansion`) or whose expanded size exceeds
+  1,000,000 slots (`document.limit.expanded-size`, only for an input that
+  has an alias or merge key); both are options, capped at 10,000 and
+  10,000,000. A "billion laughs" payload is refused in milliseconds. A
+  self-referential anchor is refused with the first code, and a malformed
+  merge is a `parse.codec-syntax` error. See
+  [docs/formats/yaml.md](docs/formats/yaml.md#alias-limits). PyYAML's own
+  parse is still pure Python and costs seconds per megabyte: bound the
+  input size before calling `read_*`.
 
 - **XML parsing prefers `defusedxml`, which hardens against XXE and
   entity-expansion attacks.** It's an optional dependency (the `xml`/`all`

@@ -26,7 +26,7 @@ tools/conformance/
   runner.py        runs vendor/omnist-spec's real per-operation fixtures
                    (conformance/fixtures/, directory-per-case format)
   vector_runner.py runs vendor/omnist-spec's test-suite/ JSON-vector suite
-                   (287 vectors, envelope format -- see its own docstring)
+                   (338 vectors, envelope format -- see its own docstring)
 ```
 
 `runner.py` and `vector_runner.py` are two separate runners over two
@@ -73,7 +73,7 @@ script on `PATH`). Set `OMNIST_CLI` to test a different build.
 python3 -m tools.conformance.self_test      # referee self-check
 python3 -m tools.conformance.runner         # all wired operations (fixtures)
 python3 -m tools.conformance.runner validate normalize   # a subset
-python3 -m tools.conformance.vector_runner  # the 287-vector test-suite/
+python3 -m tools.conformance.vector_runner  # the 338-vector test-suite/
 ```
 
 `vector_runner.py` is **strict**: every diagnostic list is compared as a set
@@ -88,12 +88,20 @@ fails the build (E-22), and a vector is passed, failed, or skipped under
 E-20/E-21 with a true reason.
 
 Skips, all E-20 "not yet implemented", are tallied by reason at the end of
-every run: the OSD-OML extension operations (omnist#341), the six
-`declared_max_*` limit vectors (this omnist's limits are module constants,
-not runtime-configurable), and the six `declared_max_alias_expansion` vectors
-(D-18, DIV-3 -- never run against the default limit instead, which would be a
-false pass). An unknown `operation` or an unknown `declared_*` key is a
-**fail**, not a skip.
+every run: the OSD-OML extension operations (omnist#341) and the six
+`declared_max_*` limit vectors (this omnist's depth, node and digit limits are
+module constants, not runtime-configurable). The YAML alias limits are
+configurable (`read_yaml`'s `max_alias_expansion` and `max_expanded_slots`), so
+a vector declaring `declared_max_alias_expansion` or
+`declared_max_expanded_slots` runs, through the library (the CLI has no flag
+for them) with exactly the declared value -- never against the default. An
+unknown `operation` or an unknown `declared_*` key is a **fail**, not a skip.
+
+An expected path of the placeholder `line:col` (E-32) is satisfied by a
+`parse.codec-syntax` whose path is `^[1-9][0-9]*:[1-9][0-9]*$`, as the sole
+diagnostic; every other path is compared byte for byte. `normalize`, `prune`,
+`extract` and `parse_schema`'s `schema` compare the canonical text byte for
+byte, the trailing newline included.
 
 `bytes_hex` vectors (E-27, D-14) are written to a file as raw bytes and
 handed to the CLI -- this omnist's byte-oriented entry point -- never decoded

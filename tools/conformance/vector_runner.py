@@ -22,11 +22,14 @@ nonzero fail count fails the build).
 category in the run's summary:
 
 * *E-20, not yet implemented*: the OSD-OML extension operations
-  (``omnist#341``); the safety-limit vectors (this omnist hardcodes
+  (``omnist#341``) and the safety-limit vectors (this omnist hardcodes
   ``_MAX_DEPTH`` etc. as module constants, Sec2.4 only says an
-  implementation MAY expose them); and the six ``declared_max_alias_expansion``
-  vectors (D-18, DIV-3 -- unimplemented, and never run against the default
-  limit instead, which would be a false pass).
+  implementation MAY expose them). The YAML alias limits are NOT skipped any
+  more: ``max_alias_expansion`` (D-18) and ``max_expanded_slots`` (D-22) are
+  options of ``read_yaml``, so a vector declaring ``declared_max_alias_expansion``
+  or ``declared_max_expanded_slots`` runs through the library with exactly that
+  value (the CLI has no flag for them) -- never against the default, which
+  would be a false result.
 * E-21 (documented divergence) is used for nothing today.
 
 An unknown ``operation`` is a **fail**, never a skip; so is an unknown
@@ -56,13 +59,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from omnist import Doc, parse_schema, write_oml
+from omnist import Doc, parse_schema, read_yaml, write_oml
 from omnist import infer as _infer
 from omnist import infer_with_report as _infer_with_report
 from omnist.errors import OmnistError
 
 from . import cli_runner
-from .referee import compare_document, compare_schema
+from .referee import compare_document
 
 VECTOR_SUITE_DIR = (
     Path(__file__).resolve().parent.parent.parent / "vendor" / "omnist-spec" / "test-suite"
@@ -74,8 +77,10 @@ COMPARISON_MODE = "strict: diagnostics compared as (path, code) sets, Sec8.5.2 E
 # runtime-configurable: a vector declaring one cannot be run against the
 # value it declares.
 _LIMIT_KEYS = {"declared_max_depth", "declared_max_nodes", "declared_max_int_digits"}
-# D-18's key, allowlisted separately so its skip cites the right entry.
-_ALIAS_KEY = "declared_max_alias_expansion"
+# D-18's and D-22's keys: configurable (read_yaml's max_alias_expansion and
+# max_expanded_slots), so a vector carrying one runs, with that value.
+_ALIAS_KEYS = {"declared_max_alias_expansion": "max_alias_expansion",
+               "declared_max_expanded_slots": "max_expanded_slots"}
 
 # OSD-OML extension operations (extensions/osd-oml.md Sec E.11): nothing
 # implements them yet here (omnist#341).
@@ -88,7 +93,6 @@ Pair = Tuple[Optional[str], Optional[str]]
 SKIP_OSD_OML = "E-20 not yet implemented: OSD-OML extension (omnist#341)"
 SKIP_LIMITS = ("E-20 not yet implemented: safety limits are module constants, "
                "not runtime-configurable (Sec2.4 MAY)")
-SKIP_ALIAS = "E-20 not yet implemented: D-18 alias-expansion bound (DIV-3)"
 
 
 # ---------------------------------------------------------------------------
@@ -139,11 +143,36 @@ def _pairs(diagnostics: Iterable[Dict[str, Any]], path_key: str = "path") -> Set
     return {(d.get(path_key), d.get("code")) for d in diagnostics}
 
 
+# E-32: the one path that is not compared byte for byte.
+PLACEHOLDER_PATH = "line:col"
+CODEC_SYNTAX = "parse.codec-syntax"
+_TEXT_POSITION = re.compile(r"[1-9][0-9]*:[1-9][0-9]*")
+
+
+def _apply_placeholder(exp: Set[Pair], act: Set[Pair]) -> Set[Pair]:
+    """E-32: an expected ``("line:col", "parse.codec-syntax")`` is satisfied by
+    a reported ``parse.codec-syntax`` whose path is a well-formed text position
+    (``^[1-9][0-9]*:[1-9][0-9]*$``, so ``0:0``, a sign, a leading zero or a
+    missing path all fail); nothing closer is compared. Returns ``act`` with
+    that reported pair rewritten to the placeholder, so the usual set
+    comparison (E-17: none missing, none extra) then decides. Applies only when
+    the placeholder is the vector's only diagnostic (E-32a); anywhere else it
+    is a literal string no real path equals."""
+    if exp != {(PLACEHOLDER_PATH, CODEC_SYNTAX)} or len(act) != 1:
+        return act      # a second diagnostic is an extra one (E-17 rule 3): never rewritten
+    ((path, code),) = act
+    if code == CODEC_SYNTAX and isinstance(path, str) and _TEXT_POSITION.fullmatch(path):
+        return {(PLACEHOLDER_PATH, CODEC_SYNTAX)}
+    # the literal string "line:col" is not a position, so it must not satisfy itself
+    return {(f"!{path}", code)}
+
+
 def _diff(expected: Iterable[Dict[str, Any]], actual: Iterable[Dict[str, Any]],
           path_key: str = "path") -> Optional[Result]:
     """``None`` when the two lists are equal as (path, code) sets, else a
     ``fail`` result naming both sets."""
     exp, act = _pairs(expected, path_key), _pairs(actual, path_key)
+    act = _apply_placeholder(exp, act)
     if exp == act:
         return None
     return "fail", (f"diagnostics differ as (path, code) sets: expected {sorted(exp, key=str)}, "
@@ -210,10 +239,35 @@ def _write_input(v: Dict[str, Any], dir_: Path, name: str) -> Path:
 # Operation drivers -- one function per operation, each (vector, tmp_dir) -> Result
 # ---------------------------------------------------------------------------
 
+def _run_parse_alias_limits(v: Dict[str, Any]) -> Result:
+    """A YAML vector declaring ``declared_max_alias_expansion`` and/or
+    ``declared_max_expanded_slots`` (D-18, D-22): driven through the library
+    with exactly the declared maxima, because the CLI has no flag for them.
+    An undeclared one keeps its default."""
+    inp, expect = v["input"], v["expect"]
+    if inp["format"] != "yaml" or "text" not in inp:
+        raise ValueError("an alias-limit vector is YAML text")
+    options = {opt: inp[key] for key, opt in _ALIAS_KEYS.items() if key in inp}
+    try:
+        node = read_yaml(inp["text"], **options)
+    except OmnistError as exc:
+        if expect["ok"]:
+            return "fail", f"expected success, got {exc}"
+        actual = [{"path": getattr(exc, "path", None), "code": getattr(exc, "code", None)}]
+        return _diff(expect.get("diagnostics", []), actual) or ("pass", "ok")
+    if not expect["ok"]:
+        return "fail", "expected failure, the read succeeded"
+    if not compare_document(write_oml(node), write_oml(decode_document(expect["document"]))):
+        return "fail", "parsed document does not match expected"
+    return "pass", "ok"
+
+
 def run_parse(v: Dict[str, Any], tmp: Path) -> Result:
     inp = v["input"]
     expect = v["expect"]
     fmt = inp["format"]
+    if _ALIAS_KEYS.keys() & inp.keys():
+        return _run_parse_alias_limits(v)
     src = _write_input(v, tmp, "in." + fmt)
     if fmt == "oml":
         args = ["format", str(src), "--json"]
@@ -244,8 +298,8 @@ def run_parse_schema(v: Dict[str, Any], tmp: Path) -> Result:
         return _expect_failure(expect, stdout, stderr, code)
     if code != 0:
         return "fail", f"expected success, got exit {code}: {stderr.strip()}"
-    if "schema" in expect and stdout.strip() != expect["schema"].strip():
-        return "fail", f"expected canonical {expect['schema']!r}, got {stdout.strip()!r}"
+    if "schema" in expect and not _canonical_equal(stdout, expect["schema"]):
+        return "fail", f"expected canonical {expect['schema']!r}, got {stdout!r}"
     return "pass", "ok"
 
 
@@ -319,14 +373,21 @@ def run_write(v: Dict[str, Any], tmp: Path) -> Result:
     return "pass", "ok"
 
 
+def _canonical_equal(actual: str, expected: str) -> bool:
+    """``canonical`` (Sec8.5.3, 3.3/5.9): the implementation's canonical output
+    text against the expected text, byte for byte, no re-parse and no
+    whitespace normalised -- the trailing newline is part of the text."""
+    return actual == expected
+
+
 def _run_schema_producing(v: Dict[str, Any], tmp: Path, cli_fn: Any) -> Result:
     schema_f = _write_tmp(tmp, "s.osd", v["input"]["schema"])
     stdout, stderr, code = cli_fn(schema_f)
     if code != 0:
         return "fail", f"exit {code}: {stderr.strip()}"
-    if compare_schema(stdout, v["expect"]["schema"], mode="exact"):
+    if _canonical_equal(stdout, v["expect"]["schema"]):
         return "pass", "ok"
-    return "fail", "output schema does not match expected"
+    return "fail", "output schema does not match expected canonical text"
 
 
 def run_normalize(v: Dict[str, Any], tmp: Path) -> Result:
@@ -375,9 +436,9 @@ def run_extract(v: Dict[str, Any], tmp: Path) -> Result:
         return _expect_failure(expect, stdout, stderr, code)
     if code != 0:
         return "fail", f"expected success, got exit {code}: {stderr.strip()}"
-    if compare_schema(stdout, expect["schema"], mode="exact"):
+    if _canonical_equal(stdout, expect["schema"]):
         return "pass", "ok"
-    return "fail", "extracted schema does not match expected"
+    return "fail", "extracted schema does not match expected canonical text"
 
 
 def run_lint(v: Dict[str, Any], tmp: Path) -> Result:
@@ -462,8 +523,6 @@ def skip_reason(v: Dict[str, Any]) -> Optional[str]:
     if v["operation"] in _OSD_OML_OPS:
         return SKIP_OSD_OML
     declared = {k for k in v["input"] if k.startswith("declared_")}
-    if _ALIAS_KEY in declared:
-        return SKIP_ALIAS
     if declared & _LIMIT_KEYS:
         return SKIP_LIMITS
     return None
@@ -472,7 +531,7 @@ def skip_reason(v: Dict[str, Any]) -> Optional[str]:
 def run_vector(v: Dict[str, Any]) -> Result:
     op = v["operation"]
     unknown = {k for k in v["input"]
-               if k.startswith("declared_") and k not in _LIMIT_KEYS | {_ALIAS_KEY}}
+               if k.startswith("declared_") and k not in _LIMIT_KEYS | _ALIAS_KEYS.keys()}
     if unknown:
         return "fail", (f"unknown declared-limit key(s) {sorted(unknown)}: teach the runner "
                         "(running against this omnist's default would be a false result)")

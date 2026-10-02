@@ -23,6 +23,12 @@ from xml.parsers import expat
 
 from ._encoding import strip_bom
 from ._position import position
+from ._yaml_alias import (
+    DEFAULT_MAX_ALIAS_EXPANSION,
+    DEFAULT_MAX_EXPANDED_SLOTS,
+    check_alias_limits,
+    validate_limit_options,
+)
 from .document import _MAX_DEPTH, _MAX_NODES, _grouped, build_node
 from .errors import DocumentError, ParseError, WriteError
 from .report import WriteReport, finish_write
@@ -235,11 +241,36 @@ def _iso(o: Any) -> str:
 
 
 # --------------------------------------------------------------- YAML
-def read_yaml(text: str, *, schema: Optional["Schema"] = None) -> Any:
+def read_yaml(text: str, *, schema: Optional["Schema"] = None,
+              max_alias_expansion: int = DEFAULT_MAX_ALIAS_EXPANSION,
+              max_expanded_slots: int = DEFAULT_MAX_EXPANDED_SLOTS) -> Any:
+    """Read YAML text into a node.
+
+    ``max_alias_expansion`` (default 50, at most 10 000) is the largest
+    expansion factor ``W / S`` any mapping or sequence may have (D-18), and
+    ``max_expanded_slots`` (default 1 000 000, at most 10 000 000) the largest
+    number of value slots an input containing an alias or a merge key may
+    materialize (D-22); an input over either is refused with
+    ``document.limit.alias-expansion`` or ``document.limit.expanded-size``
+    *before* any alias is expanded. An input with neither an alias nor a merge
+    key is exempt from the second. See ``docs/formats/yaml.md``.
+    """
+    validate_limit_options(max_alias_expansion, max_expanded_slots)
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     yaml = _need("yaml", "pip install pyyaml")
+    loader = None
     try:
-        node = build_node(yaml.load(text, Loader=_yaml_loader(yaml)))
+        loader = _yaml_loader(yaml)(text)
+        # compose -> check the anchor/alias graph -> only then construct, so
+        # no alias is ever expanded for an input that is over a limit (D-19).
+        root = loader.get_single_node()
+        data = None
+        if root is not None:
+            check_alias_limits(root, yaml.nodes, saw_alias=loader.omnist_saw_alias,
+                               max_alias_expansion=max_alias_expansion,
+                               max_expanded_slots=max_expanded_slots)
+            data = loader.construct_document(root)
+        node = build_node(data)
     except yaml.YAMLError as exc:
         raise ParseError(f"invalid YAML: {exc}", code="parse.codec-syntax",
                          path=_yaml_position(exc, text)) from exc
@@ -255,6 +286,9 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None) -> Any:
         # violation always raises, rather than precise prevention.
         raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
                          code="document.limit.depth", path="$") from exc
+    finally:
+        if loader is not None:
+            loader.dispose()
     return _materialize(node, schema)
 
 
@@ -289,9 +323,29 @@ def _yaml_loader(yaml: Any) -> type[Any]:
     if cls is not None:
         return cls  # type: ignore[no-any-return]
     ConstructorError = yaml.constructor.ConstructorError
-    MappingNode, SequenceNode = yaml.MappingNode, yaml.SequenceNode
+    MappingNode = yaml.MappingNode
+
+    AliasEvent = yaml.events.AliasEvent
 
     class _OmnistYamlLoader(yaml.SafeLoader):  # type: ignore[misc]
+        def __init__(self, stream: Any) -> None:
+            super().__init__(stream)
+            #: whether the composer resolved any alias (PyYAML nodes do not
+            #: record their anchors); D-22 applies only when one was seen.
+            self.omnist_saw_alias = False
+
+        def compose_node(self, parent: Any, index: Any) -> Any:
+            if self.check_event(AliasEvent):
+                self.omnist_saw_alias = True
+            else:
+                # YAML 1.2 lets an anchor be defined again; the latest
+                # definition applies to the aliases after it. PyYAML refuses
+                # a duplicate, so forget the earlier one first.
+                anchor = self.peek_event().anchor
+                if anchor is not None:
+                    self.anchors.pop(anchor, None)
+            return super().compose_node(parent, index)
+
         def flatten_mapping(self, node: Any) -> None:
             merged: list[list[Any]] = []       # one entry list per merged mapping
             index = 0
@@ -305,20 +359,12 @@ def _yaml_loader(yaml: Any) -> type[Any]:
                     if isinstance(value_node, MappingNode):
                         self.flatten_mapping(value_node)
                         merged.append(list(value_node.value))
-                    elif isinstance(value_node, SequenceNode):
+                    else:
+                        # a sequence of mappings: every other merge shape was
+                        # refused as parse.codec-syntax before this runs (D-18a)
                         for subnode in value_node.value:
-                            if not isinstance(subnode, MappingNode):
-                                raise ConstructorError(
-                                    "while constructing a mapping", node.start_mark,
-                                    "expected a mapping for merging, but found %s"
-                                    % subnode.id, subnode.start_mark)
                             self.flatten_mapping(subnode)
                             merged.append(list(subnode.value))
-                    else:
-                        raise ConstructorError(
-                            "while constructing a mapping", node.start_mark,
-                            "expected a mapping or list of mappings for merging, "
-                            "but found %s" % value_node.id, value_node.start_mark)
                 elif key_node.tag == _YAML_VALUE_TAG:
                     key_node.tag = _YAML_STR_TAG
                     index += 1

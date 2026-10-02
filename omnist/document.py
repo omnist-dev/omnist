@@ -197,10 +197,16 @@ class Doc:
         return cls(read_json(text, schema=schema))
 
     @classmethod
-    def from_yaml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
-        """Parse YAML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
+    def from_yaml(cls, text: str, *, schema: Optional["Schema"] = None,
+                  max_alias_expansion: int = 50,
+                  max_expanded_slots: int = 1_000_000) -> "Doc":
+        """Parse YAML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4).
+
+        ``max_alias_expansion`` and ``max_expanded_slots`` are the alias limits
+        of :func:`~omnist.formats.read_yaml` (D-18, D-22)."""
         from .formats import read_yaml
-        return cls(read_yaml(text, schema=schema))
+        return cls(read_yaml(text, schema=schema, max_alias_expansion=max_alias_expansion,
+                             max_expanded_slots=max_expanded_slots))
 
     @classmethod
     def from_toml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":

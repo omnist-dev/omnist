@@ -113,7 +113,8 @@ that's distinctive, and concretely how OML / the Document model handles it
 ### YAML
 
 - **Anchors/aliases (`&x` / `*x`).** `read_yaml` resolves aliases at
-  parse time (via PyYAML's `safe_load`) — there is no shared-object
+  parse time (via PyYAML's safe loader, after its expansion has been
+  bounded: see [Alias limits](yaml.md#alias-limits)) — there is no shared-object
   identity preserved; `a: &x foo` / `b: *x` reads as the fully expanded
   `[('a', 'foo'), ('b', 'foo')]`, two independent edges with equal
   values. OML has no anchor/alias syntax at all — a Document is always
