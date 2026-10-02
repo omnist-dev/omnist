@@ -31,6 +31,20 @@ for the full taxonomy and worked examples from real fixtures:
    [sitemap.xml's `changefreq`/`priority`](examples/sitemap.md), the only
    one of the four examples formal enough to expose this gap on its own.
 
+## Programmatic schemas and `max = 0`
+
+A `Schema` built in code is held to the same rules as one parsed from text
+(omnist-spec S-8, S-22; no conformance vector pins them, so this port's unit
+tests do): a record or `Ref` name that is not `[A-Za-z_][A-Za-z0-9_]*` is
+`schema.invalid-name` at `$`, and a field label that does not encode to UTF-8
+(a lone surrogate) is `schema.invalid-label` at the record. Cardinality
+`[0,0]` stays representable, but `to_osd` refuses it with
+`write.unsupported-value` at the record, since no reader accepts `[0]`.
+`prune()` removes such fields, except from an unsatisfiable root, which it
+keeps intact; prune before writing. This port has no OSD-OML schema writer,
+and no caller-supplied record ordering, so `schema.unknown-record` (S-23)
+cannot arise.
+
 ## `any` and the vacuity of `compatible_with`
 
 A field typed `any` accepts any value, unchecked — the escape hatch for

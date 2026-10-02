@@ -6,6 +6,45 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.12.0] — adopts omnist-spec v0.28.0-beta: programmatic schema rules (S-8, S-22, S-23, S-24)
+
+A **minor** bump under the beta rule, and all five ports take a minor for this
+spec version: new public error codes (`schema.invalid-label`,
+`schema.invalid-name` at `$`), inputs that used to be accepted are now rejected
+(bad names and labels, `[0,0]` in the writer), and `infer` derives record names
+differently. `vendor/omnist-spec` moves from
+`v0.27.0-beta` to `v0.28.0-beta`. No conformance vector pins these rules
+(divergence ledger DIV-5), so `tests/test_schema_programmatic.py` is the only
+pin. Conformance is unchanged: Track 1 19/19, Track 2 304 passed, 0 failed,
+34 skipped of 338.
+
+- **`schema.invalid-label` (S-22).** A field label that does not encode to
+  UTF-8 (a lone surrogate such as `"a\udc80"`) raises `SchemaError` when the
+  `Schema` is built, at the record path (never the label), also for OSD text
+  decoded from a string holding one. `to_osd()` re-checks every label it
+  writes, so a `Field` appended to a record after the `Schema` was built is
+  caught there too. `Field` and `Record` do not check: the record name, hence
+  the path, is unknown to them. `to_osd()` used to emit such a label.
+- **`schema.invalid-name` (S-8), programmatic.** A record name or `Ref` target
+  that does not match `[A-Za-z_][A-Za-z0-9_]*` (for example `"bad name"`)
+  raises `SchemaError` at `$`, with the name in the message only. `Ref(...)`
+  checks its own name; `Schema(...)` checks every `env` key.
+- **`[0,0]` is refused by the OSD writer (S-15, OSD-16, S-24).** `to_osd`
+  raises `WriteError` (`write.unsupported-value`, path the record) for a field
+  with `max = 0`; it used to write `"a" [0]: string`, which no reader accepts.
+  The model still accepts `[0,0]`. `prune()` drops such fields except from an
+  unsatisfiable root, so no algebra operation produces one; prune before
+  writing.
+- **S-23 cannot arise.** There is no caller-supplied record ordering in the
+  API (`to_osd` takes only `indent`), so `schema.unknown-record` is never
+  raised. There is no OSD-OML schema writer in this port.
+- **`infer` record names are valid names.** Labels with accented letters,
+  non-ASCII digits or only digits (`"\u00e9"`, `"123"`) used to give a record
+  name S-8 rejects; names are now ASCII-only and fall back to `Rec`.
+- Tests and fixtures needing a change: none; no existing test built a name or
+  label these rules forbid. The `0.11.0` version asserts in
+  `tests/test_canonical.py` and `tests/test_docs.py` moved to `0.12.0`.
+
 ## [v0.11.0] — adopts omnist-spec v0.27.0-beta: YAML alias limits (D-18, D-22)
 
 A **minor** bump under the beta rule: a new public option, a denial-of-service

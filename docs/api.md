@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.11.0"
+omnist.__version__        # "0.12.0"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -93,7 +93,9 @@ Serialize a `Schema` back to OSD text. A field label is written with exactly
 two escapes -- a backslash as `\\` and a double quote as `\"` -- so every
 label reads back as itself; a label containing a C0 control character (below
 `U+0020`) has no OSD spelling and raises `WriteError`
-(`code="write.unsupported-value"`, `path` the record's name). `parse_schema(to_osd(s))` is equivalent
+(`code="write.unsupported-value"`, `path` the record's name); so does a field
+with cardinality `[0,0]` (`max = 0`), which a `Schema` can hold but no OSD
+reader accepts -- `prune()` removes it first (S-24). `parse_schema(to_osd(s))` is equivalent
 to `s`. `indent=None` renders a single-line, machine-oriented form instead
 of the pretty-printed default; both round-trip through `parse_schema`.
 
@@ -162,7 +164,13 @@ s = schema(ref("User"),
 `Schema(root: Ref, env: dict[str, Record] = None)` — a root reference plus
 named record definitions. Raises `SchemaError` if `root` isn't a `Ref`, if any
 `env` entry isn't a `Record`, or if a `Ref` (the root or one inside a field)
-names an entry not present in `env`.
+names an entry not present in `env`; and, for a schema built in code (omnist-spec
+S-8, S-22), if a record name or `Ref` target does not match
+`[A-Za-z_][A-Za-z0-9_]*` (`code="schema.invalid-name"`, `path="$"`, the name in the
+message only; `Ref(...)` itself raises it too) or a field label does not encode to
+UTF-8, such as a lone surrogate (`code="schema.invalid-label"`, `path` the record's
+name, never the label). A caller-supplied record ordering (S-23,
+`schema.unknown-record`) does not exist in this API, so that rule cannot arise.
 
 | Method | |
 |---|---|
