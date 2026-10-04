@@ -916,7 +916,8 @@ def _write_edges(
     node_depth: int = 0,
 ) -> str:
     if node_depth > _MAX_DEPTH:
-        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
     pad = " " * (indent * depth)
     lines = []
     for label, children in (_group_runs(edges) if arrays else [(lbl, [c]) for lbl, c in edges]):
@@ -956,7 +957,8 @@ def _write_edges_compact(
     edges: List[Tuple[str, Any]], arrays: bool = False, node_depth: int = 0,
 ) -> str:
     if node_depth > _MAX_DEPTH:
-        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
     parts = []
     for label, children in (_group_runs(edges) if arrays else [(lbl, [c]) for lbl, c in edges]):
         lab = _write_label(label)

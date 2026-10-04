@@ -439,7 +439,8 @@ def doc(value: Any) -> Doc:
 def _copy(node: Any, depth: int = 0) -> Any:
     if isinstance(node, list):
         if depth > _MAX_DEPTH:
-            raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+            raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
         return [(label, _copy(child, depth + 1)) for label, child in node]
     return node
 
@@ -448,7 +449,8 @@ def _grouped(node: Any, depth: int = 0) -> Any:
     if not isinstance(node, list):
         return node
     if depth > _MAX_DEPTH:
-        raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
     counts: dict[str, int] = {}
     for label, _ in node:
         counts[label] = counts.get(label, 0) + 1

@@ -72,7 +72,61 @@ def test_check_version_accepts_this_build(monkeypatch):
     import omnist
     monkeypatch.setattr(cli_runner, "_run",
                         lambda args: (f"omnist {omnist.__version__}\n", "", 0))
+    monkeypatch.setattr(cli_runner, "_cli_module_file", lambda: omnist.__file__)
     assert _real_check_version() is None
+
+
+def test_check_version_accepts_an_undeterminable_module_path(monkeypatch):
+    import omnist
+    monkeypatch.setattr(cli_runner, "_run",
+                        lambda args: (f"omnist {omnist.__version__}\n", "", 0))
+    monkeypatch.setattr(cli_runner, "_cli_module_file", lambda: None)
+    assert _real_check_version() is None
+
+
+def test_check_version_rejects_the_same_version_from_another_install(monkeypatch):
+    import omnist
+    monkeypatch.setattr(cli_runner, "_run",
+                        lambda args: (f"omnist {omnist.__version__}\n", "", 0))
+    monkeypatch.setattr(cli_runner, "_cli_module_file",
+                        lambda: "/elsewhere/site-packages/omnist/__init__.py")
+    msg = _real_check_version()
+    assert msg and "/elsewhere/site-packages" in msg and "not this checkout's build" in msg
+
+
+def _script(tmp_path, first_line):
+    f = tmp_path / "fake-omnist"
+    f.write_text(first_line + "\n")
+    f.chmod(0o755)
+    return str(f)
+
+
+def test_cli_module_file_reads_the_shebang_interpreter(tmp_path, monkeypatch):
+    import os
+    import sys
+
+    import omnist
+    monkeypatch.setattr(cli_runner, "CLI", _script(tmp_path, f"#!{sys.executable}"))
+    got = cli_runner._cli_module_file()
+    assert got and os.path.realpath(got) == os.path.realpath(omnist.__file__)
+
+
+@pytest.mark.parametrize("first_line", [
+    "not a shebang",
+    "#!",
+    "#!/nonexistent/interpreter",
+    "#!/bin/false",
+])
+def test_cli_module_file_is_none_when_undeterminable(tmp_path, monkeypatch, first_line):
+    monkeypatch.setattr(cli_runner, "CLI", _script(tmp_path, first_line))
+    assert cli_runner._cli_module_file() is None
+
+
+def test_cli_module_file_is_none_for_a_missing_or_unreadable_cli(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli_runner, "CLI", str(tmp_path / "nope"))
+    assert cli_runner._cli_module_file() is None
+    monkeypatch.setattr(cli_runner.shutil, "which", lambda name: str(tmp_path))
+    assert cli_runner._cli_module_file() is None
 
 
 def test_check_version_rejects_another_build(monkeypatch):
@@ -124,7 +178,8 @@ def test_all_cli_runner_functions_build_expected_args(tmp_path, monkeypatch):
 
     cli_runner.materialize(inp, p)
     assert seen["args"] == ["convert", str(inp), "--from", "oml", "--to", "oml",
-                            "--schema", str(p), "--json"]
+                            "--schema", str(p), "--json",
+                            "--report", "--result-format", "json"]
 
     cli_runner.normalize(p)
     assert seen["args"] == ["schema", "normalize", str(p)]

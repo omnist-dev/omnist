@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.12.0
+omnist 0.13.0
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -80,8 +80,11 @@ command into "machine mode" with a single, uniform guarantee:
   prints `{"ok": false, "message": str, "errors": [{"path", "code", "message"}, ...]}`
   to **stdout** instead of a bare `error: ...` on stderr. `errors` carries the
   structured per-problem list when the failure is a `ParseError` (the
-  [same list it exposes since v0.4.1](deserialization.md)); otherwise it's `[]`
-  and the detail is in `message`. **stderr stays empty**, so a caller never has
+  [same list it exposes since v0.4.1](deserialization.md)), or a single entry
+  when the failure has a registered spec code; for a failure the spec
+  registers no code for (a usage or plumbing failure such as a missing file,
+  or a `Doc` API misuse) it is `[]` and the detail is in `message`, which is
+  **always** present. **stderr stays empty**, so a caller never has
   to string-match stderr to detect or classify a failure.
 - **On success**, for the commands that have a single structured result —
   `validate` (conformance), `check` (adjustments), and `schema is-empty` /

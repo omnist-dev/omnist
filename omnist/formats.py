@@ -61,7 +61,8 @@ def _check_write_depth(depth: int) -> None:
     Uses the same shared maximum depth the reader (oml.py) and the Document
     model (document.py) enforce."""
     if depth > _MAX_DEPTH:
-        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        raise WriteError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
 
 
 def _leaves(node: Any, path: str = "$", depth: int = 0) -> Any:
@@ -509,7 +510,8 @@ def write_toml(node: Any, *, strict: bool = False,
     _check_interleaving(node, rep)
     grouped = _grouped(stripped)
     if not isinstance(grouped, dict):
-        raise WriteError("TOML needs a top-level table (the root must be an object)")
+        raise WriteError("TOML needs a top-level table (the root must be an object)",
+                         code="write.unsupported-value", path="$")
     text = tomli_w.dumps(grouped)
     return finish_write(text, rep, strict=strict, report=report)
 
@@ -938,6 +940,13 @@ def _xml_syntax_error(exc: Any) -> ParseError:
 def _xml_well_formed(text: str) -> None:
     """Raise ``expat.ExpatError`` unless ``text`` is well-formed XML (no
     handlers, so nothing is built and no DOCTYPE processing is refused)."""
+    # Defence in depth: this parser installs no DTD, entity or external-reference
+    # handlers, unlike the one in _xml_fromstring, whose comment there does not
+    # extend here.  That is safe only because the call is unreachable with a DTD
+    # today: the sole caller re-checks text the first pass already accepted up to
+    # an undefined entity, and a DOCTYPE must precede the root element, so any
+    # DOCTYPE was refused (format.dtd-forbidden) on that first pass.  If this
+    # is ever reached with untrusted text some other way, add the same handlers.
     expat.ParserCreate().Parse(text, True)
 
 

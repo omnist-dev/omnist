@@ -6,6 +6,44 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.13.0] — structured codes for more failures; stricter conformance runner (omnist#350)
+
+A **minor** bump under the beta rule: public error codes appear on failures
+that used to carry none, so `omnist --json` fills `errors` for them. Follow-ups
+from the review of #349. No spec change: `vendor/omnist-spec` stays at
+`v0.28.0-beta`. Conformance is unchanged: Track 1 19/19, Track 2 304 passed,
+0 failed, 34 skipped of 338.
+
+- **`document.limit.depth` on every depth refusal.** A nesting-depth refusal
+  from a writer or `check_*`, `Doc.to_data`/`to_grouped`, `infer` and
+  `Schema.validate` was an uncoded `WriteError`/`DocumentError`; it now carries
+  `code="document.limit.depth"`, `path="$"` (the readers already did).
+- **`write.unsupported-value` for a bare scalar root written as TOML** (the
+  spec says a bare scalar Document cannot be written as TOML), `path` `$`.
+- **Verified, no change needed.** A self-referential YAML anchor already gives
+  `document.limit.alias-expansion` (D-20, since #352); the JSON NaN/Infinity
+  refusal already gives `write.unsupported-value`. #344 was fixed in 0.12.0.
+- **Still uncoded, on purpose** (the spec registers no code): a self-referential
+  Python value (`cycle detected`), a non-Document value type, `Doc` API misuse,
+  and a `strict=True` refusal. Their `--json` payload has `errors: []` and a
+  `message`, which is always present; documented in `docs/api.md` and
+  `docs/cli.md`.
+- **Conformance runner.** `check_version()` now also compares the module file the
+  CLI's own interpreter imports with this checkout's (the same version number
+  from another install is refused). Success-path diagnostics are compared for
+  every `ok: true` operation (`validate`, `materialize`, OML `parse`/`write`,
+  `parse_schema`, `extract`, as the codecs already were): where the CLI has no
+  channel the reported set is empty, so an expected diagnostic fails instead of
+  passing unchecked. `materialize` now passes `--report`.
+- **Docs.** A comment on `_xml_well_formed` records why its handler-less
+  re-check parser is unreachable with a DTD today.
+- **Not done:** a lone surrogate in a string *value* written through the `str`
+  API (`write_json(read_json('{"a":"\ud800"}'))`) still yields text that does
+  not encode to UTF-8. The spec leaves it open (D-14 puts it out of scope);
+  waiting on a spec ruling.
+- Version strings in `tests/test_canonical.py` and `tests/test_docs.py` moved to
+  `0.13.0`.
+
 ## [v0.12.0] — adopts omnist-spec v0.28.0-beta: programmatic schema rules (S-8, S-22, S-23, S-24)
 
 A **minor** bump under the beta rule, and all five ports take a minor for this

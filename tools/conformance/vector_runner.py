@@ -201,9 +201,15 @@ def _expect_failure(expect: Dict[str, Any], stdout: str, stderr: str, code: int)
     return mismatch or ("pass", "ok")
 
 
-def _report_diagnostics(expect: Dict[str, Any], stderr: str) -> Optional[Result]:
+def _report_diagnostics(expect: Dict[str, Any], stderr: Optional[str]) -> Optional[Result]:
     """Success-path diagnostics (warnings) come from the ``--report`` JSON on
-    stderr. Compared strictly: absent ``expect.diagnostics`` means none."""
+    stderr. Compared strictly: absent ``expect.diagnostics`` means none.
+
+    ``stderr=None`` is an operation whose CLI has no success-path diagnostics
+    channel: it reports none, so a vector that expects some fails rather than
+    going unchecked (omnist#350). Every ``ok: true`` driver ends here."""
+    if stderr is None:
+        return _diff(expect.get("diagnostics", []), [])
     report = _json_or_none(stderr)
     if not isinstance(report, list):
         return "fail", f"non-JSON stderr report: {stderr!r}"
@@ -285,9 +291,7 @@ def run_parse(v: Dict[str, Any], tmp: Path) -> Result:
         return "fail", f"expected success, got exit {code}: {stderr.strip()}"
     if not compare_document(stdout, write_oml(decode_document(expect["document"]))):
         return "fail", "parsed document does not match expected"
-    if fmt != "oml":
-        return _report_diagnostics(expect, stderr) or ("pass", "ok")
-    return "pass", "ok"
+    return _report_diagnostics(expect, stderr if fmt != "oml" else None) or ("pass", "ok")
 
 
 def run_parse_schema(v: Dict[str, Any], tmp: Path) -> Result:
@@ -300,7 +304,7 @@ def run_parse_schema(v: Dict[str, Any], tmp: Path) -> Result:
         return "fail", f"expected success, got exit {code}: {stderr.strip()}"
     if "schema" in expect and not _canonical_equal(stdout, expect["schema"]):
         return "fail", f"expected canonical {expect['schema']!r}, got {stdout!r}"
-    return "pass", "ok"
+    return _report_diagnostics(expect, None) or ("pass", "ok")
 
 
 def run_validate(v: Dict[str, Any], tmp: Path) -> Result:
@@ -314,7 +318,7 @@ def run_validate(v: Dict[str, Any], tmp: Path) -> Result:
     payload = _json_or_none(stdout)
     if not isinstance(payload, dict) or payload.get("ok") is not True:
         return "fail", f"expected ok=true, got exit {code}, stdout {stdout!r}"
-    return "pass", "ok"
+    return _report_diagnostics(expect, None) or ("pass", "ok")
 
 
 def run_materialize(v: Dict[str, Any], tmp: Path) -> Result:
@@ -327,9 +331,9 @@ def run_materialize(v: Dict[str, Any], tmp: Path) -> Result:
         return _expect_failure(expect, stdout, stderr, code)
     if code != 0:
         return "fail", f"expected success, got exit {code}: {stderr.strip()}"
-    if compare_document(stdout, write_oml(decode_document(expect["document"]))):
-        return "pass", "ok"
-    return "fail", "materialized document does not match expected"
+    if not compare_document(stdout, write_oml(decode_document(expect["document"]))):
+        return "fail", "materialized document does not match expected"
+    return _report_diagnostics(expect, stderr) or ("pass", "ok")
 
 
 def _normalize_xml_whitespace(text: str) -> str:
@@ -368,9 +372,7 @@ def run_write(v: Dict[str, Any], tmp: Path) -> Result:
             got, want = _normalize_xml_whitespace(got), _normalize_xml_whitespace(want)
         if got != want:
             return "fail", f"expected text {expect['text']!r}, got {stdout.strip()!r}"
-    if fmt != "oml":
-        return _report_diagnostics(expect, stderr) or ("pass", "ok")
-    return "pass", "ok"
+    return _report_diagnostics(expect, stderr if fmt != "oml" else None) or ("pass", "ok")
 
 
 def _canonical_equal(actual: str, expected: str) -> bool:
@@ -436,9 +438,9 @@ def run_extract(v: Dict[str, Any], tmp: Path) -> Result:
         return _expect_failure(expect, stdout, stderr, code)
     if code != 0:
         return "fail", f"expected success, got exit {code}: {stderr.strip()}"
-    if _canonical_equal(stdout, expect["schema"]):
-        return "pass", "ok"
-    return "fail", "extracted schema does not match expected canonical text"
+    if not _canonical_equal(stdout, expect["schema"]):
+        return "fail", "extracted schema does not match expected canonical text"
+    return _report_diagnostics(expect, None) or ("pass", "ok")
 
 
 def run_lint(v: Dict[str, Any], tmp: Path) -> Result:

@@ -95,7 +95,8 @@ def _infer_record(nodes: List[Any], name: str, env: Dict[str, Any],
                   used: set[str], allow_any: bool,
                   fallbacks: list[AnyFallback], depth: int) -> None:
     if depth > _MAX_DEPTH:
-        raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})")
+        raise DocumentError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                            code="document.limit.depth", path="$")
     used.add(name)
     # Pass 1: which labels exist at all, in first-seen order. Pass 2: one
     # count per sample for *every* label, defaulting to 0 for samples that
