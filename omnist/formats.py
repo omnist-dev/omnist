@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from xml.parsers import expat
 
 from ._encoding import strip_bom
+from ._paths import edge_paths
 from ._position import position
 from ._yaml_alias import (
     DEFAULT_MAX_ALIAS_EXPANSION,
@@ -69,11 +70,7 @@ def _leaves(node: Any, path: str = "$", depth: int = 0) -> Any:
     """Yield ``(path, value)`` for every scalar leaf in a node."""
     if isinstance(node, list):
         _check_write_depth(depth)
-        counts: dict[str, int] = {}
-        for label, child in node:
-            i = counts.get(label, 0)
-            counts[label] = i + 1
-            p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+        for _label, child, p in edge_paths(path, node):
             yield from _leaves(child, p, depth + 1)
     else:
         yield path, node
@@ -435,11 +432,7 @@ def _scan_yaml_labels(node: Any, path: str, rep: WriteReport, depth: int = 0) ->
     if not isinstance(node, list):
         return
     _check_write_depth(depth)
-    counts: dict[str, int] = {}
-    for label, child in node:
-        i = counts.get(label, 0)
-        counts[label] = i + 1
-        p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+    for label, child, p in edge_paths(path, node):
         if isinstance(label, str) and "\x85" in label:
             rep.add(p, "format.string-line-break-char",
                     "label contains U+0085 (NEL); written double-quoted to "
@@ -537,11 +530,7 @@ def _strip_nulls(node: Any, path: str, rep: WriteReport, depth: int = 0) -> Any:
         return node
     _check_write_depth(depth)
     out: list[tuple[str, Any]] = []
-    counts: dict[str, int] = {}
-    for label, child in node:
-        i = counts.get(label, 0)
-        counts[label] = i + 1
-        p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+    for label, child, p in edge_paths(path, node):
         if child is None:
             raise WriteError(f"{p}: null has no representation in TOML",
                               code="write.unsupported-value", path=p)
@@ -702,11 +691,7 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
                 f"{path}: an empty internal node has no XML spelling distinct "
                 "from an empty-string leaf",
                 code="write.unsupported-value", path=path)
-        counts: dict[str, int] = {}
-        for label, child in node:
-            i = counts.get(label, 0)
-            counts[label] = i + 1
-            p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+        for label, child, p in edge_paths(path, node):
             if not _XML_NAME.match(label):
                 # Issue #323: two different labels can sanitize to the same
                 # XML name (e.g. "my label" and "my_label" both becoming

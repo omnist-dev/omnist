@@ -25,6 +25,7 @@ from __future__ import annotations
 import datetime as _dt
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple
 
+from ._paths import edge_paths
 from .errors import DocumentError
 
 if TYPE_CHECKING:
@@ -250,11 +251,7 @@ class Doc:
         if not isinstance(self._node, list):
             raise DocumentError(f"{self.path}: a leaf has no edges")
         out: List[Tuple[str, "Doc"]] = []
-        counts: dict[str, int] = {}
-        for label, child in self._node:
-            i = counts.get(label, 0)
-            counts[label] = i + 1
-            cp = f"{self.path}.{label}" if i == 0 else f"{self.path}.{label}[{i}]"
+        for label, child, cp in edge_paths(self.path, self._node):
             out.append((label, Doc(child, cp, self.depth + 1)))
         return out
 
