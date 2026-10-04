@@ -29,7 +29,8 @@ category in the run's summary:
   options of ``read_yaml``, so a vector declaring ``declared_max_alias_expansion``
   or ``declared_max_expanded_slots`` runs through the library with exactly that
   value (the CLI has no flag for them) -- never against the default, which
-  would be a false result.
+  would be a false result. declared_max_input_bytes (D-23) is the same
+  for the max_input_bytes option of every reader (any format).
 * E-21 (documented divergence) is used for nothing today.
 
 An unknown ``operation`` is a **fail**, never a skip; so is an unknown
@@ -59,7 +60,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from omnist import Doc, parse_schema, read_yaml, write_oml
+from omnist import Doc, get_format, parse_schema, write_oml
 from omnist import infer as _infer
 from omnist import infer_with_report as _infer_with_report
 from omnist.errors import OmnistError
@@ -81,6 +82,10 @@ _LIMIT_KEYS = {"declared_max_depth", "declared_max_nodes", "declared_max_int_dig
 # max_expanded_slots), so a vector carrying one runs, with that value.
 _ALIAS_KEYS = {"declared_max_alias_expansion": "max_alias_expansion",
                "declared_max_expanded_slots": "max_expanded_slots"}
+# D-23's key: configurable (the ``max_input_bytes`` option of every reader),
+# for any format. E-20a: a key this runner does not know FAILS the vector.
+_INPUT_SIZE_KEYS = {"declared_max_input_bytes": "max_input_bytes"}
+_LIBRARY_KEYS = {**_ALIAS_KEYS, **_INPUT_SIZE_KEYS}
 
 # OSD-OML extension operations (extensions/osd-oml.md Sec E.11): nothing
 # implements them yet here (omnist#341).
@@ -245,17 +250,20 @@ def _write_input(v: Dict[str, Any], dir_: Path, name: str) -> Path:
 # Operation drivers -- one function per operation, each (vector, tmp_dir) -> Result
 # ---------------------------------------------------------------------------
 
-def _run_parse_alias_limits(v: Dict[str, Any]) -> Result:
-    """A YAML vector declaring ``declared_max_alias_expansion`` and/or
-    ``declared_max_expanded_slots`` (D-18, D-22): driven through the library
-    with exactly the declared maxima, because the CLI has no flag for them.
-    An undeclared one keeps its default."""
+def _run_parse_library_limits(v: Dict[str, Any]) -> Result:
+    """A vector declaring ``declared_max_alias_expansion`` and/or
+    ``declared_max_expanded_slots`` (D-18, D-22: YAML text) or
+    ``declared_max_input_bytes`` (D-23: any format): driven through the
+    library with exactly the declared maxima, because the CLI has no flag for
+    them. An undeclared one keeps its default."""
     inp, expect = v["input"], v["expect"]
-    if inp["format"] != "yaml" or "text" not in inp:
+    if "text" not in inp:
+        raise ValueError("a library-limit vector is text")
+    if _ALIAS_KEYS.keys() & inp.keys() and inp["format"] != "yaml":
         raise ValueError("an alias-limit vector is YAML text")
-    options = {opt: inp[key] for key, opt in _ALIAS_KEYS.items() if key in inp}
+    options = {opt: inp[key] for key, opt in _LIBRARY_KEYS.items() if key in inp}
     try:
-        node = read_yaml(inp["text"], **options)
+        node = get_format(inp["format"]).read(inp["text"], **options)
     except OmnistError as exc:
         if expect["ok"]:
             return "fail", f"expected success, got {exc}"
@@ -272,8 +280,8 @@ def run_parse(v: Dict[str, Any], tmp: Path) -> Result:
     inp = v["input"]
     expect = v["expect"]
     fmt = inp["format"]
-    if _ALIAS_KEYS.keys() & inp.keys():
-        return _run_parse_alias_limits(v)
+    if _LIBRARY_KEYS.keys() & inp.keys():
+        return _run_parse_library_limits(v)
     src = _write_input(v, tmp, "in." + fmt)
     if fmt == "oml":
         args = ["format", str(src), "--json"]
@@ -533,7 +541,7 @@ def skip_reason(v: Dict[str, Any]) -> Optional[str]:
 def run_vector(v: Dict[str, Any]) -> Result:
     op = v["operation"]
     unknown = {k for k in v["input"]
-               if k.startswith("declared_") and k not in _LIMIT_KEYS | _ALIAS_KEYS.keys()}
+               if k.startswith("declared_") and k not in _LIMIT_KEYS | _LIBRARY_KEYS.keys()}
     if unknown:
         return "fail", (f"unknown declared-limit key(s) {sorted(unknown)}: teach the runner "
                         "(running against this omnist's default would be a false result)")

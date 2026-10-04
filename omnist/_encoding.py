@@ -10,15 +10,73 @@ rules of Sec2.5 live here and nowhere else:
 * **D-21** -- :func:`strip_bom` with ``reject_second=True``: a second mark
   still at offset zero is rejected (the codecs; OML and OSD reject it on
   their own grammar, as a stray character).
+
+and one rule of Sec2.4.2:
+
+* **D-23** -- :func:`check_input_size`: the input is at most
+  ``max_input_bytes`` bytes, counted before the BOM is stripped and before
+  decoding, else ``document.limit.input-size`` at ``$``.
 """
 from __future__ import annotations
 
+from typing import Any, Union
+
 from .errors import ParseError
+
+# D-24 gives no reference default; this implementation's is 64 MiB. It is a
+# bound on parse cost (a byte cap is the only thing that bounds a codec
+# library's superlinear cases), not a promise that an input this big parses
+# quickly: PyYAML takes seconds on a 1 MB mapping.
+DEFAULT_MAX_INPUT_BYTES = 64 * 1024 * 1024
 
 # Written as an escape, never as the raw character: an invisible U+FEFF in
 # this source file would be indistinguishable from nothing (and a guard
 # test byte-scans every tracked file for one).
 _BOM = "\ufeff"
+
+
+def validate_max_input_bytes(value: Any) -> None:
+    """Refuse a non-integer or a non-positive ``max_input_bytes``.
+
+    ``TypeError`` for a wrong type (``bool`` is not accepted as an int),
+    ``ValueError`` for a value below 1. There is no ceiling: D-24 lets an
+    implementation choose any finite value."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"max_input_bytes must be an int, not {type(value).__name__}")
+    if value < 1:
+        raise ValueError(f"max_input_bytes must be at least 1, not {value}")
+
+
+def input_size_error(max_input_bytes: int) -> ParseError:
+    """The D-23 refusal: ``document.limit.input-size`` at ``$``."""
+    return ParseError(
+        f"input exceeds the maximum input size ({max_input_bytes} bytes)",
+        code="document.limit.input-size", path="$")
+
+
+def check_input_size(data: Union[str, bytes], max_input_bytes: int) -> None:
+    """Sec2.4.2 D-23: refuse an input of more than ``max_input_bytes`` bytes,
+    accept one of exactly that many.
+
+    Bytes, not characters: a ``str`` is measured as its UTF-8 encoding (``e``
+    with an acute accent is two, a leading U+FEFF is three, a lone surrogate
+    three as ``surrogatepass`` would write it), and the length is taken
+    before the mark is stripped (D-15) and before any decoding, so this
+    check precedes every other diagnostic."""
+    validate_max_input_bytes(max_input_bytes)
+    if isinstance(data, bytes):
+        size = len(data)
+    else:
+        n = len(data)
+        # every character is at least one byte and at most four, so the exact
+        # (linear) encode is only needed in between
+        if n > max_input_bytes:
+            raise input_size_error(max_input_bytes)
+        if n * 4 <= max_input_bytes:
+            return
+        size = len(data.encode("utf-8", "surrogatepass"))
+    if size > max_input_bytes:
+        raise input_size_error(max_input_bytes)
 
 
 def decode_utf8(data: bytes) -> str:

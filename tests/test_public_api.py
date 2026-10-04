@@ -137,29 +137,36 @@ FROZEN_FUNCTION_SIGNATURES = {
     ),
     "materialize": "(node: 'Any', schema: 'Schema') -> 'Any'",
     "lint": "(s: 'Schema') -> 'List[LintFinding]'",
-    "read_json": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> 'Any'",
+    "read_json": (
+        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
     "write_json": (
         "(node: 'Any', *, indent: 'Optional[int]' = None, strict: 'bool' = False, "
         "report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
     "read_yaml": (
         "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-        "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000) -> 'Any'"),
+        "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000, "
+        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
     "write_yaml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
-    "read_toml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> 'Any'",
+    "read_toml": (
+        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
     "write_toml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
     "read_xml": (
         "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-        "report: 'Optional[WriteReport]' = None) -> 'Any'"
+        "report: 'Optional[WriteReport]' = None, max_input_bytes: 'int' = 67108864) -> 'Any'"
     ),
     "write_xml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
-    "read_oml": "(text: 'str', *, schema: 'Optional[Any]' = None) -> 'Any'",
+    "read_oml": (
+        "(text: 'str', *, schema: 'Optional[Any]' = None, "
+        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
     "write_oml": "(node: 'Any', *, indent: 'Optional[int]' = 2, arrays: 'bool' = False) -> 'str'",
     "check_json": "(node: 'Any') -> 'WriteReport'",
     "check_yaml": "(node: 'Any') -> 'WriteReport'",
@@ -241,14 +248,24 @@ FROZEN_METHOD_SIGNATURES = {
         "child": "(self, label: 'str') -> \"'Doc'\"",
         "count": "(self, label: 'str') -> 'int'",
         "edges": "(self) -> \"List[Tuple[str, 'Doc']]\"",
-        "from_format": "(name: 'str', text: 'str') -> \"'Doc'\"",
-        "from_json": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
-        "from_oml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
-        "from_toml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
-        "from_xml": "(text: 'str', *, schema: \"Optional['Schema']\" = None) -> \"'Doc'\"",
+        "from_format": (
+            "(name: 'str', text: 'str', *, max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+        "from_json": (
+            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+        "from_oml": (
+            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+        "from_toml": (
+            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+        "from_xml": (
+            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
+            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
         "from_yaml": (
             "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-            "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000) -> \"'Doc'\""),
+            "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000, "
+            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
         "get": "(self, label: 'str') -> \"List['Doc']\"",
         "get_one": "(self, label: 'str') -> \"'Doc'\"",
         "labels": "(self) -> 'List[str]'",

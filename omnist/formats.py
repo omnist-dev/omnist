@@ -21,7 +21,7 @@ import re as _re
 from typing import TYPE_CHECKING, Any, Optional
 from xml.parsers import expat
 
-from ._encoding import strip_bom
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_input_size, strip_bom
 from ._paths import edge_paths
 from ._position import position
 from ._yaml_alias import (
@@ -184,7 +184,9 @@ def _toml_position(exc: Any, text: str) -> str:
 
 
 # --------------------------------------------------------------- JSON
-def read_json(text: str, *, schema: Optional["Schema"] = None) -> Any:
+def read_json(text: str, *, schema: Optional["Schema"] = None,
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     _check_json_text_depth(text)
     try:
@@ -241,8 +243,12 @@ def _iso(o: Any) -> str:
 # --------------------------------------------------------------- YAML
 def read_yaml(text: str, *, schema: Optional["Schema"] = None,
               max_alias_expansion: int = DEFAULT_MAX_ALIAS_EXPANSION,
-              max_expanded_slots: int = DEFAULT_MAX_EXPANDED_SLOTS) -> Any:
+              max_expanded_slots: int = DEFAULT_MAX_EXPANDED_SLOTS,
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
     """Read YAML text into a node.
+
+    ``max_input_bytes`` (default 64 MiB) is the largest input, in UTF-8 bytes,
+    that is read at all (D-23); see ``docs/api.md``.
 
     ``max_alias_expansion`` (default 50, at most 10 000) is the largest
     expansion factor ``W / S`` any mapping or sequence may have (D-18), and
@@ -254,6 +260,7 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None,
     key is exempt from the second. See ``docs/formats/yaml.md``.
     """
     validate_limit_options(max_alias_expansion, max_expanded_slots)
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: before anything else is read
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     yaml = _need("yaml", "pip install pyyaml")
     loader = None
@@ -474,7 +481,9 @@ def _yaml_dumper(yaml: Any) -> type[Any]:
 
 
 # --------------------------------------------------------------- TOML
-def read_toml(text: str, *, schema: Optional["Schema"] = None) -> Any:
+def read_toml(text: str, *, schema: Optional["Schema"] = None,
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     import tomllib
     try:
@@ -555,7 +564,9 @@ _XML_ILLEGAL_CHAR = _re.compile(
 
 
 def read_xml(text: str, *, schema: Optional["Schema"] = None,
-            report: Optional[WriteReport] = None) -> Any:
+            report: Optional[WriteReport] = None,
+            max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     root = _xml_fromstring(text)
     root_local = _local(root.tag)

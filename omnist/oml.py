@@ -34,7 +34,7 @@ import datetime as _dt
 import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
-from ._encoding import strip_bom
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_input_size, strip_bom
 from ._position import line_col
 from .document import _MAX_DEPTH, _MAX_INT_DIGITS, _MAX_NODES
 from .errors import ParseError, WriteError
@@ -853,8 +853,13 @@ class _Parser:
 # Public read/write
 # ---------------------------------------------------------------------------
 
-def read_oml(text: str, *, schema: Optional[Any] = None) -> Any:
-    """Parse OML source into a canonical Document node (edge-list or leaf)."""
+def read_oml(text: str, *, schema: Optional[Any] = None,
+             max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    """Parse OML source into a canonical Document node (edge-list or leaf).
+
+    ``max_input_bytes`` (default 64 MiB) is the largest input, in UTF-8 bytes,
+    that is read at all (D-23): over it, ``document.limit.input-size`` at ``$``."""
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     scanner = _Scanner(strip_bom(text))   # Sec2.5 D-15
     node = _Parser(scanner).parse_document()
     if schema is None:

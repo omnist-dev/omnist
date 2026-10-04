@@ -1251,3 +1251,15 @@ def test_limitations_depth_limit():
         raised = "nesting exceeds the maximum depth" in str(e)
 
     assert raised
+
+
+def test_limitations_input_size_limit():
+    from omnist import ParseError, read_json
+
+    read_json('{"a":"xxxxxxxxxxxx"}', max_input_bytes=20)    # 20 bytes: accepted
+    try:
+        read_json('{"a":"xxxxxxxxxxxxx"}', max_input_bytes=20)   # 21 bytes
+    except ParseError as e:
+        assert (e.code, e.path) == ("document.limit.input-size", "$")
+    else:  # pragma: no cover -- only hit if the over-limit input were accepted
+        raise AssertionError("not refused")

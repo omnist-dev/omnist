@@ -266,7 +266,7 @@ Low-level codecs over the canonical node form (a scalar, or a list of
 
 | | |
 |---|---|
-| `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node (`read_xml` also takes `report=a_WriteReport`, see below; `read_yaml` also takes `max_alias_expansion=50` and `max_expanded_slots=1_000_000`, see [alias limits](formats/yaml.md#alias-limits)) |
+| `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node (`read_xml` also takes `report=a_WriteReport`, see below; `read_yaml` also takes `max_alias_expansion=50` and `max_expanded_slots=1_000_000`, see [alias limits](formats/yaml.md#alias-limits)); every reader also takes `max_input_bytes=67_108_864` (D-23, see [the input-size limit](limitations.md#the-64-mib-input-size-limit)) and `Doc.from_*` pass it through |
 | `write_oml(node, *, indent=2, arrays=False)` | a node → **OML**, losslessly — no `strict`/`report` needed (see below); `indent=None` for a single-line, compact form; `arrays=True` collapses any maximal run of ≥ 2 consecutive same-label edges into `label: [v1, v2, ...]` array syntax (a run of 1 stays a plain scalar edge, pretty mode never wraps an array onto multiple lines); default `arrays=False` is byte-identical to `write_oml` without the parameter at all |
 | `write_json(node, *, strict=False, report=None, indent=None)` | a node → JSON (groups same-label edges) |
 | `write_yaml(node, *, strict=False, report=None)` | a node → YAML |

@@ -44,7 +44,7 @@ from . import (
     write_xml,
     write_yaml,
 )
-from ._encoding import decode_utf8
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_input_size, decode_utf8, input_size_error
 
 FMT_CHOICES = ["json", "yaml", "toml", "xml", "oml"]
 RESULT_FORMAT_CHOICES = ["text", "json", "oml"]
@@ -75,8 +75,12 @@ _CHECKERS = {
 }
 
 
-def _read_input(path: str) -> str:
+def _read_input(path: str, max_bytes: Optional[int] = None) -> str:
     """Read a file or standard input as bytes and decode it strictly.
+
+    ``max_bytes`` (D-23, set for every document read, see :func:`_read_document`)
+    stops the read as soon as more than that many bytes have been seen and
+    refuses the input with ``document.limit.input-size`` before decoding.
 
     The CLI decodes on the caller's behalf, so it is a byte-oriented entry
     point for Sec2.5 D-14: invalid UTF-8 raises ``parse.invalid-encoding`` at
@@ -90,10 +94,28 @@ def _read_input(path: str) -> str:
             # A text-only stream (an in-process stand-in for stdin) has
             # already been decoded by whoever built it: D-14 is a rule about
             # bytes, and a str-typed source may be treated as decoded.
-            return sys.stdin.read()
-        return decode_utf8(buffer.read())
+            text = sys.stdin.read() if max_bytes is None else sys.stdin.read(max_bytes + 1)
+            if max_bytes is not None:
+                check_input_size(text, max_bytes)
+            return text
+        return _decode_limited(buffer, max_bytes)
     with open(path, "rb") as f:
-        return decode_utf8(f.read())
+        return _decode_limited(f, max_bytes)
+
+
+def _decode_limited(stream: Any, max_bytes: Optional[int]) -> str:
+    if max_bytes is None:
+        return decode_utf8(stream.read())
+    data = stream.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise input_size_error(max_bytes)
+    return decode_utf8(data)
+
+
+def _read_document(path: str) -> str:
+    """:func:`_read_input` for a Document (not a schema), under the default
+    maximum input size of D-23 (the CLI has no flag for it)."""
+    return _read_input(path, DEFAULT_MAX_INPUT_BYTES)
 
 
 def _write_output(path: Optional[str], text: str) -> None:
@@ -125,7 +147,7 @@ def _encode_validation_result(result: ValidationResult, fmt: str) -> str:
 
 
 def _cmd_format(args: argparse.Namespace) -> int:
-    node = read_oml(_read_input(args.input))
+    node = read_oml(_read_document(args.input))
     _write_output(
         args.output,
         write_oml(node, indent=None if args.compact else 2, arrays=args.arrays))
@@ -172,9 +194,9 @@ def _cmd_convert(args: argparse.Namespace) -> int:
     if args.from_ == "xml":
         # xml is currently the only reader with anything to report
         # (format.attribute-dropped / format.namespace-dropped, Sec8.3.8)
-        node = read_xml(_read_input(args.input), schema=schema, report=read_report)
+        node = read_xml(_read_document(args.input), schema=schema, report=read_report)
     else:
-        node = _READERS[args.from_](_read_input(args.input), schema=schema)
+        node = _READERS[args.from_](_read_document(args.input), schema=schema)
     write_report = WriteReport() if args.report else None
     try:
         text = _write_to_format(
@@ -201,7 +223,7 @@ def _cmd_convert(args: argparse.Namespace) -> int:
 
 
 def _cmd_check(args: argparse.Namespace) -> int:
-    node = _READERS[args.from_](_read_input(args.input))
+    node = _READERS[args.from_](_read_document(args.input))
     try:
         rep = _CHECKERS[args.to](node)
     except WriteError as exc:
@@ -282,7 +304,7 @@ def _fail(args: argparse.Namespace, exc: "str | Exception", code: int) -> int:
 def _cmd_validate(args: argparse.Namespace) -> int:
     if args.json:
         try:
-            node = _READERS[args.from_](_read_input(args.input))
+            node = _READERS[args.from_](_read_document(args.input))
             d = Doc(node)
             s = parse_schema(_read_input(args.schema))
         except (ParseError, SchemaError, DocumentError, OSError) as exc:
@@ -294,7 +316,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
             return 0
         print(_json_validate_errors(str(result), result.errors))
         return 1
-    node = _READERS[args.from_](_read_input(args.input))
+    node = _READERS[args.from_](_read_document(args.input))
     d = Doc(node)
     s = parse_schema(_read_input(args.schema))
     result = s.validate(d)
@@ -309,7 +331,7 @@ def _cmd_infer(args: argparse.Namespace) -> int:
     if args.arrays:
         return _fail(args, _ARRAYS_OSD_ONLY_MSG, 2)
     reader = _READERS[args.from_]
-    docs = [Doc(reader(_read_input(p))) for p in args.input]
+    docs = [Doc(reader(_read_document(p))) for p in args.input]
     if args.allow_any:
         s, fallbacks = infer_with_report(docs, allow_any=True)
         if fallbacks:

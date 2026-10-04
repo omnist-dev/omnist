@@ -109,6 +109,41 @@ except DocumentError as e:
 assert raised
 ```
 
+## The 64 MiB input-size limit
+
+Every read of a Document from text refuses an input of more than **64 MiB**
+(`64 * 1024 * 1024` bytes) with `document.limit.input-size` at `$`
+([D-23](https://spec.omnist.dev/02-document-model/#242-resource-bounds-beyond-the-document)).
+The size is in **bytes**, not characters (`é` counts as two), and a leading
+byte-order mark is counted, because the length is taken before the mark is
+stripped and before anything is decoded. The check comes first, so an
+oversized input is refused with this code even if it is also invalid UTF-8 or
+malformed. An input of exactly the maximum is accepted. The CLI reads at most
+one byte past the maximum from a file or standard input and then refuses;
+it has no flag for the limit. The limit applies to Documents, not to OSD
+schema files.
+
+This is a **behaviour change as of 0.14.0**: a document above 64 MiB used to
+be parsed (slowly, at the cost of memory) and is now refused. Every reader
+takes `max_input_bytes=` to choose another maximum; `0`, a negative number or
+a non-integer is a `ValueError`/`TypeError`, as for the other limits.
+
+```python
+from omnist import ParseError, read_json
+
+read_json('{"a":"xxxxxxxxxxxx"}', max_input_bytes=20)    # 20 bytes: accepted
+try:
+    read_json('{"a":"xxxxxxxxxxxxx"}', max_input_bytes=20)   # 21 bytes
+except ParseError as e:
+    assert (e.code, e.path) == ("document.limit.input-size", "$")
+else:
+    raise AssertionError("not refused")
+```
+<!-- verified-by: tests/test_docs.py::test_limitations_input_size_limit -->
+
+A cap bounds what is parsed; it does not make any parse fast. PyYAML, for
+example, still spends seconds on a megabyte-sized mapping.
+
 ## Format lossiness
 
 Every non-OML codec makes documented adjustments when a Document shape
