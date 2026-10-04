@@ -562,9 +562,7 @@ class _Parser:
         self.skip_sep()
         if self.kind == "EOF":
             return []
-        if self.kind == LBRACE:
-            node = self.parse_value(depth=0)
-        elif self._looks_like_edge():
+        if self._looks_like_edge():
             node = self.parse_node_edges(depth=0)
         else:
             node = self.parse_scalar()
@@ -623,6 +621,9 @@ class _Parser:
                 raise self._error_for(
                     colon_kind, colon_start,
                     f"expected ':' after label {label!r}, got {colon_kind} {text!r}")
+            # OML-29: nothing ends at a colon, so a newline, ';' or comment
+            # there is the gap before the value, not a separator.
+            self.skip_sep()
             if self.kind == LBRACKET:
                 for element in self.parse_array(depth):
                     edges.append((label, element))

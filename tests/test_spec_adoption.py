@@ -347,7 +347,6 @@ class TestOmlLeftoverAndSeparators:
         ("nan: 1", "1:4"), ("inf: 1", "1:4"), ("5: 1", "1:2"),
         ("true: 1", "1:5"), ("null: 1", "1:5"),
         ("1\n2", "2:1"),
-        ("{a: 1} b", "1:8"),
         ("a: {b: 1}}", "1:10"),
     ])
     def test_trailing_content(self, text, path):
@@ -779,7 +778,7 @@ class TestOml26LeftoverWithOrWithoutSeparator:
         # blank lines, comments and indentation before the token
         ("a: 1\n\n\n  }", "4:3"), ("a: 1 # c\n}", "2:1"), ("a: 1\n;\n\n}", "4:1"),
         # a braced edge value, and a braced document
-        ("a: {b: 1}\n}", "2:1"), ("{a: 1}\n}", "2:1"), ("{a: 1}\nb: 2", "2:1"),
+        ("a: {b: 1}\n}", "2:1"),
         # the scalar branch (OML-25)
         ("1\n}", "2:1"), ("1;}", "1:3"),
     ])

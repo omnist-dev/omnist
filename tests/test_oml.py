@@ -121,7 +121,7 @@ def test_nested_braces_arbitrary_depth():
 
 
 def test_inline_brace_style_with_semicolons():
-    assert read_oml('{ a: 1; b: 2 }') == [("a", 1), ("b", 2)]
+    assert read_oml('x: { a: 1; b: 2 }') == [("x", [("a", 1), ("b", 2)])]
 
 
 def test_comments_are_ignored():
@@ -339,8 +339,11 @@ def test_brace_must_wrap_entire_document():
         read_oml("{ a: 1 }\nb: 2")
 
 
-def test_one_set_of_braces_around_everything_is_fine():
-    assert read_oml("{ a: 1; b: 2 }") == [("a", 1), ("b", 2)]
+def test_braces_around_everything_are_not_a_document_shape():
+    # omnist#354: Sec4.6's three legal shapes exclude a top-level braced node.
+    with pytest.raises(ParseError) as ei:
+        read_oml("{ a: 1; b: 2 }")
+    assert (ei.value.code, ei.value.path) == ("parse.unexpected-token", "1:1")
 
 
 def test_two_bare_leaves_is_an_error():
@@ -349,8 +352,8 @@ def test_two_bare_leaves_is_an_error():
 
 
 def test_empty_braces_is_empty_node():
-    assert read_oml("{ ;;; }") == []
-    assert read_oml("{ }") == []
+    assert read_oml("x: { ;;; }") == [("x", [])]
+    assert read_oml("x: { }") == [("x", [])]
 
 
 def test_two_edges_without_separator_is_error():
@@ -368,22 +371,22 @@ def test_two_edges_with_newline_separator_is_fine():
 
 def test_missing_colon_after_label_is_a_parse_error():
     with pytest.raises(ParseError, match="expected ':'"):
-        read_oml("{a 1}")
+        read_oml("x: {a 1}")
 
 
 def test_non_label_token_where_label_expected_is_a_parse_error():
     with pytest.raises(ParseError, match="expected a label"):
-        read_oml("{1: 2}")
+        read_oml("x: {1: 2}")
 
 
 def test_missing_closing_brace_is_a_parse_error():
     with pytest.raises(ParseError, match=r"expected '\}'"):
-        read_oml("{a: 1")
+        read_oml("x: {a: 1")
 
 
 def test_missing_value_after_colon_is_a_parse_error():
     with pytest.raises(ParseError, match="expected a value"):
-        read_oml("{a: }")
+        read_oml("x: {a: }")
 
 
 # ---------------------------------------------------------------------------
@@ -400,7 +403,7 @@ def test_reserved_word_as_bare_label_inside_braces_is_error():
     # is parsed as a bare scalar instead (caught elsewhere); inside braces,
     # a non-first edge's label always goes through parse_label() directly.
     with pytest.raises(ParseError, match="reserved word"):
-        read_oml("{a: 1\ntrue: 2}")
+        read_oml("x: {a: 1\ntrue: 2}")
 
 
 def test_quoted_reserved_word_label_is_fine():
