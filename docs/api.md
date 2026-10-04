@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.12.0"
+omnist.__version__        # "0.13.0"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -404,8 +404,8 @@ simulating a write without producing output. The four built-ins all provide
 | `OmnistError` | base class for all Omnist errors |
 | `SchemaError` | invalid schema text or structure (bad OSD, undefined `Ref`, bad cardinality) — `.code`/`.path` are set for OSD's own lexical (`parse.*`) and well-formedness (`schema.*`) failures (issue #301), `None` otherwise |
 | `ParseError` | a document couldn't be read from its format, or didn't conform to a schema — see [Schema-directed deserialization](deserialization.md) for the structured `.errors` list. For a syntax failure, `.code`/`.path` are set instead (issue #308; `None` for a schema-conformance failure, where `.errors` is populated instead). `.path` is a `line:col` text position for a `parse.*` code (`parse.codec-syntax` for a malformed JSON/YAML/TOML/XML input, `parse.invalid-encoding` at `1:1` for invalid UTF-8 from the CLI), and `$` for a `format.*` profile refusal or a `document.limit.*` limit |
-| `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation. `.code`/`.path` are set for the reader-side failures that have a `document.*` code (a depth, node-count or integer-digit limit; an input construct with no label, such as a JSON array of arrays), with a Document `path`; `None` otherwise |
-| `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML, `code="format.multiple-roots"`), or a schema can't be written as OSD (`to_osd` of a field label with a C0 control character, `code="write.unsupported-value"`, `path` the record's Schema path) |
+| `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation. `.code`/`.path` are set for the reader-side failures that have a `document.*` code (a depth, node-count or integer-digit limit; an input construct with no label, such as a JSON array of arrays), with a Document `path`; `None` otherwise. A nesting-depth refusal from a writer, `Doc.to_data`/`to_grouped`, `infer` or `validate` carries `document.limit.depth` (path `$`). The remaining failures have no registered code and keep `code=None`, so `omnist --json` reports `errors: []` with the detail in `message` (always present): a self-referential Python value (`cycle detected`), a value that is not a Document type, and `Doc` API misuse (`edges()` on a leaf, `get_one` with no or many matches, `check` for a format without one) |
+| `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML, `code="format.multiple-roots"`), or a schema can't be written as OSD (`to_osd` of a field label with a C0 control character, `code="write.unsupported-value"`, `path` the record's Schema path), or a bare scalar root written as TOML (`code="write.unsupported-value"`, `path` `$`). A `strict=True` refusal carries the full `.report` but no `code` (`errors: []` under `--json`) |
 | `DetachedNode` | (`DocumentError` subclass) a cursor used after its node was removed |
 | `UnsafeXMLWarning` | unused as of the fail-closed XML fix (issue #173) — kept exported for backward compatibility |
 

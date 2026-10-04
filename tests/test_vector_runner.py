@@ -354,9 +354,9 @@ def test_run_validate_failure_is_strict(tmp_path, cli):
 def test_run_materialize_success(tmp_path, cli):
     v = {"input": {"schema": SCHEMA, "document": OML_ONE},
          "expect": {"ok": True, "document": OML_ONE}}
-    cli("a: 1\n", "", 0)
+    cli("a: 1\n", "[]", 0)
     assert vr.run_materialize(v, tmp_path) == ("pass", "ok")
-    cli("a: 2\n", "", 0)
+    cli("a: 2\n", "[]", 0)
     assert vr.run_materialize(v, tmp_path)[0] == "fail"
     cli("", "boom", 2)
     status, msg = vr.run_materialize(v, tmp_path)
@@ -810,3 +810,73 @@ def test_iter_vectors_walks_every_file(tmp_path, monkeypatch):
     monkeypatch.setattr(vr, "VECTOR_SUITE_DIR", _write_suite(
         tmp_path, [{"name": "a"}, {"name": "b"}]))
     assert [v["name"] for v in vr.iter_vectors()] == ["a", "b"]
+
+
+# ------------------------------------- success-path diagnostics (omnist#350)
+#
+# A vector with ``ok: true`` and expected diagnostics must be compared for
+# EVERY operation, not only the codecs that print a --report.  Where the CLI
+# has no success-path diagnostics channel (validate, OML parse/write, the
+# schema ops) the actual set is empty, so an expected diagnostic fails
+# honestly instead of passing unchecked.
+
+WARN = [{"path": "$.a", "code": "format.attribute-dropped"}]
+
+
+def test_report_diagnostics_without_a_channel_means_none_reported():
+    assert vr._report_diagnostics({}, None) is None
+    assert vr._report_diagnostics({"diagnostics": WARN}, None)[0] == "fail"
+
+
+def test_run_parse_oml_success_compares_expected_diagnostics(tmp_path, cli):
+    cli("a: 1\n", "", 0)
+    v = {"input": {"format": "oml", "text": "a: 1\n"},
+         "expect": {"ok": True, "document": OML_ONE, "diagnostics": WARN}}
+    assert vr.run_parse(v, tmp_path)[0] == "fail"
+    del v["expect"]["diagnostics"]
+    assert vr.run_parse(v, tmp_path) == ("pass", "ok")
+
+
+def test_run_write_oml_success_compares_expected_diagnostics(tmp_path, cli):
+    cli("a: 1\n", "", 0)
+    v = {"input": {"document": OML_ONE, "format": "oml"},
+         "expect": {"ok": True, "text": "a: 1", "diagnostics": WARN}}
+    assert vr.run_write(v, tmp_path)[0] == "fail"
+    del v["expect"]["diagnostics"]
+    assert vr.run_write(v, tmp_path) == ("pass", "ok")
+
+
+def test_run_validate_success_compares_expected_diagnostics(tmp_path, cli):
+    cli(json.dumps({"ok": True}), "", 0)
+    v = {"input": {"schema": SCHEMA, "document": OML_ONE},
+         "expect": {"ok": True, "diagnostics": WARN}}
+    assert vr.run_validate(v, tmp_path)[0] == "fail"
+    del v["expect"]["diagnostics"]
+    assert vr.run_validate(v, tmp_path) == ("pass", "ok")
+
+
+def test_run_materialize_success_compares_the_report(tmp_path, cli):
+    seen = cli("a: 1\n", json.dumps(WARN), 0)
+    v = {"input": {"schema": SCHEMA, "document": OML_ONE},
+         "expect": {"ok": True, "document": OML_ONE, "diagnostics": WARN}}
+    assert vr.run_materialize(v, tmp_path) == ("pass", "ok")
+    assert "--report" in seen["args"]
+    # expected none, got one -> fail; expected one, got none -> fail
+    del v["expect"]["diagnostics"]
+    assert vr.run_materialize(v, tmp_path)[0] == "fail"
+    cli("a: 1\n", "[]", 0)
+    v["expect"]["diagnostics"] = WARN
+    assert vr.run_materialize(v, tmp_path)[0] == "fail"
+
+
+def test_run_parse_schema_success_compares_expected_diagnostics(tmp_path, cli):
+    cli(SCHEMA, "", 0)
+    v = {"input": {"text": SCHEMA}, "expect": {"ok": True, "diagnostics": WARN}}
+    assert vr.run_parse_schema(v, tmp_path)[0] == "fail"
+
+
+def test_run_extract_success_compares_expected_diagnostics(tmp_path, cli):
+    cli(SCHEMA, "", 0)
+    v = {"input": {"schema": SCHEMA, "keep": ["a"]},
+         "expect": {"ok": True, "schema": SCHEMA, "diagnostics": WARN}}
+    assert vr.run_extract(v, tmp_path)[0] == "fail"

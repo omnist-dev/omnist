@@ -362,7 +362,8 @@ class Schema:
         from .document import _MAX_DEPTH
         if depth > _MAX_DEPTH:
             raise DocumentError(
-                f"{doc.path}: nesting exceeds the maximum depth ({_MAX_DEPTH})")
+                f"{doc.path}: nesting exceeds the maximum depth ({_MAX_DEPTH})",
+                code="document.limit.depth", path="$")
         d = self.resolve(t)
         if isinstance(d, AnyType):
             return
