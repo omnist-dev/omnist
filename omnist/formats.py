@@ -21,7 +21,7 @@ import re as _re
 from typing import TYPE_CHECKING, Any, Optional
 from xml.parsers import expat
 
-from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_input_size, strip_bom
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_encodable, check_input_size, strip_bom
 from ._paths import edge_paths
 from ._position import position
 from ._yaml_alias import (
@@ -217,6 +217,7 @@ def check_json(node: Any) -> WriteReport:
 
 
 def _scan_json(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     for path, v in _leaves(node):
         if isinstance(v, (_dt.date, _dt.time)):
@@ -419,6 +420,7 @@ def write_yaml(node: Any, *, strict: bool = False,
 
 
 def check_yaml(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     for path, v in _leaves(node):
         if isinstance(v, _dt.time):       # YAML carries date/datetime natively, not time
@@ -507,6 +509,7 @@ def read_toml(text: str, *, schema: Optional["Schema"] = None,
 def write_toml(node: Any, *, strict: bool = False,
                report: Optional[WriteReport] = None) -> str:
     tomli_w = _need("tomli_w", "pip install tomli_w")
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     stripped = _strip_nulls(node, "$", rep)        # TOML has no null
     _check_interleaving(node, rep)
@@ -519,6 +522,7 @@ def write_toml(node: Any, *, strict: bool = False,
 
 
 def check_toml(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     _strip_nulls(node, "$", rep)
     _check_interleaving(node, rep)
@@ -659,12 +663,14 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
 
 def write_xml(node: Any, *, strict: bool = False,
               report: Optional[WriteReport] = None) -> str:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional (first)
     if not (isinstance(node, list) and len(node) == 1):
         raise WriteError(
             "XML needs exactly one document element; the root node must have a "
             "single top-level edge (a single-rooted Document)",
             code="format.multiple-roots", path="$")
-    rep = check_xml(node)
+    rep = WriteReport()
+    _scan_xml(node, "$", rep)
     import xml.etree.ElementTree as ET
     (tag, content), = node
     el = ET.Element(tag)
@@ -683,6 +689,7 @@ def write_xml(node: Any, *, strict: bool = False,
 
 
 def check_xml(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     _scan_xml(node, "$", rep)
     return rep

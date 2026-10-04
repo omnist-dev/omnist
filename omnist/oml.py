@@ -34,7 +34,7 @@ import datetime as _dt
 import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
-from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_input_size, strip_bom
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_encodable, check_input_size, strip_bom
 from ._position import line_col
 from .document import _MAX_DEPTH, _MAX_INT_DIGITS, _MAX_NODES
 from .errors import ParseError, WriteError
@@ -888,6 +888,7 @@ def write_oml(node: Any, *, indent: Optional[int] = 2, arrays: bool = False) -> 
     arrays=True)) == node`` holds unconditionally. Default ``False``
     produces output byte-identical to ``arrays`` not existing at all.
     """
+    check_encodable(node)                        # Sec7.3 C-9: the one failure OML has
     if not isinstance(node, list):
         return _write_scalar(node)
     if indent is None:
@@ -912,8 +913,10 @@ def _group_runs(
 
 
 def check_oml(node: Any) -> "WriteReport":
-    """OML can hold every Document losslessly; always an empty report."""
+    """OML can hold every Document losslessly (an empty report), except a
+    string with no UTF-8 encoding, which no writer may write (C-9)."""
     from .report import WriteReport
+    check_encodable(node)
     return WriteReport()
 
 

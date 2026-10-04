@@ -21,7 +21,8 @@ from __future__ import annotations
 
 from typing import Any, Union
 
-from .errors import ParseError
+from ._paths import edge_paths
+from .errors import ParseError, WriteError
 
 # D-24 gives no reference default; this implementation's is 64 MiB. It is a
 # bound on parse cost (a byte cap is the only thing that bounds a codec
@@ -77,6 +78,49 @@ def check_input_size(data: Union[str, bytes], max_input_bytes: int) -> None:
         size = len(data.encode("utf-8", "surrogatepass"))
     if size > max_input_bytes:
         raise input_size_error(max_input_bytes)
+
+
+def _encodes(s: str) -> bool:
+    if s.isascii():
+        return True
+    try:
+        s.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def check_encodable(node: Any) -> None:
+    """Sec7.3 C-9: every writer fails, unconditionally, on a string value or an
+    edge label with no UTF-8 encoding -- a lone surrogate, or a surrogate-escape
+    artefact (U+DC80..U+DCFF) from ``errors="surrogateescape"`` -- with
+    ``write.unsupported-value``. Emitting it as an escape (``\\ud800``) is not
+    an alternative: only a failure complies.
+
+    The path is the Document path of the node *holding* the string: the leaf
+    for a value (indexed per E-10), the node that holds the edge for a label
+    (Sec8.4 cannot quote a label, so the label is never put in the path).
+    Stops at the first offender, in document order; iterative, so a node
+    deeper than the writers' own depth limit is still refused by *their*
+    depth check, not by a ``RecursionError`` here."""
+    stack: list[tuple[str, Any]] = [("$", node)]
+    while stack:
+        path, n = stack.pop()
+        if not isinstance(n, list):
+            if isinstance(n, str) and not _encodes(n):
+                raise WriteError(
+                    f"{path}: a string value with no UTF-8 encoding (a lone surrogate or a "
+                    "surrogate escape) cannot be written", code="write.unsupported-value",
+                    path=path)
+            continue
+        edges = list(edge_paths(path, n))
+        for label, _child, _p in edges:
+            if not _encodes(label):
+                raise WriteError(
+                    f"{path}: an edge label with no UTF-8 encoding (a lone surrogate or a "
+                    "surrogate escape) cannot be written", code="write.unsupported-value",
+                    path=path)
+        stack.extend((p, child) for _label, child, p in reversed(edges))
 
 
 def decode_utf8(data: bytes) -> str:
