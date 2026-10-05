@@ -242,7 +242,7 @@ _ALLOWED_CODES = {
     "json": {"format.temporal-stringified", "format.interleaving-lost"},
     "yaml": {"format.temporal-stringified", "format.interleaving-lost"},
     "toml": {"format.interleaving-lost"},
-    "xml": {"null.omitted", "format.temporal-stringified", "format.value-stringified"},
+    "xml": {"format.temporal-stringified", "format.value-stringified"},
 }
 
 

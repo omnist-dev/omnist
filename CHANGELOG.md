@@ -6,6 +6,37 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.15.0] — adopts omnist-spec v0.33.0-beta: C-10 (XML null leaf fails); E-10 on XML drop paths
+
+A **minor** bump under the beta rule: the XML writer now rejects an input it
+used to accept (see "Behaviour changes"). `vendor/omnist-spec` moves from
+`v0.32.0-beta` to `v0.33.0-beta` (`64cbb68`). Conformance: Track 1 19/19;
+Track 2 333 passed, 0 failed, 34 skipped of 367 (28 OSD-OML, 6 limits E-20,
+unchanged); from the bump alone 4 vectors failed (the `formats-xml/nulls`
+write vectors; the fifth, the read-side neighbour, already passed).
+
+- **C-10: an XML null leaf fails the write.** `write_xml`, `check_xml`,
+  `Doc.to_xml` and `omnist convert --to xml` raise `WriteError`
+  (`write.unsupported-value`), unconditionally and regardless of `strict`, at
+  the Document path of the null leaf, with the E-10 index when its label
+  repeats (`$.root.item[1]`). XML has no null token and `<a/>` reads back as
+  the empty string, so the old output was indistinguishable from the different
+  Document holding `""`. The `null.omitted` adjustment for XML, its docs and
+  its tests are gone. Closes the Python row of ledger `DIV-21`.
+- **E-10 on the XML reader's drop paths (omnist#357).**
+  `format.attribute-dropped` and `format.namespace-dropped` now carry the index
+  on every occurrence of a repeated element (`<r><a x="1"/><a x="2"/></r>`
+  reports `$.r.a[0]` and `$.r.a[1]`, not `$.r.a` twice); built with the shared
+  `edge_paths` helper. A lone element is unchanged.
+- Docs: `docs/formats/toml.md` still described a TOML null as dropped with
+  `null.omitted`; it has failed unconditionally since #324. Corrected.
+
+### Behaviour changes
+
+- Writing a Document with a null leaf to XML used to succeed with a
+  `null.omitted` warning (an empty element) and now fails. Callers that relied
+  on it must remove or replace the null before writing.
+
 ## [v0.14.0] — adopts omnist-spec v0.32.0-beta: repeated-label paths, input-size limit, OML-29, C-9
 
 A **minor** bump under the beta rule: new behaviour, a new default limit and

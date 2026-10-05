@@ -26,7 +26,7 @@ tools/conformance/
   runner.py        runs vendor/omnist-spec's real per-operation fixtures
                    (conformance/fixtures/, directory-per-case format)
   vector_runner.py runs vendor/omnist-spec's test-suite/ JSON-vector suite
-                   (362 vectors, envelope format -- see its own docstring)
+                   (367 vectors, envelope format -- see its own docstring)
 ```
 
 `runner.py` and `vector_runner.py` are two separate runners over two

@@ -621,7 +621,7 @@ def _xml_pretype_scalar(value: Any, s: "Scalar") -> Any:
 
 
 def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
-                 report: Optional[WriteReport] = None, epath: Optional[str] = None) -> Any:
+                 report: Optional[WriteReport], epath: str) -> Any:
     # budget is a shared running node count across the whole call tree, the
     # same mechanism build_node uses (document.py) -- unlike build_node's
     # readers, XML's ElementTree parse has no aliasing mechanism to create a
@@ -651,10 +651,12 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
                     "child elements) is outside the data-XML profile",
                     code="format.mixed-content", path="$")
         out = []
-        for c in children:
-            c_local = _local(c.tag)
+        # E-10 (omnist#357): the index is on every edge of a label that
+        # repeats in this node, so the drop-diagnostic path is built by the
+        # shared edge_paths helper, not by hand.
+        edges = [(_local(c.tag), c) for c in children]
+        for (c_local, c), (_, _, cepath) in zip(edges, edge_paths(epath, edges)):
             p = f"{path}.{c_local}"
-            cepath = f"{epath}.{c_local}" if epath is not None else None
             _check_xml_drops(c, cepath, report)
             out.append((c_local, _xml_to_node(c, p, depth + 1, budget, report, cepath)))
         return out
@@ -723,7 +725,14 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
         return
     v = node
     if v is None:
-        rep.add(path, "null.omitted", "null written as an empty element", "warning")
+        # Sec7.3 C-10: XML has no null token and `<a/>` reads back as the
+        # empty string, so a written null would be indistinguishable from
+        # the different, valid Document holding "". Fails unconditionally,
+        # regardless of `strict`, at the (E-10 indexed) path of the leaf.
+        raise WriteError(
+            f"{path}: a null leaf has no XML spelling (an empty element "
+            "reads back as the empty string)",
+            code="write.unsupported-value", path=path)
     elif isinstance(v, (_dt.date, _dt.time)):
         rep.add(path, "format.temporal-stringified",
                 "temporal value written as text (reads back as a string)", "warning")
@@ -771,8 +780,6 @@ def _node_to_xml(content: Any, parent: Any) -> None:
 def _xml_text(v: Any) -> str:
     if isinstance(v, bool):
         return "true" if v else "false"
-    if v is None:
-        return ""
     if isinstance(v, (_dt.date, _dt.time)):
         return v.isoformat()
     return str(v)
@@ -790,7 +797,7 @@ def _local(tag: str) -> str:
 _XMLNS_ATTR = _re.compile(r"^xmlns(:|$)")
 
 
-def _check_xml_drops(elem: Any, path: Optional[str], report: Optional[WriteReport]) -> None:
+def _check_xml_drops(elem: Any, path: str, report: Optional[WriteReport]) -> None:
     """format.attribute-dropped / format.namespace-dropped (Sec8.3.8): fired
     at the element the loss happened on, the same convention format.float-
     special uses for the value it substituted. ElementTree gives every
@@ -803,10 +810,6 @@ def _check_xml_drops(elem: Any, path: Optional[str], report: Optional[WriteRepor
     format.namespace-dropped)."""
     if report is None:
         return
-    # path is only ever None if epath was None at the call site, which never
-    # happens: read_xml's root call always builds a real "$.<local>" string,
-    # and _xml_to_node's recursive calls only ever narrow it further.
-    assert path is not None
     if ":" in elem.tag:
         report.add(path, "format.namespace-dropped",
                     "XML namespace prefix discarded on read (element reads "

@@ -66,7 +66,7 @@ class TestMachineModeJsonExamples:
         # Issues #323/#324/#325: a null leaf has no representation in TOML
         # and no safe substitute, so this now fails unconditionally
         # (write.unsupported-value) -- even from `check`, which never
-        # writes -- instead of succeeding with a null.omitted warning.
+        # writes -- instead of succeeding with a null.omitted warning (XML: C-10, same).
         code, out, err = run(
             ["check", "examples/cli/lossy.json", "--from", "json", "--to", "toml", "--json"],
             capsys)

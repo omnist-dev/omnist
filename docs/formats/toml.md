@@ -99,10 +99,9 @@ write_toml([("id", "A1")])              # 'id = "A1"\n'
 Doc.of({"id": "A1"}).to_toml()          # 'id = "A1"\n'
 ```
 
-> **No `null`.** TOML has no null value, so writing one is lenient by default:
-> the edge is dropped and recorded as a `null.omitted` adjustment (a warning).
-> `write_toml(node, report=rep)` shows it; `strict=True` raises `WriteError`
-> instead. See [adjustment reports](../api.md#adjustment-reports-lossy-writes).
+> **No `null`.** TOML has no null value, so writing one fails unconditionally
+> (`WriteError`, `code="write.unsupported-value"`, at the path of the null
+> leaf), regardless of `strict`.
 >
 > **Top-level must be a table.** A bare scalar or array at the root isn't valid
 > TOML; a single-rooted Document (one top-level key) writes cleanly.
