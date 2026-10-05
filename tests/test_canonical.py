@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.14.0"
+        assert ds.__version__ == "0.15.0"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -1117,12 +1117,11 @@ class TestCodecs:
         assert ei.value.code == "write.unsupported-value"
 
     def test_xml_leaf_types_round_trip_as_text(self):
-        # bool/None/date leaves all go through _xml_text's special-casing.
-        d = [("r", [("flag", True), ("nothing", None),
-                    ("d", datetime.date(2024, 1, 1))])]
+        # bool/date leaves go through _xml_text's special-casing (a null
+        # leaf fails instead, C-10: test_xml_null_leaf_fails_c10).
+        d = [("r", [("flag", True), ("d", datetime.date(2024, 1, 1))])]
         out = write_xml(d)
         assert "<flag>true</flag>" in out
-        assert "<nothing />" in out or "<nothing/>" in out or "<nothing></nothing>" in out
         assert "<d>2024-01-01</d>" in out
 
     def test_xml_text_never_infers_scalar_kind_from_shape(self):
@@ -1579,10 +1578,29 @@ class TestReports:
             write_json(node)
         assert ei.value.path == "$.r.x"
 
-    def test_xml_null_omitted(self):
-        node = doc({"a": None}).to_data()
-        rep = check_xml(node)
-        assert [a.code for a in rep] == ["null.omitted"]
+    @pytest.mark.parametrize("node, path", [
+        ([("a", None)], "$.a"),
+        ([("root", [("x", [("n", None)])])], "$.root.x.n"),
+        ([("root", [("item", "p"), ("item", "q"), ("item", None)])], "$.root.item[2]"),
+        ([("root", [("item", "p"), ("item", None), ("item", "r")])], "$.root.item[1]"),
+    ])
+    def test_xml_null_leaf_fails_c10(self, node, path):
+        # Sec7.3 C-10: an XML writer MUST fail with write.unsupported-value at
+        # the E-10-indexed path of a null leaf, unconditionally (an empty
+        # element reads back as "", a different valid Document).
+        for strict in (False, True):
+            with pytest.raises(WriteError) as ei:
+                write_xml(node, strict=strict)
+            assert ei.value.code == "write.unsupported-value"
+            assert ei.value.path == path
+        with pytest.raises(WriteError) as ei:
+            check_xml(node)
+        assert (ei.value.code, ei.value.path) == ("write.unsupported-value", path)
+
+    def test_xml_empty_string_leaf_still_writes_and_reads_back(self):
+        # the read-side neighbour of C-10: a childless element is the empty string
+        assert read_xml(write_xml([("a", "")])) == [("a", "")]
+        assert read_xml("<root><s/></root>") == [("root", [("s", "")])]
 
     def test_yaml_time_is_stringified(self):
         node = doc({"t": datetime.time(9, 30)}).to_data()
@@ -2951,6 +2969,33 @@ class TestFormatAdjustmentDiagnostics:
             ("$.a.b", "format.attribute-dropped"),
             ("$.a.b", "format.namespace-dropped"),
         ]
+
+    def test_xml_dropped_attribute_on_repeated_element_is_indexed(self):
+        # omnist#357 / E-10: the index is on every edge of a repeated label
+        rep = WriteReport()
+        read_xml('<r><a x="1"/><a x="2"/></r>', report=rep)
+        assert [(a.path, a.code) for a in rep] == [
+            ("$.r.a[0]", "format.attribute-dropped"),
+            ("$.r.a[1]", "format.attribute-dropped")]
+
+    def test_xml_dropped_namespace_on_repeated_element_is_indexed(self):
+        rep = WriteReport()
+        read_xml('<r><ns:a>1</ns:a><a>2</a><ns:a>3</ns:a></r>', report=rep)
+        assert [(a.path, a.code) for a in rep] == [
+            ("$.r.a[0]", "format.namespace-dropped"),
+            ("$.r.a[2]", "format.namespace-dropped")]
+
+    def test_xml_nested_repeated_drops_are_indexed_per_node(self):
+        rep = WriteReport()
+        read_xml('<r><a><b x="1"/><b/></a><a><b x="2"/></a></r>', report=rep)
+        assert [(a.path, a.code) for a in rep] == [
+            ("$.r.a[0].b[0]", "format.attribute-dropped"),
+            ("$.r.a[1].b", "format.attribute-dropped")]
+
+    def test_xml_single_element_drop_path_is_unindexed(self):
+        rep = WriteReport()
+        read_xml('<r><a x="1"/><c/></r>', report=rep)
+        assert [(a.path, a.code) for a in rep] == [("$.r.a", "format.attribute-dropped")]
 
     def test_xml_doctype_is_rejected(self):
         # _xml_fromstring's custom expat parser reimplements defusedxml's

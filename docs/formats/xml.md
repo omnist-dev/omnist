@@ -127,7 +127,7 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 > [adjustment reports](../api.md#adjustment-reports-lossy-writes) to
 > inspect either, or `strict=True` to raise instead of adjusting.
 >
-> Four other cases have **no safe substitute at all**, and fail
+> Five other cases have **no safe substitute at all**, and fail
 > unconditionally (`WriteError`, `code="write.unsupported-value"`) instead
 > of substituting and reporting a warning -- issues #323/#325 found each of
 > the old substitutions could collide, on read-back, with some other,
@@ -146,6 +146,13 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 >   `<tag />`, and `read_xml` always reconstructs the empty-string leaf.
 >   Writing `[]` now fails outright; writing `""` still round-trips fine and
 >   is not flagged.
+> - **A null leaf** has no XML spelling: XML has no null token, and an empty
+>   element reads back as the empty string, so a written null would be
+>   indistinguishable from the different, valid Document holding `""`
+>   (omnist-spec C-10). It fails at the path of the null leaf, with the
+>   repeated-label index (`$.root.item[1]`), regardless of `strict`. This
+>   replaces the old `null.omitted` adjustment, which wrote an empty element
+>   and warned.
 >
 > **A string containing `\r`**, by contrast, now writes *losslessly*: issue
 > #326 escapes it as the numeric character reference `&#13;` (and `\r\n` as
@@ -157,6 +164,14 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 `write_xml`/`check_xml` raise `WriteError` (naming the limit) if a
 Document nests past 200 levels — the same limit `read_xml` already
 enforces on parse. See [the API reference](../api.md#reading--writing-formats).
+
+## Dropped attributes and namespaces
+
+Reading reports `format.attribute-dropped` and `format.namespace-dropped`
+(warnings) at the Document path of the element, which carries the `[i]` index
+on every occurrence of a label that repeats in its parent: `<r><a x="1"/><a
+x="2"/></r>` reports `$.r.a[0]` and `$.r.a[1]`, a lone `<a x="1"/>` reports
+`$.r.a`.
 
 ## Mixed content is rejected
 

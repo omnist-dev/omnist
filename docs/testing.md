@@ -144,10 +144,10 @@ round-tripped through every codec:
 - **JSON, YAML, TOML, XML** must round-trip exactly *modulo documented
   adjustments* — the test asserts every adjustment code returned by
   `check_json`/`check_yaml`/`check_toml`/`check_xml` is one already
-  documented (e.g. `format.temporal-stringified`, `null.omitted`,
+  documented (e.g. `format.temporal-stringified`,
   `format.value-stringified`) and only skips the
   exact-equality assertion when an adjustment was actually reported. A value
-  with no legal representation at all (a null leaf to TOML, a NaN/Infinity
+  with no legal representation at all (a null leaf to TOML or XML, a NaN/Infinity
   leaf to JSON, a bad label or empty internal node to XML — issues
   #323/#324/#325) raises `WriteError` with `code="write.unsupported-value"`
   instead of returning a report; the test catches that specifically and
