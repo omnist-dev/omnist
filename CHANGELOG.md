@@ -30,9 +30,9 @@ OML-29, 10 input-size). Divergence-ledger entries closed: `DIV-14`, `DIV-17`,
   counted, a leading BOM included. The default is **64 MiB**
   (`67_108_864`): D-24 gives no reference default, and this one is large
   enough for any real document while keeping the worst case of the slowest
-  codec (PyYAML, seconds per megabyte) from becoming unbounded. The CLI has no
-  limit flags, so it always uses the default (a file or stdin is read at most
-  one byte past the maximum); OSD schema files are not Documents and are not
+  codec (PyYAML, seconds per megabyte) from becoming unbounded. The CLI takes
+  `--max-input-bytes N` (a file or stdin is read at most one byte past the
+  maximum); OSD schema files are not Documents and are not
   bounded. The option is validated like the other limits: `0`, a negative
   number, a `bool` or a non-int raise `ValueError`/`TypeError` (no ceiling).
 - **OML-29: a gap after the colon (v0.31).** `a:` newline `1`, `a: ;1`,
@@ -54,9 +54,14 @@ OML-29, 10 input-size). Divergence-ledger entries closed: `DIV-14`, `DIV-17`,
   fails with `parse.unexpected-token` at the `{` (`1:1`), the code and
   position Go and Java report. Braces are unchanged below the root
   (`x: {a: 1}`).
+- **CLI `--max-input-bytes N`** on every subcommand that reads a Document
+  (`format`, `convert`, `check`, `validate`, `infer`): the same limit as the
+  library option, validated the same way (an integer of at least 1, else a usage
+  error); the refusal says "use --max-input-bytes to raise it". Additive.
 - **Conformance runner.** Understands `declared_max_input_bytes` (library path,
   option `max_input_bytes`); any other unknown `declared_*` key still fails the
-  vector (E-20a).
+  vector (E-20a), and so does a known one on an operation that does not honour
+  it (only `parse` does).
 - **Behaviour changes.** (1) An input above 64 MiB is now refused, not parsed;
   raise `max_input_bytes` to keep reading one. (2) Paths of a repeated label's
   first occurrence changed (`$.a` to `$.a[0]`) in diagnostics, `WriteError.path`

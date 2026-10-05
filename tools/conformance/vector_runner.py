@@ -545,6 +545,12 @@ def run_vector(v: Dict[str, Any]) -> Result:
     if unknown:
         return "fail", (f"unknown declared-limit key(s) {sorted(unknown)}: teach the runner "
                         "(running against this omnist's default would be a false result)")
+    ignored = sorted(_LIBRARY_KEYS.keys() & v["input"].keys()) if op != "parse" else []
+    if ignored:
+        # E-20a: only the `parse` driver passes these to a reader; any other
+        # operation would silently run against the default and could pass.
+        return "fail", (f"declared-limit key(s) {ignored} on operation {op!r}, whose driver "
+                        "does not honour them: teach the runner (E-20a)")
     reason = skip_reason(v)
     if reason is not None:
         return "skip", reason

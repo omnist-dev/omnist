@@ -19,6 +19,7 @@ and one rule of Sec2.4.2:
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Union
 
 from ._paths import edge_paths
@@ -48,14 +49,16 @@ def validate_max_input_bytes(value: Any) -> None:
         raise ValueError(f"max_input_bytes must be at least 1, not {value}")
 
 
-def input_size_error(max_input_bytes: int) -> ParseError:
+def input_size_error(max_input_bytes: int,
+                     hint: str = "pass max_input_bytes= to raise it") -> ParseError:
     """The D-23 refusal: ``document.limit.input-size`` at ``$``."""
     return ParseError(
-        f"input exceeds the maximum input size ({max_input_bytes} bytes)",
+        f"input exceeds the maximum input size ({max_input_bytes} bytes); {hint}",
         code="document.limit.input-size", path="$")
 
 
-def check_input_size(data: Union[str, bytes], max_input_bytes: int) -> None:
+def check_input_size(data: Union[str, bytes], max_input_bytes: int, *,
+                     hint: str = "pass max_input_bytes= to raise it") -> None:
     """Sec2.4.2 D-23: refuse an input of more than ``max_input_bytes`` bytes,
     accept one of exactly that many.
 
@@ -68,41 +71,60 @@ def check_input_size(data: Union[str, bytes], max_input_bytes: int) -> None:
     if isinstance(data, bytes):
         size = len(data)
     else:
-        n = len(data)
-        # every character is at least one byte and at most four, so the exact
-        # (linear) encode is only needed in between
-        if n > max_input_bytes:
-            raise input_size_error(max_input_bytes)
-        if n * 4 <= max_input_bytes:
-            return
         size = len(data.encode("utf-8", "surrogatepass"))
     if size > max_input_bytes:
-        raise input_size_error(max_input_bytes)
+        raise input_size_error(max_input_bytes, hint)
+
+
+_SURROGATE = re.compile("[" + chr(0xD800) + "-" + chr(0xDFFF) + "]").search
 
 
 def _encodes(s: str) -> bool:
-    if s.isascii():
-        return True
-    try:
-        s.encode("utf-8")
-    except UnicodeEncodeError:
-        return False
-    return True
+    """A str has a UTF-8 encoding exactly when it holds no surrogate code point."""
+    return not _SURROGATE(s)
+
+
+def _any_unencodable(node: Any) -> bool:
+    """The fast, pathless test behind :func:`check_encodable`: is any string
+    value or label a lone surrogate (every str without a UTF-8 encoding
+    contains one; astral characters, noncharacters and NUL all encode)? No
+    path strings are built: that cost is paid only to report a failure."""
+    stack = [node]
+    pop, push, search = stack.pop, stack.append, _SURROGATE
+    while stack:
+        n = pop()
+        if isinstance(n, list):
+            for label, child in n:
+                if not label.isascii() and search(label):
+                    return True
+                if isinstance(child, list):
+                    push(child)
+                elif isinstance(child, str) and not child.isascii() and search(child):
+                    return True
+        elif isinstance(n, str) and not n.isascii() and search(n):
+            return True
+    return False
 
 
 def check_encodable(node: Any) -> None:
     """Sec7.3 C-9: every writer fails, unconditionally, on a string value or an
     edge label with no UTF-8 encoding -- a lone surrogate, or a surrogate-escape
     artefact (U+DC80..U+DCFF) from ``errors="surrogateescape"`` -- with
-    ``write.unsupported-value``. Emitting it as an escape (``\\ud800``) is not
-    an alternative: only a failure complies.
+    ``write.unsupported-value``. Emitting it as an escape is not an
+    alternative: only a failure complies.
 
-    The path is the Document path of the node *holding* the string: the leaf
-    for a value (indexed per E-10), the node that holds the edge for a label
-    (Sec8.4 cannot quote a label, so the label is never put in the path).
-    Stops at the first offender, in document order; iterative, so a node
-    deeper than the writers' own depth limit is still refused by *their*
-    depth check, not by a ``RecursionError`` here."""
+    A pathless walk decides whether there is an offender; only then does the
+    slow walk run to find the first one and build its path, which is the
+    Document path of the node *holding* the string: the leaf for a value
+    (indexed per E-10), the node that holds the edge for a label (Sec8.4
+    cannot quote a label, so the label is never put in the path). Both walks
+    are iterative, so a node deeper than the writers' own depth limit is
+    still refused by *their* depth check, not by a ``RecursionError`` here."""
+    if _any_unencodable(node):
+        _raise_first_unencodable(node)
+
+
+def _raise_first_unencodable(node: Any) -> None:
     stack: list[tuple[str, Any]] = [("$", node)]
     while stack:
         path, n = stack.pop()

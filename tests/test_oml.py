@@ -334,9 +334,11 @@ def test_multiline_canonical_writer_never_emits_it():
 # Top-level brace / structural disambiguation
 # ---------------------------------------------------------------------------
 
-def test_brace_must_wrap_entire_document():
-    with pytest.raises(ParseError):
+def test_braced_root_followed_by_an_edge_is_rejected_at_the_brace():
+    # no longer a "brace must wrap everything" rule: a braced root is never legal (#354)
+    with pytest.raises(ParseError) as ei:
         read_oml("{ a: 1 }\nb: 2")
+    assert (ei.value.code, ei.value.path) == ("parse.unexpected-token", "1:1")
 
 
 def test_braces_around_everything_are_not_a_document_shape():

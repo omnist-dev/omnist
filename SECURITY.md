@@ -46,8 +46,8 @@ what's actually been considered and tested, and what hasn't.
   input of exactly the maximum is accepted. The unit is bytes, not
   characters, and a leading byte-order mark counts. The CLI reads at most
   one byte past the maximum from a file or standard input. Pass
-  `max_input_bytes=` to a reader to choose another value (the CLI has no
-  flag for it). A cap bounds what is parsed; it does not make a parse fast.
+  `max_input_bytes=` to a reader, or `--max-input-bytes N` to the CLI, to choose
+  another value. A cap bounds what is parsed; it does not make a parse fast.
   See [docs/limitations.md](docs/limitations.md#the-64-mib-input-size-limit).
 
 - **XML parsing prefers `defusedxml`, which hardens against XXE and

@@ -286,3 +286,119 @@ def test_runner_refuses_a_bytes_hex_library_limit_vector():
          "expect": {"ok": True}}
     status, msg = vr.run_vector(v)
     assert status == "fail" and "library-limit vector is text" in msg
+
+
+# ---------------------------------------------------------------------------
+# --max-input-bytes (every subcommand that reads a Document)
+# ---------------------------------------------------------------------------
+
+DOC_COMMANDS = [
+    ["format", "{f}"],
+    ["convert", "{f}", "--from", "oml", "--to", "json"],
+    ["check", "{f}", "--from", "oml", "--to", "json"],
+    ["validate", "{f}", "--from", "oml", "--schema", "{s}"],
+    ["infer", "{f}", "--from", "oml"],
+]
+
+
+@pytest.fixture
+def doc_and_schema(tmp_path):
+    f = tmp_path / "d.oml"
+    f.write_bytes(b'a: "xxxxxxxxxxxxxxxxxxx"')           # 24 bytes
+    s = tmp_path / "s.osd"
+    s.write_text('record R {\n  "a": string,\n}\nroot R\n')
+    return f, s
+
+
+def _argv(template, f, s):
+    return [a.replace("{f}", str(f)).replace("{s}", str(s)) for a in template]
+
+
+@pytest.mark.parametrize("template", DOC_COMMANDS, ids=lambda t: t[0])
+def test_flag_over_the_maximum_is_refused_with_a_hint(doc_and_schema, capsys, template):
+    f, s = doc_and_schema
+    assert main(_argv(template, f, s) + ["--max-input-bytes", "23", "--json"]) == 2
+    err = _payload(capsys)["errors"][0]
+    assert (err["path"], err["code"]) == ("$", "document.limit.input-size")
+    assert "use --max-input-bytes to raise it" in err["message"]
+
+
+@pytest.mark.parametrize("template", DOC_COMMANDS, ids=lambda t: t[0])
+def test_flag_at_the_maximum_is_accepted(doc_and_schema, capsys, template):
+    f, s = doc_and_schema
+    assert main(_argv(template, f, s) + ["--max-input-bytes", "24", "--json"]) == 0
+    capsys.readouterr()
+
+
+def test_flag_raises_the_default(tiny_default, doc_and_schema, capsys):
+    f, _ = doc_and_schema
+    assert main(["format", str(f), "--json"]) == 2          # default patched to 12
+    capsys.readouterr()
+    assert main(["format", str(f), "--max-input-bytes", "24", "--json"]) == 0
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("bad", ["0", "-1", "abc", "1.5", ""])
+def test_flag_validation_is_the_library_options(doc_and_schema, capsys, bad):
+    f, _ = doc_and_schema
+    with pytest.raises(SystemExit) as ei:
+        main(["format", str(f), "--max-input-bytes", bad])
+    assert ei.value.code == 2
+    assert "--max-input-bytes" in capsys.readouterr().err
+
+
+def test_flag_on_stdin_buffer_and_text(monkeypatch, capsys):
+    stdin = _StdinWithBuffer(b"a: 1\n" * 100)
+    monkeypatch.setattr("sys.stdin", stdin)
+    assert main(["format", "-", "--max-input-bytes", "20", "--json"]) == 2
+    err = _payload(capsys)["errors"][0]
+    assert err["code"] == "document.limit.input-size" and "--max-input-bytes" in err["message"]
+    assert stdin.buffer.requested == [21]
+    monkeypatch.setattr("sys.stdin", _StdinWithBuffer(b"a: 1\n"))
+    assert main(["format", "-", "--max-input-bytes", "5", "--json"]) == 0
+    capsys.readouterr()
+    monkeypatch.setattr("sys.stdin", io.StringIO("a: 1\n" * 100))
+    assert main(["format", "-", "--max-input-bytes", "20", "--json"]) == 2
+    assert "--max-input-bytes" in _payload(capsys)["errors"][0]["message"]
+    # fewer characters than the maximum but more bytes: the text-only branch measures bytes
+    monkeypatch.setattr("sys.stdin", io.StringIO('a: "' + "\u00e9" * 5 + '"'))
+    assert main(["format", "-", "--max-input-bytes", "12", "--json"]) == 2
+    capsys.readouterr()
+
+
+def test_schema_commands_have_no_such_flag(doc_and_schema):
+    _, s = doc_and_schema
+    with pytest.raises(SystemExit):
+        main(["schema", "format", str(s), "--max-input-bytes", "5"])
+
+
+# ---------------------------------------------------------------------------
+# A BOM counts toward the maximum in EVERY reader
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("fmt", sorted(READERS))
+def test_bom_counts_toward_the_maximum_in_every_reader(fmt):
+    bom = "\ufeff"
+    at = bom + _sized(fmt, 37)                                # 3 + 37 = 40 bytes
+    over = bom + _sized(fmt, 38)
+    assert len(at.encode()) == 40 and len(over.encode()) == 41
+    READERS[fmt][0](at, max_input_bytes=40)
+    with pytest.raises(ParseError) as ei:
+        READERS[fmt][0](over, max_input_bytes=40)
+    assert _refusal(ei.value) == ("document.limit.input-size", "$")
+    with pytest.raises(ParseError):                           # not measured after stripping
+        READERS[fmt][0](at, max_input_bytes=39)
+
+
+# ---------------------------------------------------------------------------
+# Runner E-20a: a declared key on an operation that ignores it is a FAIL
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("op", ["write", "validate", "materialize", "infer", "normalize", "lint"])
+@pytest.mark.parametrize("key", ["declared_max_input_bytes", "declared_max_alias_expansion",
+                                 "declared_max_expanded_slots"])
+def test_runner_fails_a_declared_key_on_an_operation_that_does_not_honour_it(op, key):
+    v = {"name": "n", "operation": op, "input": {"format": "json", key: 3},
+         "expect": {"ok": True}}
+    status, msg = vr.run_vector(v)
+    assert status == "fail" and key in msg and "E-20a" in msg

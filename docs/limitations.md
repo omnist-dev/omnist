@@ -120,7 +120,8 @@ stripped and before anything is decoded. The check comes first, so an
 oversized input is refused with this code even if it is also invalid UTF-8 or
 malformed. An input of exactly the maximum is accepted. The CLI reads at most
 one byte past the maximum from a file or standard input and then refuses;
-it has no flag for the limit. The limit applies to Documents, not to OSD
+`--max-input-bytes N` (on `format`, `convert`, `check`, `validate` and
+`infer`) raises or lowers it. The limit applies to Documents, not to OSD
 schema files.
 
 This is a **behaviour change as of 0.14.0**: a document above 64 MiB used to

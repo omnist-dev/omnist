@@ -60,3 +60,16 @@ def test_top_level_braced_node_is_rejected(text, path):
 ])
 def test_braces_stay_legal_below_the_root(text, expected):
     assert read_oml(text) == expected
+
+
+@pytest.mark.parametrize("text, code, path", [
+    ("a: 1\nb\n: 2", "parse.unexpected-token", "2:2"),    # non-first edge: newline before the colon
+    ("a: 1; b ; : 2", "parse.unexpected-token", "1:8"),
+    ("a: {b\n: 1}", "parse.unexpected-token", "1:6"),      # inside braces
+    ("a\n: 1", "parse.bare-word", "1:1"),                   # first edge
+    ("a # c\n: 1", "parse.bare-word", "1:1"),               # comment before the colon
+])
+def test_a_gap_before_the_colon_is_still_rejected(text, code, path):
+    with pytest.raises(ParseError) as ei:
+        read_oml(text)
+    assert (ei.value.code, ei.value.path) == (code, path)
