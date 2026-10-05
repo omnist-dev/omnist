@@ -25,6 +25,8 @@ from __future__ import annotations
 import datetime as _dt
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple
 
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_input_size
+from ._paths import edge_paths
 from .errors import DocumentError
 
 if TYPE_CHECKING:
@@ -185,46 +187,64 @@ class Doc:
         return cls(build_node(value))
 
     @classmethod
-    def from_format(cls, name: str, text: str) -> "Doc":
-        """Parse source text using the registered format named ``name`` into a Doc."""
+    def from_format(cls, name: str, text: str, *,
+                    max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
+        """Parse source text using the registered format named ``name`` into a Doc.
+
+        ``max_input_bytes`` (default 64 MiB, D-23) is passed to a reader that
+        takes it (every built-in does); for any other reader (a plugin's) the
+        input is checked here, before it runs."""
+        import inspect
+
         from .registry import get_format
-        return cls(get_format(name).read(text))
+        read: Any = get_format(name).read
+        if "max_input_bytes" in inspect.signature(read).parameters:
+            return cls(read(text, max_input_bytes=max_input_bytes))
+        check_input_size(text, max_input_bytes)
+        return cls(read(text))
 
     @classmethod
-    def from_json(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+    def from_json(cls, text: str, *, schema: Optional["Schema"] = None,
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
         """Parse JSON text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .formats import read_json
-        return cls(read_json(text, schema=schema))
+        return cls(read_json(text, schema=schema, max_input_bytes=max_input_bytes))
 
     @classmethod
     def from_yaml(cls, text: str, *, schema: Optional["Schema"] = None,
                   max_alias_expansion: int = 50,
-                  max_expanded_slots: int = 1_000_000) -> "Doc":
+                  max_expanded_slots: int = 1_000_000,
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
         """Parse YAML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4).
 
         ``max_alias_expansion`` and ``max_expanded_slots`` are the alias limits
-        of :func:`~omnist.formats.read_yaml` (D-18, D-22)."""
+        of :func:`~omnist.formats.read_yaml` (D-18, D-22); ``max_input_bytes``
+        (default 64 MiB) is the input size limit of D-23."""
         from .formats import read_yaml
         return cls(read_yaml(text, schema=schema, max_alias_expansion=max_alias_expansion,
-                             max_expanded_slots=max_expanded_slots))
+                             max_expanded_slots=max_expanded_slots,
+                             max_input_bytes=max_input_bytes))
 
     @classmethod
-    def from_toml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+    def from_toml(cls, text: str, *, schema: Optional["Schema"] = None,
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
         """Parse TOML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .formats import read_toml
-        return cls(read_toml(text, schema=schema))
+        return cls(read_toml(text, schema=schema, max_input_bytes=max_input_bytes))
 
     @classmethod
-    def from_xml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+    def from_xml(cls, text: str, *, schema: Optional["Schema"] = None,
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
         """Parse XML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .formats import read_xml
-        return cls(read_xml(text, schema=schema))
+        return cls(read_xml(text, schema=schema, max_input_bytes=max_input_bytes))
 
     @classmethod
-    def from_oml(cls, text: str, *, schema: Optional["Schema"] = None) -> "Doc":
+    def from_oml(cls, text: str, *, schema: Optional["Schema"] = None,
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
         """Parse OML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
         from .oml import read_oml
-        return cls(read_oml(text, schema=schema))
+        return cls(read_oml(text, schema=schema, max_input_bytes=max_input_bytes))
 
     # -- shape ----------------------------------------------------------
     @property
@@ -250,11 +270,7 @@ class Doc:
         if not isinstance(self._node, list):
             raise DocumentError(f"{self.path}: a leaf has no edges")
         out: List[Tuple[str, "Doc"]] = []
-        counts: dict[str, int] = {}
-        for label, child in self._node:
-            i = counts.get(label, 0)
-            counts[label] = i + 1
-            cp = f"{self.path}.{label}" if i == 0 else f"{self.path}.{label}[{i}]"
+        for label, child, cp in edge_paths(self.path, self._node):
             out.append((label, Doc(child, cp, self.depth + 1)))
         return out
 

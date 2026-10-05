@@ -34,7 +34,7 @@ yourself from the repo root.
 
 ```sh
 $ omnist --version
-omnist 0.13.0
+omnist 0.14.0
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -137,6 +137,17 @@ write); its stdout is the JSON result. A non-zero-with-`{"ok": false}` on stdout
 is a data/IO error you can parse for `message`/`errors`. The only thing that
 still lands on stderr is an argparse usage error (exit `2`, no JSON) — a bug in
 how you invoked the tool, worth surfacing loudly rather than parsing.
+
+### Input size: `--max-input-bytes`
+
+`format`, `convert`, `check`, `validate` and `infer` refuse a document of more
+than **64 MiB** (67108864 bytes) with `document.limit.input-size` at `$`,
+before decoding or parsing it; a file or standard input is read at most one
+byte past the maximum. The size is in bytes (a leading byte-order mark counts),
+and a document of exactly the maximum is accepted. To read a larger one, or to
+set a tighter bound, pass `--max-input-bytes N` (an integer of at least 1; a
+zero, negative or non-integer value is a usage error, exit `2`). It does not
+apply to schema (OSD) files.
 
 ## `omnist format`
 

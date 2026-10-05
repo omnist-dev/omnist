@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.13.0"
+omnist.__version__        # "0.14.0"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -266,7 +266,7 @@ Low-level codecs over the canonical node form (a scalar, or a list of
 
 | | |
 |---|---|
-| `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node (`read_xml` also takes `report=a_WriteReport`, see below; `read_yaml` also takes `max_alias_expansion=50` and `max_expanded_slots=1_000_000`, see [alias limits](formats/yaml.md#alias-limits)) |
+| `read_oml(text)` / `read_json` / `read_yaml` / `read_toml` / `read_xml` | parse → a node (`read_xml` also takes `report=a_WriteReport`, see below; `read_yaml` also takes `max_alias_expansion=50` and `max_expanded_slots=1_000_000`, see [alias limits](formats/yaml.md#alias-limits)); every reader also takes `max_input_bytes=67_108_864` (D-23, see [the input-size limit](limitations.md#the-64-mib-input-size-limit)) and `Doc.from_*` pass it through |
 | `write_oml(node, *, indent=2, arrays=False)` | a node → **OML**, losslessly — no `strict`/`report` needed (see below); `indent=None` for a single-line, compact form; `arrays=True` collapses any maximal run of ≥ 2 consecutive same-label edges into `label: [v1, v2, ...]` array syntax (a run of 1 stays a plain scalar edge, pretty mode never wraps an array onto multiple lines); default `arrays=False` is byte-identical to `write_oml` without the parameter at all |
 | `write_json(node, *, strict=False, report=None, indent=None)` | a node → JSON (groups same-label edges) |
 | `write_yaml(node, *, strict=False, report=None)` | a node → YAML |
@@ -349,7 +349,11 @@ entries (warnings are fine) — `if check_toml(node): ...` reads as "safe to
 write." Iterable; `str(report)` is a readable multi-line summary. A value with
 no legal representation at all in the target format never reaches a report at
 all -- it raises `WriteError` (`code="write.unsupported-value"`, `path` set)
-before recording anything, from `check_*` as well as `write_*` (above).
+before recording anything, from `check_*` as well as `write_*` (above). That
+includes a string value or an edge label with no UTF-8 encoding (a lone
+surrogate, or a surrogate-escape artefact from `errors="surrogateescape"`),
+which every writer refuses (C-9); `path` is the node holding the string, never
+the label itself.
 
 ### `class Adjustment`
 A named tuple `Adjustment(path, code, message, severity)` — `severity` is
@@ -405,7 +409,7 @@ simulating a write without producing output. The four built-ins all provide
 | `SchemaError` | invalid schema text or structure (bad OSD, undefined `Ref`, bad cardinality) — `.code`/`.path` are set for OSD's own lexical (`parse.*`) and well-formedness (`schema.*`) failures (issue #301), `None` otherwise |
 | `ParseError` | a document couldn't be read from its format, or didn't conform to a schema — see [Schema-directed deserialization](deserialization.md) for the structured `.errors` list. For a syntax failure, `.code`/`.path` are set instead (issue #308; `None` for a schema-conformance failure, where `.errors` is populated instead). `.path` is a `line:col` text position for a `parse.*` code (`parse.codec-syntax` for a malformed JSON/YAML/TOML/XML input, `parse.invalid-encoding` at `1:1` for invalid UTF-8 from the CLI), and `$` for a `format.*` profile refusal or a `document.limit.*` limit |
 | `DocumentError` | a value isn't a legal Document, or an invalid `Doc` operation. `.code`/`.path` are set for the reader-side failures that have a `document.*` code (a depth, node-count or integer-digit limit; an input construct with no label, such as a JSON array of arrays), with a Document `path`; `None` otherwise. A nesting-depth refusal from a writer, `Doc.to_data`/`to_grouped`, `infer` or `validate` carries `document.limit.depth` (path `$`). The remaining failures have no registered code and keep `code=None`, so `omnist --json` reports `errors: []` with the detail in `message` (always present): a self-referential Python value (`cycle detected`), a value that is not a Document type, and `Doc` API misuse (`edges()` on a leaf, `get_one` with no or many matches, `check` for a format without one) |
-| `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML, `code="format.multiple-roots"`), or a schema can't be written as OSD (`to_osd` of a field label with a C0 control character, `code="write.unsupported-value"`, `path` the record's Schema path), or a bare scalar root written as TOML (`code="write.unsupported-value"`, `path` `$`). A `strict=True` refusal carries the full `.report` but no `code` (`errors: []` under `--json`) |
+| `WriteError` | a Document can't be represented in the target format (e.g. multi-rooted XML, `code="format.multiple-roots"`), or a schema can't be written as OSD (`to_osd` of a field label with a C0 control character, `code="write.unsupported-value"`, `path` the record's Schema path), or a bare scalar root written as TOML (`code="write.unsupported-value"`, `path` `$`), or a string value or edge label with no UTF-8 encoding in any writer (`code="write.unsupported-value"`, `path` the node holding it). A `strict=True` refusal carries the full `.report` but no `code` (`errors: []` under `--json`) |
 | `DetachedNode` | (`DocumentError` subclass) a cursor used after its node was removed |
 | `UnsafeXMLWarning` | unused as of the fail-closed XML fix (issue #173) — kept exported for backward compatibility |
 

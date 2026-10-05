@@ -6,6 +6,74 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.14.0] — adopts omnist-spec v0.32.0-beta: repeated-label paths, input-size limit, OML-29, C-9
+
+A **minor** bump under the beta rule: new behaviour, a new default limit and
+new rejections (see "Behaviour changes" below). `vendor/omnist-spec` moves from
+`v0.28.0-beta` to `v0.32.0-beta` (`634ff12`). Conformance: Track 1 19/19;
+Track 2 328 passed, 0 failed, 34 skipped of 362 (28 OSD-OML, 6 limits E-20,
+unchanged); from the bump alone 22 vectors failed (5 repeated-label paths, 7
+OML-29, 10 input-size). Divergence-ledger entries closed: `DIV-14`, `DIV-17`,
+`DIV-18`; the C-9 row of `DIV-5` is met by this release too.
+
+- **E-10: the index is on every occurrence of a repeated label (v0.30).** A
+  Document path carries `[i]` on every edge whose label occurs more than once
+  in its node, the first included (`$.item[0]`), and none on a label that
+  occurs once. One builder (`omnist/_paths.py`) now serves `Doc.edges`,
+  `validate`, `materialize` and every writer path; the five copies of the old
+  `if i == 0` branch are gone.
+- **D-23/D-24: a maximum input size (v0.30).** Every reader (`read_oml`,
+  `read_json`, `read_yaml`, `read_toml`, `read_xml`), `Doc.from_*` and the CLI
+  refuse an input of more than `max_input_bytes` bytes with
+  `document.limit.input-size` at `$`, before decoding and before any parsing;
+  an input of exactly the maximum is accepted, bytes (not characters) are
+  counted, a leading BOM included. The default is **64 MiB**
+  (`67_108_864`): D-24 gives no reference default, and this one is large
+  enough for any real document while keeping the worst case of the slowest
+  codec (PyYAML, seconds per megabyte) from becoming unbounded. The CLI takes
+  `--max-input-bytes N` (a file or stdin is read at most one byte past the
+  maximum); OSD schema files are not Documents and are not
+  bounded. The option is validated like the other limits: `0`, a negative
+  number, a `bool` or a non-int raise `ValueError`/`TypeError` (no ceiling).
+- **OML-29: a gap after the colon (v0.31).** `a:` newline `1`, `a: ;1`,
+  `a: # c` newline `1` and `a:` newline `{b: 1}` are valid, at top level and
+  inside braces. A missing separator between edges is still an error
+  (`a:` newline `1 b: 2` is `parse.trailing-content` at `2:3`).
+- **C-9: no writer writes a string with no UTF-8 encoding (v0.32).** JSON,
+  YAML, TOML, XML and OML fail with `write.unsupported-value`,
+  unconditionally, on a string value or an edge label that is a lone surrogate
+  or a surrogate-escape artefact (`U+DC80..U+DCFF`), from `write_*`, `check_*`
+  and `Doc.to_*`; never as an escape. The path is the node holding the string:
+  the leaf for a value (indexed per E-10), the node holding the *edge* for a
+  label (XML included: it no longer reports the label's edge path). Readers are
+  untouched. The omnist#350 repro, `write_json` of `read_json` of a document
+  whose one string is the escape for U+D800, now fails
+  at `$.a`; this was the "Not done" item of 0.13.0.
+- **omnist#354: a top-level braced node is rejected.** `{a: 1}` as a whole
+  document was accepted although §4.6's three legal shapes exclude it. It now
+  fails with `parse.unexpected-token` at the `{` (`1:1`), the code and
+  position Go and Java report. Braces are unchanged below the root
+  (`x: {a: 1}`).
+- **CLI `--max-input-bytes N`** on every subcommand that reads a Document
+  (`format`, `convert`, `check`, `validate`, `infer`): the same limit as the
+  library option, validated the same way (an integer of at least 1, else a usage
+  error); the refusal says "use --max-input-bytes to raise it". Additive.
+- **Conformance runner.** Understands `declared_max_input_bytes` (library path,
+  option `max_input_bytes`); any other unknown `declared_*` key still fails the
+  vector (E-20a), and so does a known one on an operation that does not honour
+  it (only `parse` does).
+- **Behaviour changes.** (1) An input above 64 MiB is now refused, not parsed;
+  raise `max_input_bytes` to keep reading one. (2) Paths of a repeated label's
+  first occurrence changed (`$.a` to `$.a[0]`) in diagnostics, `WriteError.path`
+  and report entries. (3) A top-level `{...}` OML document is now a parse
+  error. (4) A string with no UTF-8 encoding now fails every writer (JSON,
+  TOML and OML used to emit it raw, YAML an escape). (5) Public signatures
+  gained the keyword-only `max_input_bytes` (additive).
+- **Pin.** `vendor/omnist-spec` is a gitlink to `634ff12` (tag
+  `v0.32.0-beta`); `.gitmodules` is unchanged. Version strings in
+  `tests/test_canonical.py`, `tests/test_docs.py`, `docs/api.md` and
+  `docs/cli.md` moved to `0.14.0`.
+
 ## [v0.13.0] — structured codes for more failures; stricter conformance runner (omnist#350)
 
 A **minor** bump under the beta rule: public error codes appear on failures

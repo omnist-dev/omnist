@@ -21,7 +21,8 @@ import re as _re
 from typing import TYPE_CHECKING, Any, Optional
 from xml.parsers import expat
 
-from ._encoding import strip_bom
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_encodable, check_input_size, strip_bom
+from ._paths import edge_paths
 from ._position import position
 from ._yaml_alias import (
     DEFAULT_MAX_ALIAS_EXPANSION,
@@ -69,11 +70,7 @@ def _leaves(node: Any, path: str = "$", depth: int = 0) -> Any:
     """Yield ``(path, value)`` for every scalar leaf in a node."""
     if isinstance(node, list):
         _check_write_depth(depth)
-        counts: dict[str, int] = {}
-        for label, child in node:
-            i = counts.get(label, 0)
-            counts[label] = i + 1
-            p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+        for _label, child, p in edge_paths(path, node):
             yield from _leaves(child, p, depth + 1)
     else:
         yield path, node
@@ -187,7 +184,9 @@ def _toml_position(exc: Any, text: str) -> str:
 
 
 # --------------------------------------------------------------- JSON
-def read_json(text: str, *, schema: Optional["Schema"] = None) -> Any:
+def read_json(text: str, *, schema: Optional["Schema"] = None,
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     _check_json_text_depth(text)
     try:
@@ -218,6 +217,7 @@ def check_json(node: Any) -> WriteReport:
 
 
 def _scan_json(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     for path, v in _leaves(node):
         if isinstance(v, (_dt.date, _dt.time)):
@@ -244,8 +244,12 @@ def _iso(o: Any) -> str:
 # --------------------------------------------------------------- YAML
 def read_yaml(text: str, *, schema: Optional["Schema"] = None,
               max_alias_expansion: int = DEFAULT_MAX_ALIAS_EXPANSION,
-              max_expanded_slots: int = DEFAULT_MAX_EXPANDED_SLOTS) -> Any:
+              max_expanded_slots: int = DEFAULT_MAX_EXPANDED_SLOTS,
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
     """Read YAML text into a node.
+
+    ``max_input_bytes`` (default 64 MiB) is the largest input, in UTF-8 bytes,
+    that is read at all (D-23); see ``docs/api.md``.
 
     ``max_alias_expansion`` (default 50, at most 10 000) is the largest
     expansion factor ``W / S`` any mapping or sequence may have (D-18), and
@@ -257,6 +261,7 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None,
     key is exempt from the second. See ``docs/formats/yaml.md``.
     """
     validate_limit_options(max_alias_expansion, max_expanded_slots)
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: before anything else is read
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     yaml = _need("yaml", "pip install pyyaml")
     loader = None
@@ -415,6 +420,7 @@ def write_yaml(node: Any, *, strict: bool = False,
 
 
 def check_yaml(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     for path, v in _leaves(node):
         if isinstance(v, _dt.time):       # YAML carries date/datetime natively, not time
@@ -435,11 +441,7 @@ def _scan_yaml_labels(node: Any, path: str, rep: WriteReport, depth: int = 0) ->
     if not isinstance(node, list):
         return
     _check_write_depth(depth)
-    counts: dict[str, int] = {}
-    for label, child in node:
-        i = counts.get(label, 0)
-        counts[label] = i + 1
-        p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+    for label, child, p in edge_paths(path, node):
         if isinstance(label, str) and "\x85" in label:
             rep.add(p, "format.string-line-break-char",
                     "label contains U+0085 (NEL); written double-quoted to "
@@ -481,7 +483,9 @@ def _yaml_dumper(yaml: Any) -> type[Any]:
 
 
 # --------------------------------------------------------------- TOML
-def read_toml(text: str, *, schema: Optional["Schema"] = None) -> Any:
+def read_toml(text: str, *, schema: Optional["Schema"] = None,
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     import tomllib
     try:
@@ -505,6 +509,7 @@ def read_toml(text: str, *, schema: Optional["Schema"] = None) -> Any:
 def write_toml(node: Any, *, strict: bool = False,
                report: Optional[WriteReport] = None) -> str:
     tomli_w = _need("tomli_w", "pip install tomli_w")
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     stripped = _strip_nulls(node, "$", rep)        # TOML has no null
     _check_interleaving(node, rep)
@@ -517,6 +522,7 @@ def write_toml(node: Any, *, strict: bool = False,
 
 
 def check_toml(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     _strip_nulls(node, "$", rep)
     _check_interleaving(node, rep)
@@ -537,11 +543,7 @@ def _strip_nulls(node: Any, path: str, rep: WriteReport, depth: int = 0) -> Any:
         return node
     _check_write_depth(depth)
     out: list[tuple[str, Any]] = []
-    counts: dict[str, int] = {}
-    for label, child in node:
-        i = counts.get(label, 0)
-        counts[label] = i + 1
-        p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+    for label, child, p in edge_paths(path, node):
         if child is None:
             raise WriteError(f"{p}: null has no representation in TOML",
                               code="write.unsupported-value", path=p)
@@ -566,7 +568,9 @@ _XML_ILLEGAL_CHAR = _re.compile(
 
 
 def read_xml(text: str, *, schema: Optional["Schema"] = None,
-            report: Optional[WriteReport] = None) -> Any:
+            report: Optional[WriteReport] = None,
+            max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     root = _xml_fromstring(text)
     root_local = _local(root.tag)
@@ -659,12 +663,14 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
 
 def write_xml(node: Any, *, strict: bool = False,
               report: Optional[WriteReport] = None) -> str:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional (first)
     if not (isinstance(node, list) and len(node) == 1):
         raise WriteError(
             "XML needs exactly one document element; the root node must have a "
             "single top-level edge (a single-rooted Document)",
             code="format.multiple-roots", path="$")
-    rep = check_xml(node)
+    rep = WriteReport()
+    _scan_xml(node, "$", rep)
     import xml.etree.ElementTree as ET
     (tag, content), = node
     el = ET.Element(tag)
@@ -683,6 +689,7 @@ def write_xml(node: Any, *, strict: bool = False,
 
 
 def check_xml(node: Any) -> WriteReport:
+    check_encodable(node)                        # Sec7.3 C-9, unconditional
     rep = WriteReport()
     _scan_xml(node, "$", rep)
     return rep
@@ -702,11 +709,7 @@ def _scan_xml(node: Any, path: str, rep: WriteReport, depth: int = 0) -> None:
                 f"{path}: an empty internal node has no XML spelling distinct "
                 "from an empty-string leaf",
                 code="write.unsupported-value", path=path)
-        counts: dict[str, int] = {}
-        for label, child in node:
-            i = counts.get(label, 0)
-            counts[label] = i + 1
-            p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+        for label, child, p in edge_paths(path, node):
             if not _XML_NAME.match(label):
                 # Issue #323: two different labels can sanitize to the same
                 # XML name (e.g. "my label" and "my_label" both becoming

@@ -34,6 +34,7 @@ from __future__ import annotations
 import datetime as _dt
 from typing import Any
 
+from ._paths import edge_paths
 from .errors import ParseError
 from .schema import AnyType, Record, Scalar, Schema, ValidationResult, _is_iso
 
@@ -78,10 +79,8 @@ def _materialize_record(node: Any, schema: Schema, rec: Record, path: str,
         return node
     out: list[tuple[str, Any]] = []
     counts: dict[str, int] = {}
-    for label, child in node:
-        i = counts.get(label, 0)
-        counts[label] = i + 1
-        p = f"{path}.{label}" if i == 0 else f"{path}.{label}[{i}]"
+    for label, child, p in edge_paths(path, node):
+        counts[label] = counts.get(label, 0) + 1
         f = rec.field(label)
         if f is None:
             res.add(p, "unexpected field", "validate.unexpected-field")

@@ -24,7 +24,7 @@ All tests live in `tests/`, run with `pytest`.
 - **`tests/test_oml.py`** — OML (Omnist's own format), covering happy-path
   round-tripping of every scalar kind plus null, string escaping, raw
   strings, multiline strings and their interaction with the line/`;`
-  separator, top-level brace disambiguation, structural parse errors inside
+  separator, top-level shape disambiguation (a braced root is rejected), structural parse errors inside
   braces, reserved words used as labels, numeric edge cases, the
   nesting-depth limit, BOM/encoding handling, full Document round-trips
   (repeated/interleaved labels, nesting), schema-directed reads, and a

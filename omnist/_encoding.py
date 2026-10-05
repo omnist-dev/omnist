@@ -10,15 +10,139 @@ rules of Sec2.5 live here and nowhere else:
 * **D-21** -- :func:`strip_bom` with ``reject_second=True``: a second mark
   still at offset zero is rejected (the codecs; OML and OSD reject it on
   their own grammar, as a stray character).
+
+and one rule of Sec2.4.2:
+
+* **D-23** -- :func:`check_input_size`: the input is at most
+  ``max_input_bytes`` bytes, counted before the BOM is stripped and before
+  decoding, else ``document.limit.input-size`` at ``$``.
 """
 from __future__ import annotations
 
-from .errors import ParseError
+import re
+from typing import Any, Union
+
+from ._paths import edge_paths
+from .errors import ParseError, WriteError
+
+# D-24 gives no reference default; this implementation's is 64 MiB. It is a
+# bound on parse cost (a byte cap is the only thing that bounds a codec
+# library's superlinear cases), not a promise that an input this big parses
+# quickly: PyYAML takes seconds on a 1 MB mapping.
+DEFAULT_MAX_INPUT_BYTES = 64 * 1024 * 1024
 
 # Written as an escape, never as the raw character: an invisible U+FEFF in
 # this source file would be indistinguishable from nothing (and a guard
 # test byte-scans every tracked file for one).
 _BOM = "\ufeff"
+
+
+def validate_max_input_bytes(value: Any) -> None:
+    """Refuse a non-integer or a non-positive ``max_input_bytes``.
+
+    ``TypeError`` for a wrong type (``bool`` is not accepted as an int),
+    ``ValueError`` for a value below 1. There is no ceiling: D-24 lets an
+    implementation choose any finite value."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"max_input_bytes must be an int, not {type(value).__name__}")
+    if value < 1:
+        raise ValueError(f"max_input_bytes must be at least 1, not {value}")
+
+
+def input_size_error(max_input_bytes: int,
+                     hint: str = "pass max_input_bytes= to raise it") -> ParseError:
+    """The D-23 refusal: ``document.limit.input-size`` at ``$``."""
+    return ParseError(
+        f"input exceeds the maximum input size ({max_input_bytes} bytes); {hint}",
+        code="document.limit.input-size", path="$")
+
+
+def check_input_size(data: Union[str, bytes], max_input_bytes: int, *,
+                     hint: str = "pass max_input_bytes= to raise it") -> None:
+    """Sec2.4.2 D-23: refuse an input of more than ``max_input_bytes`` bytes,
+    accept one of exactly that many.
+
+    Bytes, not characters: a ``str`` is measured as its UTF-8 encoding (``e``
+    with an acute accent is two, a leading U+FEFF is three, a lone surrogate
+    three as ``surrogatepass`` would write it), and the length is taken
+    before the mark is stripped (D-15) and before any decoding, so this
+    check precedes every other diagnostic."""
+    validate_max_input_bytes(max_input_bytes)
+    if isinstance(data, bytes):
+        size = len(data)
+    else:
+        size = len(data.encode("utf-8", "surrogatepass"))
+    if size > max_input_bytes:
+        raise input_size_error(max_input_bytes, hint)
+
+
+_SURROGATE = re.compile("[" + chr(0xD800) + "-" + chr(0xDFFF) + "]").search
+
+
+def _encodes(s: str) -> bool:
+    """A str has a UTF-8 encoding exactly when it holds no surrogate code point."""
+    return not _SURROGATE(s)
+
+
+def _any_unencodable(node: Any) -> bool:
+    """The fast, pathless test behind :func:`check_encodable`: is any string
+    value or label a lone surrogate (every str without a UTF-8 encoding
+    contains one; astral characters, noncharacters and NUL all encode)? No
+    path strings are built: that cost is paid only to report a failure."""
+    stack = [node]
+    pop, push, search = stack.pop, stack.append, _SURROGATE
+    while stack:
+        n = pop()
+        if isinstance(n, list):
+            for label, child in n:
+                if not label.isascii() and search(label):
+                    return True
+                if isinstance(child, list):
+                    push(child)
+                elif isinstance(child, str) and not child.isascii() and search(child):
+                    return True
+        elif isinstance(n, str) and not n.isascii() and search(n):
+            return True
+    return False
+
+
+def check_encodable(node: Any) -> None:
+    """Sec7.3 C-9: every writer fails, unconditionally, on a string value or an
+    edge label with no UTF-8 encoding -- a lone surrogate, or a surrogate-escape
+    artefact (U+DC80..U+DCFF) from ``errors="surrogateescape"`` -- with
+    ``write.unsupported-value``. Emitting it as an escape is not an
+    alternative: only a failure complies.
+
+    A pathless walk decides whether there is an offender; only then does the
+    slow walk run to find the first one and build its path, which is the
+    Document path of the node *holding* the string: the leaf for a value
+    (indexed per E-10), the node that holds the edge for a label (Sec8.4
+    cannot quote a label, so the label is never put in the path). Both walks
+    are iterative, so a node deeper than the writers' own depth limit is
+    still refused by *their* depth check, not by a ``RecursionError`` here."""
+    if _any_unencodable(node):
+        _raise_first_unencodable(node)
+
+
+def _raise_first_unencodable(node: Any) -> None:
+    stack: list[tuple[str, Any]] = [("$", node)]
+    while stack:
+        path, n = stack.pop()
+        if not isinstance(n, list):
+            if isinstance(n, str) and not _encodes(n):
+                raise WriteError(
+                    f"{path}: a string value with no UTF-8 encoding (a lone surrogate or a "
+                    "surrogate escape) cannot be written", code="write.unsupported-value",
+                    path=path)
+            continue
+        edges = list(edge_paths(path, n))
+        for label, _child, _p in edges:
+            if not _encodes(label):
+                raise WriteError(
+                    f"{path}: an edge label with no UTF-8 encoding (a lone surrogate or a "
+                    "surrogate escape) cannot be written", code="write.unsupported-value",
+                    path=path)
+        stack.extend((p, child) for _label, child, p in reversed(edges))
 
 
 def decode_utf8(data: bytes) -> str:

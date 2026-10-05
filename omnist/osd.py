@@ -216,8 +216,8 @@ class _Parser:
                               code="schema.empty-label", path=record_name)
         if "[" in label or "]" in label:
             # Issue #330/omnist-spec Sec5.4: Sec3.6.1's diagnostic-path
-            # convention appends "[i]" to a repeated label's second and
-            # later occurrences -- a repeatable field "a" and a separately
+            # convention appends "[i]" to every occurrence of a label
+            # that occurs more than once in a node (E-10) -- a repeatable field "a" and a separately
             # declared field literally named "a[1]" would both stringify to
             # the same path ($.a[1]) for genuinely different problems.
             # Rejecting the bracket character vocabulary in labels closes
@@ -226,8 +226,8 @@ class _Parser:
             raise SchemaError(
                 f"field label {label!r} contains a bracket character ('[' "
                 f"or ']') at {self._where(label_tok.pos)} -- this would collide with the "
-                "diagnostic path convention that appends '[i]' to a "
-                "repeated label's later occurrences",
+                "diagnostic path convention that appends '[i]' to every "
+                "occurrence of a repeated label",
                 code="schema.bracket-in-label", path=record_name)
         lo: int = 1
         hi: Optional[int] = 1

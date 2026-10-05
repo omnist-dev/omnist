@@ -191,8 +191,10 @@ seconds per megabyte whatever the aliases: measured on one machine
 mapping of 50,000 keys takes about 4 seconds in `read_yaml` (the same as before
 the limits existed), a 150,000-item root sequence (0.94 MB) 5 to 6 seconds to
 compose, and a 1.8 MB plain file 20 to 23 seconds. The limits above refuse an
-over-limit input after composing it, not before reading it; bound the input
-size yourself (see [SECURITY.md](https://github.com/omnist-dev/omnist/blob/master/SECURITY.md)).
+over-limit input after composing it, not before reading it; the input is
+bounded first by `max_input_bytes` (64 MiB by default,
+[limitations](../limitations.md#the-64-mib-input-size-limit)), which you may
+lower (see [SECURITY.md](https://github.com/omnist-dev/omnist/blob/master/SECURITY.md)).
 
 ```python
 from omnist import read_yaml

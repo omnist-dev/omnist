@@ -34,7 +34,7 @@ import datetime as _dt
 import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
-from ._encoding import strip_bom
+from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_encodable, check_input_size, strip_bom
 from ._position import line_col
 from .document import _MAX_DEPTH, _MAX_INT_DIGITS, _MAX_NODES
 from .errors import ParseError, WriteError
@@ -562,9 +562,7 @@ class _Parser:
         self.skip_sep()
         if self.kind == "EOF":
             return []
-        if self.kind == LBRACE:
-            node = self.parse_value(depth=0)
-        elif self._looks_like_edge():
+        if self._looks_like_edge():
             node = self.parse_node_edges(depth=0)
         else:
             node = self.parse_scalar()
@@ -623,6 +621,9 @@ class _Parser:
                 raise self._error_for(
                     colon_kind, colon_start,
                     f"expected ':' after label {label!r}, got {colon_kind} {text!r}")
+            # OML-29: nothing ends at a colon, so a newline, ';' or comment
+            # there is the gap before the value, not a separator.
+            self.skip_sep()
             if self.kind == LBRACKET:
                 for element in self.parse_array(depth):
                     edges.append((label, element))
@@ -852,8 +853,13 @@ class _Parser:
 # Public read/write
 # ---------------------------------------------------------------------------
 
-def read_oml(text: str, *, schema: Optional[Any] = None) -> Any:
-    """Parse OML source into a canonical Document node (edge-list or leaf)."""
+def read_oml(text: str, *, schema: Optional[Any] = None,
+             max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+    """Parse OML source into a canonical Document node (edge-list or leaf).
+
+    ``max_input_bytes`` (default 64 MiB) is the largest input, in UTF-8 bytes,
+    that is read at all (D-23): over it, ``document.limit.input-size`` at ``$``."""
+    check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     scanner = _Scanner(strip_bom(text))   # Sec2.5 D-15
     node = _Parser(scanner).parse_document()
     if schema is None:
@@ -882,6 +888,7 @@ def write_oml(node: Any, *, indent: Optional[int] = 2, arrays: bool = False) -> 
     arrays=True)) == node`` holds unconditionally. Default ``False``
     produces output byte-identical to ``arrays`` not existing at all.
     """
+    check_encodable(node)                        # Sec7.3 C-9: the one failure OML has
     if not isinstance(node, list):
         return _write_scalar(node)
     if indent is None:
@@ -906,8 +913,10 @@ def _group_runs(
 
 
 def check_oml(node: Any) -> "WriteReport":
-    """OML can hold every Document losslessly; always an empty report."""
+    """OML can hold every Document losslessly (an empty report), except a
+    string with no UTF-8 encoding, which no writer may write (C-9)."""
     from .report import WriteReport
+    check_encodable(node)
     return WriteReport()
 
 

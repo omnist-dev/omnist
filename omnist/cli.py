@@ -44,7 +44,13 @@ from . import (
     write_xml,
     write_yaml,
 )
-from ._encoding import decode_utf8
+from ._encoding import (
+    DEFAULT_MAX_INPUT_BYTES,
+    check_input_size,
+    decode_utf8,
+    input_size_error,
+    validate_max_input_bytes,
+)
 
 FMT_CHOICES = ["json", "yaml", "toml", "xml", "oml"]
 RESULT_FORMAT_CHOICES = ["text", "json", "oml"]
@@ -75,8 +81,12 @@ _CHECKERS = {
 }
 
 
-def _read_input(path: str) -> str:
+def _read_input(path: str, max_bytes: Optional[int] = None) -> str:
     """Read a file or standard input as bytes and decode it strictly.
+
+    ``max_bytes`` (D-23, set for every document read, see :func:`_read_document`)
+    stops the read as soon as more than that many bytes have been seen and
+    refuses the input with ``document.limit.input-size`` before decoding.
 
     The CLI decodes on the caller's behalf, so it is a byte-oriented entry
     point for Sec2.5 D-14: invalid UTF-8 raises ``parse.invalid-encoding`` at
@@ -90,10 +100,43 @@ def _read_input(path: str) -> str:
             # A text-only stream (an in-process stand-in for stdin) has
             # already been decoded by whoever built it: D-14 is a rule about
             # bytes, and a str-typed source may be treated as decoded.
-            return sys.stdin.read()
-        return decode_utf8(buffer.read())
+            text = sys.stdin.read() if max_bytes is None else sys.stdin.read(max_bytes + 1)
+            if max_bytes is not None:
+                check_input_size(text, max_bytes, hint=_RAISE_HINT)
+            return text
+        return _decode_limited(buffer, max_bytes)
     with open(path, "rb") as f:
-        return decode_utf8(f.read())
+        return _decode_limited(f, max_bytes)
+
+
+def _decode_limited(stream: Any, max_bytes: Optional[int]) -> str:
+    if max_bytes is None:
+        return decode_utf8(stream.read())
+    data = stream.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise input_size_error(max_bytes, _RAISE_HINT)
+    return decode_utf8(data)
+
+
+_RAISE_HINT = "use --max-input-bytes to raise it"
+
+
+def _max_input_bytes_arg(text: str) -> int:
+    """argparse type of ``--max-input-bytes``: the library option's validation."""
+    try:
+        value = int(text)
+        validate_max_input_bytes(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"must be an integer of at least 1, not {text!r}") from exc
+    return value
+
+
+def _read_document(path: str, args: argparse.Namespace) -> str:
+    """:func:`_read_input` for a Document (not a schema), under the maximum
+    input size of D-23: ``--max-input-bytes``, else the default (64 MiB)."""
+    limit = args.max_input_bytes
+    return _read_input(path, DEFAULT_MAX_INPUT_BYTES if limit is None else limit)
 
 
 def _write_output(path: Optional[str], text: str) -> None:
@@ -125,7 +168,7 @@ def _encode_validation_result(result: ValidationResult, fmt: str) -> str:
 
 
 def _cmd_format(args: argparse.Namespace) -> int:
-    node = read_oml(_read_input(args.input))
+    node = read_oml(_read_document(args.input, args))
     _write_output(
         args.output,
         write_oml(node, indent=None if args.compact else 2, arrays=args.arrays))
@@ -172,9 +215,9 @@ def _cmd_convert(args: argparse.Namespace) -> int:
     if args.from_ == "xml":
         # xml is currently the only reader with anything to report
         # (format.attribute-dropped / format.namespace-dropped, Sec8.3.8)
-        node = read_xml(_read_input(args.input), schema=schema, report=read_report)
+        node = read_xml(_read_document(args.input, args), schema=schema, report=read_report)
     else:
-        node = _READERS[args.from_](_read_input(args.input), schema=schema)
+        node = _READERS[args.from_](_read_document(args.input, args), schema=schema)
     write_report = WriteReport() if args.report else None
     try:
         text = _write_to_format(
@@ -201,7 +244,7 @@ def _cmd_convert(args: argparse.Namespace) -> int:
 
 
 def _cmd_check(args: argparse.Namespace) -> int:
-    node = _READERS[args.from_](_read_input(args.input))
+    node = _READERS[args.from_](_read_document(args.input, args))
     try:
         rep = _CHECKERS[args.to](node)
     except WriteError as exc:
@@ -282,7 +325,7 @@ def _fail(args: argparse.Namespace, exc: "str | Exception", code: int) -> int:
 def _cmd_validate(args: argparse.Namespace) -> int:
     if args.json:
         try:
-            node = _READERS[args.from_](_read_input(args.input))
+            node = _READERS[args.from_](_read_document(args.input, args))
             d = Doc(node)
             s = parse_schema(_read_input(args.schema))
         except (ParseError, SchemaError, DocumentError, OSError) as exc:
@@ -294,7 +337,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
             return 0
         print(_json_validate_errors(str(result), result.errors))
         return 1
-    node = _READERS[args.from_](_read_input(args.input))
+    node = _READERS[args.from_](_read_document(args.input, args))
     d = Doc(node)
     s = parse_schema(_read_input(args.schema))
     result = s.validate(d)
@@ -309,7 +352,7 @@ def _cmd_infer(args: argparse.Namespace) -> int:
     if args.arrays:
         return _fail(args, _ARRAYS_OSD_ONLY_MSG, 2)
     reader = _READERS[args.from_]
-    docs = [Doc(reader(_read_input(p))) for p in args.input]
+    docs = [Doc(reader(_read_document(p, args))) for p in args.input]
     if args.allow_any:
         s, fallbacks = infer_with_report(docs, allow_any=True)
         if fallbacks:
@@ -445,8 +488,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="machine-readable JSON on stdout: errors as {ok:false,message,errors}; "
              "results as JSON where the command has one; exit codes unchanged")
 
+    size_parent = argparse.ArgumentParser(add_help=False)
+    size_parent.add_argument(
+        "--max-input-bytes", type=_max_input_bytes_arg, default=None, metavar="N",
+        help=f"refuse a document of more than N bytes (default {DEFAULT_MAX_INPUT_BYTES}, "
+             "64 MiB; bytes, not characters, a BOM counted) with document.limit.input-size")
+
     format_p = subparsers.add_parser(
-        "format", parents=[json_parent],
+        "format", parents=[json_parent, size_parent],
         help="canonicalize an OML document (the only format with no other tool for this)")
     format_p.add_argument("input", help="OML file, or - for stdin")
     format_p.add_argument(
@@ -459,7 +508,7 @@ def _build_parser() -> argparse.ArgumentParser:
     format_p.set_defaults(func=_cmd_format)
 
     convert_p = subparsers.add_parser(
-        "convert", parents=[json_parent],
+        "convert", parents=[json_parent, size_parent],
         help="convert a document between formats (one in, one out)")
     convert_p.add_argument("input", help="document file, or - for stdin")
     convert_p.add_argument("--from", dest="from_", required=True, choices=FMT_CHOICES)
@@ -485,7 +534,7 @@ def _build_parser() -> argparse.ArgumentParser:
     convert_p.set_defaults(func=_cmd_convert)
 
     check_p = subparsers.add_parser(
-        "check", parents=[json_parent],
+        "check", parents=[json_parent, size_parent],
         help="report what writing as --to would adjust, without ever writing")
     check_p.add_argument("input", help="document file, or - for stdin")
     check_p.add_argument("--from", dest="from_", required=True, choices=FMT_CHOICES)
@@ -498,7 +547,7 @@ def _build_parser() -> argparse.ArgumentParser:
     check_p.set_defaults(func=_cmd_check)
 
     validate_p = subparsers.add_parser(
-        "validate", parents=[json_parent],
+        "validate", parents=[json_parent, size_parent],
         help="check a document against a schema (no schema-directed upgrading)")
     validate_p.add_argument("input", help="document file, or - for stdin")
     validate_p.add_argument("--from", dest="from_", required=True, choices=FMT_CHOICES)
@@ -508,7 +557,7 @@ def _build_parser() -> argparse.ArgumentParser:
     validate_p.set_defaults(func=_cmd_validate)
 
     infer_p = subparsers.add_parser(
-        "infer", parents=[json_parent],
+        "infer", parents=[json_parent, size_parent],
         help="draft a schema from example documents (all the same format)")
     infer_p.add_argument("input", nargs="+", help="document files, same format")
     infer_p.add_argument("--from", dest="from_", required=True, choices=FMT_CHOICES)
