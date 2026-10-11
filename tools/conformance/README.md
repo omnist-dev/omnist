@@ -108,9 +108,9 @@ handed to the CLI -- this omnist's byte-oriented entry point -- never decoded
 with replacement and run as text. `infer`/`infer_with_report` are driven
 through the library directly rather than through the CLI (the CLI's `infer`
 positional argument is `nargs='+'`, so a zero-samples vector can never reach
-it). Track 1 (`runner.py`) compares a `lint` fixture's `severity` and
-`location` and treats `code` as informational, as
-`docs/conformance-harness.md` §2 says of that track.
+it). Track 1 (`runner.py`) compares a `lint` fixture's `code`, `severity` and
+`location` exactly, as `docs/conformance-harness.md` §2 requires (§8.3 is
+mandatory; omnist#359) -- only `message` is never compared.
 
 Wired into CI (`.github/workflows/test.yml`'s `conformance` job) on every
 push and PR -- this is the actual point of the move from `omnist-spec`:
