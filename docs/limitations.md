@@ -98,7 +98,7 @@ They may be lowered, and raised only to the ceiling, because the writers,
 `validate` and `infer` enforce 200 levels and CPython cannot convert an integer
 of more than 4300 digits. A value outside `1 .. ceiling` raises `ValueError`
 (`TypeError` for a non-int). `max_int_digits` counts the decimal digits of the
-**value** (D-28): `0xFFF`, `0o7777` and `4_095` have four, a sign is not a
+**value** (D-28): `0xFFF` and `4_095` have four (so does TOML's `0o7777`; YAML 1.1 octal is `07777`), a sign is not a
 digit. The refusal carries the Document path of the leaf holding the literal,
 including for a literal beyond CPython's own conversion guard and for the
 schema-directed pretyping of an XML integer leaf. A number literal beyond
@@ -108,7 +108,7 @@ binary64 (`1e999`) reads as an infinity, underflow as `0.0` (D-29).
 
 Documents nest at most **200 levels** deep: the value of an edge in a node at
 depth *n* sits at depth *n + 1*, a scalar as much as a subtree, so 200 nested
-levels end in a leaf at depth 200 (omnist-spec E-4a). The default is
+levels end in a leaf at depth 200 (omnist-spec D-9: levels of node nesting, counted from the Document root). The default is
 `_MAX_DEPTH`, a single shared constant enforced by every reader, every writer, and — as of
 this release — `infer` and `validate` too, so the same document either
 passes or fails consistently everywhere it's touched. Past the limit, a

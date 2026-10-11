@@ -73,7 +73,7 @@ script on `PATH`). Set `OMNIST_CLI` to test a different build.
 python3 -m tools.conformance.self_test      # referee self-check
 python3 -m tools.conformance.runner         # all wired operations (fixtures)
 python3 -m tools.conformance.runner validate normalize   # a subset
-python3 -m tools.conformance.vector_runner  # the 362-vector test-suite/
+python3 -m tools.conformance.vector_runner  # the 522-vector test-suite/
 ```
 
 `vector_runner.py` is **strict**: every diagnostic list is compared as a set

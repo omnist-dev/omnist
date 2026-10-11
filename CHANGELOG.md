@@ -38,9 +38,13 @@ else).
   an uncaught `ValueError`.
 - **Behaviour changes to note.** The JSON/YAML/TOML integer-digit refusal is a
   `DocumentError` (as every other build-time limit), where a literal past 4300
-  digits was a `ParseError`; OML stays `ParseError`. A scalar now counts as a
-  level in OML and XML, as in the builder (D-12): 200 nested levels end in a
-  leaf at depth 200, one fewer element/brace than before. XML counts nodes as
+  digits was a `ParseError`; OML stays `ParseError`. **Migration:** catch
+  `OmnistError` (the base of both), or both classes; the spec fixes the code and
+  path, not the exception class. `format.tag-forbidden` is a `ParseError`, like
+  `format.dtd-forbidden`. A scalar now counts as a level in OML and XML, as in
+  the builder (D-12): a document nested exactly 200 levels still reads; only a
+  leaf at depth 201 in OML or XML is newly refused (JSON, YAML and TOML are
+  unchanged). XML counts nodes as
   every other format does (the root and elements with children, not leaf
   elements). A YAML timestamp that is not a date (`2001-13-45`) is
   `parse.codec-syntax`, no longer mislabelled `document.limit.int-digits`.
