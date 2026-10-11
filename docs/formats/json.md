@@ -127,6 +127,9 @@ enforces on parse. See [the API reference](../api.md#reading--writing-formats).
 - `date`, `time`, and `datetime` strings are mutually exclusive even before a
   schema is involved: `"2024-01-01"` could only ever satisfy `date`, not
   `datetime` (it has no time component to satisfy it with).
+- **A repeated key keeps the last value at the first position** (C-11): the
+  object `{"a": 1, "b": 2, "a": 3}` reads as `a: 3` then `b: 2`. This is JSON's
+  policy, not YAML's or TOML's, which refuse a repeated key (C-12).
 - A bare top-level array (`[1, 2, 3]`) has no labels, so it isn't a Document on
   its own — wrap it under a key.
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for

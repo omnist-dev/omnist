@@ -28,6 +28,7 @@ from ._yaml_alias import (
     DEFAULT_MAX_ALIAS_EXPANSION,
     DEFAULT_MAX_EXPANDED_SLOTS,
     check_alias_limits,
+    reject_forbidden_tags,
     validate_limit_options,
 )
 from .document import _MAX_DEPTH, _MAX_NODES, _grouped, build_node
@@ -272,6 +273,7 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None,
         root = loader.get_single_node()
         data = None
         if root is not None:
+            reject_forbidden_tags(root, yaml.nodes)     # C-13
             check_alias_limits(root, yaml.nodes, saw_alias=loader.omnist_saw_alias,
                                max_alias_expansion=max_alias_expansion,
                                max_expanded_slots=max_expanded_slots)
@@ -354,6 +356,7 @@ def _yaml_loader(yaml: Any) -> type[Any]:
 
         def flatten_mapping(self, node: Any) -> None:
             merged: list[list[Any]] = []       # one entry list per merged mapping
+            written: set[Any] = set()          # C-12: the keys this mapping writes itself
             index = 0
             while index < len(node.value):
                 key_node, value_node = node.value[index]
@@ -371,10 +374,20 @@ def _yaml_loader(yaml: Any) -> type[Any]:
                         for subnode in value_node.value:
                             self.flatten_mapping(subnode)
                             merged.append(list(subnode.value))
-                elif key_node.tag == _YAML_VALUE_TAG:
-                    key_node.tag = _YAML_STR_TAG
-                    index += 1
                 else:
+                    if key_node.tag == _YAML_VALUE_TAG:
+                        key_node.tag = _YAML_STR_TAG
+                    key = self._merge_key(node, key_node)
+                    # C-12: a key written twice in one mapping is refused. A key
+                    # a merge key supplies is not a repeat of one written here
+                    # (the merge below resolves that), so only this mapping's
+                    # own entries are counted; (type, value) keeps 1 and 1.0
+                    # and "1" apart, as the keys they construct are.
+                    if (type(key), key) in written:
+                        raise ConstructorError(
+                            "while constructing a mapping", node.start_mark,
+                            f"found duplicate key {key!r}", key_node.start_mark)
+                    written.add((type(key), key))
                     index += 1
             if merged:
                 node.value = self._merge_entries(node, merged)

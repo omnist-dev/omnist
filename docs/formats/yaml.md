@@ -209,6 +209,19 @@ read_yaml(shared, max_expanded_slots=21)   # DocumentError, code "document.limit
 
 - Only YAML's JSON-compatible core is supported (string keys, standard scalars,
   mappings and sequences). Tags and non-string keys are outside the profile.
+- **A mapping that repeats a key is refused** (C-12, omnist-spec v0.34.0-beta):
+  `a: 1` followed by `a: 2`, `{a: 1, a: 2}`, and `a: 1` followed by `"a": 2`
+  (a plain and a quoted spelling are one key) are all `parse.codec-syntax`, at
+  the line and column of the second occurrence. Until v0.16.0 the last value
+  silently won. The same key in two different mappings is not a repeat, and a
+  key a merge key supplies is not a repeat of the same key written in the
+  mapping itself: the mapping's own entry overrides the merged one.
+- **`!!pairs`, `!!omap` and `!!set` are refused** (C-13) with
+  `format.tag-forbidden` at path `$`: well-formed YAML outside the profile, not
+  a syntax error (it used to surface as `document.unlabeled-element`, or be
+  accepted, depending on the tag). Write the plain sequence of single-key
+  mappings, or the plain mapping, instead. Every other tag keeps the reading it
+  already had.
 - The merge key `<<` flattens in **source order**: merged entries first (each
   merged mapping in its own order, `<<: [*a, *b]` as `a` then `b`), then the
   mapping's own; a key supplied twice is one edge at its first position,

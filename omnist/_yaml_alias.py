@@ -51,6 +51,11 @@ MAX_EXPANDED_SLOTS_CEILING = 10_000_000
 
 _MERGE_TAG = "tag:yaml.org,2002:merge"
 
+# C-13: the three tags whose collections the Document model has no single
+# reading for; any node explicitly tagged with one is refused.
+FORBIDDEN_TAGS = frozenset(
+    "tag:yaml.org,2002:" + name for name in ("pairs", "omap", "set"))
+
 # How a completed child folds into its parent.
 _VALUE = 0          # an ordinary value (or complex key): w and s in full
 _MERGE_MAPPING = 1  # a mapping in merge-value position: w - 1 and s - 1
@@ -83,6 +88,33 @@ def _malformed_merge(at: Any, what: str) -> ParseError:
         f"invalid YAML: a merge key's value must be a mapping or a sequence of "
         f"mappings, not {what}", code="parse.codec-syntax",
         path=f"{mark.line + 1}:{mark.column + 1}")
+
+
+def reject_forbidden_tags(root: Any, nodes: Any) -> None:
+    """C-13: refuse a composed document holding a node explicitly tagged
+    ``!!pairs``, ``!!omap`` or ``!!set`` with ``format.tag-forbidden`` at
+    ``$`` -- well-formed YAML outside the profile, not a syntax error.
+
+    ``nodes`` is ``yaml.nodes``. Visits each node once, iteratively."""
+    mapping_node = nodes.MappingNode
+    seen = set()
+    todo = [root]
+    while todo:
+        n = todo.pop()
+        if id(n) in seen:
+            continue
+        seen.add(id(n))
+        if n.tag in FORBIDDEN_TAGS:
+            raise ParseError(
+                f"invalid YAML: a node tagged {n.tag.rsplit(':', 1)[1]!r} "
+                "(!!pairs, !!omap and !!set are outside the supported profile)",
+                code="format.tag-forbidden", path="$")
+        if isinstance(n, mapping_node):
+            for key, value in n.value:
+                todo.append(value)
+                todo.append(key)
+        elif not isinstance(n.value, str):          # a sequence; a scalar holds text
+            todo.extend(reversed(n.value))
 
 
 def validate_merge_shapes(root: Any, nodes: Any) -> None:
