@@ -369,6 +369,10 @@ def run_write(v: Dict[str, Any], tmp: Path) -> Result:
                 "--report", "--result-format", "json"]
     if inp.get("strict"):
         args.append("--strict")
+    if inp.get("compact"):
+        # E-35 (OML only): the one-line layout of OML-22..24 is the OML
+        # writer's `indent=None`, which `format --compact` asks for.
+        args.append("--compact")
     stdout, stderr, code = cli_runner._run(args)
     if not expect["ok"]:
         return _expect_failure(expect, stdout, stderr, code)

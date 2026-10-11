@@ -397,6 +397,29 @@ def test_run_write_oml_uses_format_and_passes_strict(tmp_path, cli):
     assert seen["args"][0] == "format" and "--strict" in seen["args"]
 
 
+def test_run_write_compact_flag_reaches_the_oml_writer(tmp_path, cli):
+    seen = cli("a: 1; b: 2\n", "", 0)
+    v = {"input": {"document": OML_ONE, "format": "oml", "compact": True},
+         "expect": {"ok": True, "text": "a: 1; b: 2"}}
+    assert vr.run_write(v, tmp_path) == ("pass", "ok")
+    assert "--compact" in seen["args"]
+    seen = cli("a: 1\n", "", 0)
+    v["input"]["compact"] = False
+    vr.run_write(v, tmp_path)
+    assert "--compact" not in seen["args"]
+
+
+def test_run_write_diagnostics_compare_the_code_as_well_as_the_path(tmp_path, cli):
+    v = {"input": {"document": OML_ONE, "format": "json"},
+         "expect": {"ok": True, "text": "{}", "diagnostics": [
+             {"path": "$.d", "code": "format.temporal-stringified"}]}}
+    cli("{}\n", json.dumps([{"path": "$.d", "code": "format.value-stringified"}]), 0)
+    status, msg = vr.run_write(v, tmp_path)
+    assert status == "fail" and "diagnostics differ" in msg
+    cli("{}\n", json.dumps([{"path": "$.e", "code": "format.temporal-stringified"}]), 0)
+    assert vr.run_write(v, tmp_path)[0] == "fail"
+
+
 def test_run_write_strict_flag_reaches_a_codec(tmp_path, cli):
     seen = cli("{}\n", "[]", 0)
     v = {"input": {"document": OML_ONE, "format": "json", "strict": True},
