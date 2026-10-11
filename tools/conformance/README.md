@@ -26,7 +26,7 @@ tools/conformance/
   runner.py        runs vendor/omnist-spec's real per-operation fixtures
                    (conformance/fixtures/, directory-per-case format)
   vector_runner.py runs vendor/omnist-spec's test-suite/ JSON-vector suite
-                   (367 vectors, envelope format -- see its own docstring)
+                   (522 vectors, envelope format -- see its own docstring)
 ```
 
 `runner.py` and `vector_runner.py` are two separate runners over two
@@ -73,7 +73,7 @@ script on `PATH`). Set `OMNIST_CLI` to test a different build.
 python3 -m tools.conformance.self_test      # referee self-check
 python3 -m tools.conformance.runner         # all wired operations (fixtures)
 python3 -m tools.conformance.runner validate normalize   # a subset
-python3 -m tools.conformance.vector_runner  # the 362-vector test-suite/
+python3 -m tools.conformance.vector_runner  # the 522-vector test-suite/
 ```
 
 `vector_runner.py` is **strict**: every diagnostic list is compared as a set
@@ -108,9 +108,9 @@ handed to the CLI -- this omnist's byte-oriented entry point -- never decoded
 with replacement and run as text. `infer`/`infer_with_report` are driven
 through the library directly rather than through the CLI (the CLI's `infer`
 positional argument is `nargs='+'`, so a zero-samples vector can never reach
-it). Track 1 (`runner.py`) compares a `lint` fixture's `severity` and
-`location` and treats `code` as informational, as
-`docs/conformance-harness.md` §2 says of that track.
+it). Track 1 (`runner.py`) compares a `lint` fixture's `code`, `severity` and
+`location` exactly, as `docs/conformance-harness.md` §2 requires (§8.3 is
+mandatory; omnist#359) -- only `message` is never compared.
 
 Wired into CI (`.github/workflows/test.yml`'s `conformance` job) on every
 push and PR -- this is the actual point of the move from `omnist-spec`:

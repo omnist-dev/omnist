@@ -164,18 +164,16 @@ def run_infer(case_dir: Path) -> Tuple[str, str]:
 
 
 def _drop_messages(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Message text is never compared (Sec8.5's own matching rule 1), and
-    ``code`` is informational on this track (docs/conformance-harness.md
-    Sec2: a fixture's expected.json is recorded against the reference and
-    may carry the bare pre-namespacing spelling, ``unreachable-record``,
-    where the reference now emits ``lint.unreachable-record``) -- strip
-    both, compare severity and location exactly. This is Track 1's own
-    rule; Track 2 (vector_runner.py) compares ``(path, code)`` strictly,
-    so lint codes are checked there."""
+    """Message text is never compared (Sec8.5.2 rule 1); ``code``, ``severity``
+    and ``location`` are compared exactly. Sec8.3 is mandatory
+    (docs/conformance-harness.md Sec2: a lint finding's ``code`` is compared
+    exactly, like Track 2's diagnostics), so a bare pre-namespacing spelling
+    (``unreachable-record`` for ``lint.unreachable-record``) fails the
+    fixture rather than passing code-agnostically (omnist#359)."""
     return {
         "ok": payload["ok"],
         "findings": [
-            {k: f[k] for k in ("severity", "location")}
+            {k: f[k] for k in ("code", "severity", "location")}
             for f in payload["findings"]
         ],
     }
@@ -252,8 +250,8 @@ def main(argv: List[str]) -> int:
         return 2
 
     operations = argv or sorted(ALL_OPERATIONS)
-    print("comparison: ok, document/schema structure, and lint severity+location "
-          "exactly; lint code informational (docs/conformance-harness.md Sec2)")
+    print("comparison: ok, document/schema structure, and lint code+severity+location "
+          "exactly (docs/conformance-harness.md Sec2)")
     total_pass = total_fail = total_skip = 0
     for op in operations:
         p, f, s = run_operation(op)

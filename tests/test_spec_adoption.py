@@ -310,12 +310,13 @@ class TestDocumentCodes:
         with pytest.raises(ParseError) as exc:
             read_oml("a: " + "{ b: " * 300 + "1" + " }" * 300)
         assert (exc.value.code, exc.value.path) == ("document.limit.depth", "$")
-        with pytest.raises(ParseError) as exc:
+        # E-4a: the int-digits limit is reported at the Document path of the leaf
+        with pytest.raises(DocumentError) as exc:
             read_json('{"n": ' + "9" * 5000 + "}")
-        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$")
+        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.n")
         with pytest.raises(ParseError) as exc:
             read_oml("n: " + "9" * 5000)
-        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$")
+        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.n")
         with pytest.raises(DocumentError) as exc:
             Doc.of({"n": 10 ** 5000})
         assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.n")
@@ -615,11 +616,14 @@ class TestYamlMergeKeyOrder:
     def test_value_tag_key_is_kept_as_a_string_like_pyyaml(self):
         assert keys("a: &a {x: 1}\nb:\n  <<: *a\n  =: 2\n", "b") == [("x", 1), ("=", 2)]
 
-    def test_local_duplicates_still_resolve_last_wins_like_pyyaml(self):
-        assert keys("a: &a {x: 1}\nb:\n  <<: *a\n  y: 1\n  y: 2\n", "b") == [("x", 1), ("y", 2)]
+    def test_a_key_written_twice_is_refused_even_beside_a_merge_key(self):
+        # C-12 (v0.34.0-beta): this used to resolve last-wins like PyYAML.
+        with pytest.raises(ParseError) as info:
+            read_yaml("a: &a {x: 1}\nb:\n  <<: *a\n  y: 1\n  y: 2\n")
+        assert (info.value.code, info.value.path) == ("parse.codec-syntax", "5:3")
 
     def test_a_document_without_a_merge_is_unchanged(self):
-        assert read_yaml("a: 1\na: 2\nb: [3, 4]\n") == [("a", 2), ("b", 3), ("b", 4)]
+        assert read_yaml("a: 1\nb: [3, 4]\n") == [("a", 1), ("b", 3), ("b", 4)]
 
 
 class TestYamlAnchorsNeverCrashOrHang:

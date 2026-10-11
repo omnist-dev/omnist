@@ -63,7 +63,7 @@ class TestPublicApi:
         import omnist as ds
 
         s = ds.parse_schema('record R { "n": integer, "s": string? }\nroot R')
-        assert ds.__version__ == "0.15.0"
+        assert ds.__version__ == "0.16.0"
         # operations are Schema methods
         assert s.validate(ds.doc({"n": 1, "s": None})).ok
         assert s.equivalent(ds.parse_schema(ds.to_osd(s)))
@@ -897,20 +897,17 @@ class TestMalformedInput:
         text = '{"a": "' + ("[" * 500) + r'a \" [x]' + ("]" * 500) + '"}'
         assert read_json(text) == [("a", "[" * 500 + 'a " [x]' + "]" * 500)]
 
-    def test_oml_many_container_nodes_raises_parse_error(self, monkeypatch):
+    def test_oml_many_container_nodes_raises_parse_error(self):
         # #313: unlike the JSON/YAML/TOML readers (which all go through
         # build_node(), whose own _MAX_NODES budget already covers this),
         # OML's recursive-descent parser built its edge lists directly,
         # with no node-count enforcement of its own at all -- confirmed
         # live before this fix (1.1M OML edges parsed with no error
-        # whatsoever). Monkeypatches the cap down so this doesn't need to
+        # whatsoever). Passes the cap down (max_nodes) so this doesn't need to
         # actually build a million real nodes to prove the guard fires.
-        import omnist.oml as oml_module
-        monkeypatch.setattr(oml_module, "_MAX_NODES", 50)
-
         text = "".join(f"k{i}: {{ x: {i} }}\n" for i in range(60))
         with pytest.raises(ParseError, match="too many nodes materialized"):
-            read_oml(text)
+            read_oml(text, max_nodes=50)
 
     def test_oml_flat_document_with_many_scalar_edges_is_one_node(self):
         # A flat document is one *container* node (the root) regardless of
@@ -1997,15 +1994,16 @@ class TestDocumentRobustness:
 
     def test_xml_at_the_depth_boundary_still_parses(self):
         # 200 levels of nesting is the documented limit -- same boundary as
-        # build_node's own guard (issue #155, B3).
+        # build_node's own guard (issue #155, B3): the value of the innermost
+        # element sits at depth 200, the value of an element at depth n+1 (E-4a).
         s = "<v>1</v>"
-        for _ in range(200):
+        for _ in range(199):
             s = f"<a>{s}</a>"
         read_xml(s)  # must not raise
 
     def test_xml_one_past_the_depth_boundary_raises_cleanly(self):
         s = "<v>1</v>"
-        for _ in range(201):
+        for _ in range(200):
             s = f"<a>{s}</a>"
         with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
             read_xml(s)
@@ -2021,7 +2019,7 @@ class TestDocumentRobustness:
         with pytest.raises(DocumentError, match="nesting exceeds the maximum depth"):
             read_xml(s)
 
-    def test_xml_exceeding_the_node_budget_raises_cleanly(self, monkeypatch):
+    def test_xml_exceeding_the_node_budget_raises_cleanly(self):
         # Issue #260: read_xml used to have no node-count ceiling at all
         # (only the depth guard above), unlike the other three readers
         # after #259's fix for the YAML alias-amplification hole. XML has
@@ -2031,25 +2029,16 @@ class TestDocumentRobustness:
         # closing the one reader that didn't share the same size ceiling
         # as the rest.
         #
-        # sys.modules, not `import omnist.formats as x`: the omnist package
-        # re-exports a *function* also named `formats` (the format-registry
-        # listing, from .registry), which shadows the submodule as a plain
-        # attribute of the omnist package once omnist/__init__.py has run --
-        # sys.modules['omnist.formats'] reliably gets the real module.
-        import sys
-        formats_module = sys.modules["omnist.formats"]
-        monkeypatch.setattr(formats_module, "_MAX_NODES", 3)
-
+        #
+        # Nodes are counted as the other readers count them (E-4a): the root
+        # and each element that has child elements, not a leaf element.
         with pytest.raises(DocumentError, match="too many nodes materialized"):
-            read_xml("<a><b><c>1</c><d>2</d></b><e>3</e></a>")
+            read_xml("<a><b><c>1</c><d>2</d></b><e>3</e></a>", max_nodes=2)
 
-    def test_xml_under_the_node_budget_still_parses(self, monkeypatch):
-        import sys
-        formats_module = sys.modules["omnist.formats"]
-        monkeypatch.setattr(formats_module, "_MAX_NODES", 3)
-
-        # Exactly 3 elements (a, b, c) -- at the boundary, must not raise.
-        assert read_xml("<a><b><c>1</c></b></a>") == [
+    def test_xml_under_the_node_budget_still_parses(self):
+        # The root, a and b are 3 nodes (c is a leaf) -- at the boundary,
+        # must not raise.
+        assert read_xml("<a><b><c>1</c></b></a>", max_nodes=3) == [
             ("a", [("b", [("c", "1")])])]
 
     def test_add_at_a_deep_cursor_raises_once_combined_depth_exceeds_limit(self):
@@ -2119,7 +2108,7 @@ class TestDocumentRobustness:
         with pytest.raises(DocumentError, match="cycle detected"):
             doc(d)
 
-    def test_yaml_alias_amplification_raises_cleanly(self, monkeypatch):
+    def test_yaml_alias_amplification_raises_cleanly(self):
         # Issue #256: PyYAML resolves *alias references as shared object
         # identity (a DAG), not clones -- so a chain of doubly-referenced
         # anchors ("billion laughs") materializes O(2**n) nodes from an
@@ -2130,23 +2119,21 @@ class TestDocumentRobustness:
         # _MAX_DEPTH doesn't help either: this attack is O(n) deep with
         # O(2**n) *breadth*, not deep nesting.
         #
-        # Patches _MAX_NODES down so a tiny 10-generation chain exercises
+        # Passes max_nodes down so a tiny 10-generation chain exercises
         # the same guard fast, instead of needing to actually materialize
         # toward the real 1,000,000-node production ceiling. The D-18 ratio
         # limit (v0.11.0) now refuses this input first at the default, so the
         # alias options are raised to their ceilings: this is the backstop
         # behind them, which must keep working when a caller raises them.
-        import omnist.document as document_module
-        monkeypatch.setattr(document_module, "_MAX_NODES", 50)
-
         text = "a0: &a0 {x: 1, y: 2}\n"
         for i in range(1, 10):
             text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
 
         with pytest.raises(DocumentError, match="too many nodes materialized"):
-            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000)
+            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000,
+                      max_nodes=50)
 
-    def test_yaml_alias_amplification_bails_fast_not_after_full_expansion(self, monkeypatch):
+    def test_yaml_alias_amplification_bails_fast_not_after_full_expansion(self):
         # The guard must reject *during* the walk, not after fully
         # expanding the exponential structure and then checking -- confirms
         # the fix also closes the DoS/timing angle, not just eventually
@@ -2155,16 +2142,14 @@ class TestDocumentRobustness:
         # the budget, and it must still be caught within 2 seconds.
         import time
 
-        import omnist.document as document_module
-        monkeypatch.setattr(document_module, "_MAX_NODES", 1000)
-
         text = "a0: &a0 {x: 1, y: 2}\n"
         for i in range(1, 12):
             text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
 
         start = time.time()
         with pytest.raises(DocumentError, match="too many nodes materialized"):
-            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000)
+            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000,
+                      max_nodes=1000)
         assert time.time() - start < 2.0
 
     def test_yaml_alias_amplification_25_generations_is_refused_by_the_ratio(self):
@@ -2207,7 +2192,7 @@ class TestDocumentRobustness:
         node = build_node(big)
         assert len(node) == 1_000_000
 
-    def test_adversarial_yaml_amplification_still_caught_after_309_fix(self, monkeypatch):
+    def test_adversarial_yaml_amplification_still_caught_after_309_fix(self):
         # #309: explicit re-verification that switching the node budget to
         # count only actual container nodes (not scalar leaves) does NOT
         # reopen the #256 alias/anchor amplification hole. Each generation
@@ -2216,15 +2201,13 @@ class TestDocumentRobustness:
         # depends on -- verified empirically here, not assumed. Uses a
         # deeper chain (12 generations) and a lower budget than the
         # pre-existing #256 tests, as its own independent check.
-        import omnist.document as document_module
-        monkeypatch.setattr(document_module, "_MAX_NODES", 30)
-
         text = "a0: &a0 {x: 1}\n"
         for i in range(1, 12):
             text += f"a{i}: &a{i}\n  p: *a{i-1}\n  q: *a{i-1}\n"
 
         with pytest.raises(DocumentError, match="too many nodes materialized"):
-            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000)
+            read_yaml(text, max_alias_expansion=10_000, max_expanded_slots=10_000_000,
+                      max_nodes=30)
 
     def test_unsupported_python_type_raises(self):
         with pytest.raises(DocumentError, match="is not a Document value"):
@@ -2309,22 +2292,25 @@ class TestDocumentRobustness:
         # json.loads converts the integer literal to `int` while parsing --
         # before build_node ever runs -- so this exercises a different code
         # path than doc()/add()/set(). It must not leak CPython's raw
-        # ValueError; formats.py translates it to ParseError like any other
-        # parse-time failure (the readers' existing convention: syntax/
-        # conversion errors during read -> ParseError).
+        # ValueError: the reader's int hook marks the literal and build_node
+        # refuses it at the literal's own Document path (E-4a), like every
+        # other build-time limit, as a DocumentError.
         text = '{"a": ' + ("9" * 4301) + "}"
-        with pytest.raises(ParseError):
+        with pytest.raises(DocumentError) as exc:
             read_json(text)
+        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.a")
 
     def test_oversized_int_from_read_yaml_raises_cleanly(self):
         text = "a: " + ("9" * 4301)
-        with pytest.raises(ParseError):
+        with pytest.raises(DocumentError) as exc:
             read_yaml(text)
+        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.a")
 
     def test_oversized_int_from_read_toml_raises_cleanly(self):
         text = "a = " + ("9" * 4301)
-        with pytest.raises(ParseError):
+        with pytest.raises(DocumentError) as exc:
             read_toml(text)
+        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.a")
 
     def test_eq_against_non_document_value(self):
         assert doc({"a": 1}) != {1, 2, 3}    # a set has no Document form

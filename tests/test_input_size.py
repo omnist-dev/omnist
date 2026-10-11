@@ -396,7 +396,8 @@ def test_bom_counts_toward_the_maximum_in_every_reader(fmt):
 
 @pytest.mark.parametrize("op", ["write", "validate", "materialize", "infer", "normalize", "lint"])
 @pytest.mark.parametrize("key", ["declared_max_input_bytes", "declared_max_alias_expansion",
-                                 "declared_max_expanded_slots"])
+                                 "declared_max_expanded_slots", "declared_max_depth",
+                                 "declared_max_nodes", "declared_max_int_digits"])
 def test_runner_fails_a_declared_key_on_an_operation_that_does_not_honour_it(op, key):
     v = {"name": "n", "operation": op, "input": {"format": "json", key: 3},
          "expect": {"ok": True}}

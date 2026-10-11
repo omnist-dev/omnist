@@ -6,6 +6,54 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.16.0] — adopts omnist-spec v0.34.0-beta: C-12 duplicate keys, C-13 tags, configurable limits
+
+A **minor** bump under the beta rule: inputs that used to be accepted are now
+refused (a repeated YAML key, `!!pairs`/`!!omap`/`!!set`), and the safety
+limits become options. `vendor/omnist-spec` moves from `v0.33.0-beta` to
+`v0.34.0-beta` (`3346b50`). Closes omnist#359 and omnist#360.
+
+Conformance, before any fix (from the pin bump alone): Track 1 19/19; Track 2
+429 passed, 17 failed, 76 skipped of 522. After: Track 1 19/19; Track 2 494
+passed, 0 failed, 28 skipped of 522 (the 28 OSD-OML E-20/E-21 skips, nothing
+else).
+
+- **C-12: a YAML mapping that repeats a key is `parse.codec-syntax`**, at the
+  line and column of the second occurrence (it used to read last-wins). A key a
+  merge key supplies is not a repeat. TOML already refused; JSON keeps the last
+  value at the first position (C-11, now pinned by tests).
+- **C-13: `!!pairs`, `!!omap` and `!!set` are refused** with the new code
+  `format.tag-forbidden` at path `$` (they surfaced as
+  `document.unlabeled-element`, or were accepted).
+- **Configurable safety limits (DIV-28, omnist#360).** Every reader and
+  `Doc.from_*` takes `max_depth` (ceiling 200), `max_nodes` (ceiling
+  10 000 000) and `max_int_digits` (ceiling 4300) per call, like
+  `max_input_bytes`; `Doc.from_format` passes them when given. The Track 2
+  runner honours `declared_max_*`, so the 48 limit vectors no longer skip.
+- **Integer-digit refusals carry the literal's Document path (DIV-29, E-4a).**
+  JSON, YAML, TOML and OML reported `$` for a literal past CPython's own
+  conversion guard; they now report e.g. `$.o.a[1]`. D-28: the digits of the
+  value are counted, so `0xFFF` and `1_000` have four. The XML pretyping of an
+  over-limit integer is `document.limit.int-digits` at the leaf path instead of
+  an uncaught `ValueError`.
+- **Behaviour changes to note.** The JSON/YAML/TOML integer-digit refusal is a
+  `DocumentError` (as every other build-time limit), where a literal past 4300
+  digits was a `ParseError`; OML stays `ParseError`. **Migration:** catch
+  `OmnistError` (the base of both), or both classes; the spec fixes the code and
+  path, not the exception class. `format.tag-forbidden` is a `ParseError`, like
+  `format.dtd-forbidden`. A scalar now counts as a level in OML and XML, as in
+  the builder (D-12): a document nested exactly 200 levels still reads; only a
+  leaf at depth 201 in OML or XML is newly refused (JSON, YAML and TOML are
+  unchanged). XML counts nodes as
+  every other format does (the root and elements with children, not leaf
+  elements). A YAML timestamp that is not a date (`2001-13-45`) is
+  `parse.codec-syntax`, no longer mislabelled `document.limit.int-digits`.
+- **D-29** (a literal beyond binary64 reads as an infinity, underflow as `0.0`)
+  already held in JSON, YAML, TOML and OML; now pinned by tests.
+- **Runners.** Track 1 compares a lint finding's `code` exactly (omnist#359,
+  spec section 8.3 is mandatory); stale runner comments updated. Track 2 passes
+  `compact` to the OML writer (E-35).
+
 ## [v0.15.0] — adopts omnist-spec v0.33.0-beta: C-10 (XML null leaf fails); E-10 on XML drop paths
 
 A **minor** bump under the beta rule: the XML writer now rejects an input it

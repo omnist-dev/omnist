@@ -138,35 +138,46 @@ FROZEN_FUNCTION_SIGNATURES = {
     "materialize": "(node: 'Any', schema: 'Schema') -> 'Any'",
     "lint": "(s: 'Schema') -> 'List[LintFinding]'",
     "read_json": (
-        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
+        '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+        "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+        "max_nodes: 'int' = 1000000, "
+        "max_int_digits: 'int' = 4300) -> 'Any'"),
     "write_json": (
         "(node: 'Any', *, indent: 'Optional[int]' = None, strict: 'bool' = False, "
         "report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
     "read_yaml": (
-        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-        "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000, "
-        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
+        '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+        "max_alias_expansion: 'int' = 50, "
+        "max_expanded_slots: 'int' = 1000000, "
+        "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+        "max_nodes: 'int' = 1000000, "
+        "max_int_digits: 'int' = 4300) -> 'Any'"),
     "write_yaml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
     "read_toml": (
-        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
+        '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+        "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+        "max_nodes: 'int' = 1000000, "
+        "max_int_digits: 'int' = 4300) -> 'Any'"),
     "write_toml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
     "read_xml": (
-        "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-        "report: 'Optional[WriteReport]' = None, max_input_bytes: 'int' = 67108864) -> 'Any'"
-    ),
+        '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+        "report: 'Optional[WriteReport]' = None, "
+        "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+        "max_nodes: 'int' = 1000000, "
+        "max_int_digits: 'int' = 4300) -> 'Any'"),
     "write_xml": (
         "(node: 'Any', *, strict: 'bool' = False, report: 'Optional[WriteReport]' = None) -> 'str'"
     ),
     "read_oml": (
         "(text: 'str', *, schema: 'Optional[Any]' = None, "
-        "max_input_bytes: 'int' = 67108864) -> 'Any'"),
+        "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+        "max_nodes: 'int' = 1000000, "
+        "max_int_digits: 'int' = 4300) -> 'Any'"),
     "write_oml": "(node: 'Any', *, indent: 'Optional[int]' = 2, arrays: 'bool' = False) -> 'str'",
     "check_json": "(node: 'Any') -> 'WriteReport'",
     "check_yaml": "(node: 'Any') -> 'WriteReport'",
@@ -249,23 +260,38 @@ FROZEN_METHOD_SIGNATURES = {
         "count": "(self, label: 'str') -> 'int'",
         "edges": "(self) -> \"List[Tuple[str, 'Doc']]\"",
         "from_format": (
-            "(name: 'str', text: 'str', *, max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+            "(name: 'str', text: 'str', *, "
+            "max_input_bytes: 'int' = 67108864, "
+            "max_depth: 'Optional[int]' = None, "
+            "max_nodes: 'Optional[int]' = None, "
+            'max_int_digits: \'Optional[int]\' = None) -> "\'Doc\'"'),
         "from_json": (
-            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+            '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+            "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+            "max_nodes: 'int' = 1000000, "
+            'max_int_digits: \'int\' = 4300) -> "\'Doc\'"'),
         "from_oml": (
-            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+            '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+            "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+            "max_nodes: 'int' = 1000000, "
+            'max_int_digits: \'int\' = 4300) -> "\'Doc\'"'),
         "from_toml": (
-            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+            '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+            "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+            "max_nodes: 'int' = 1000000, "
+            'max_int_digits: \'int\' = 4300) -> "\'Doc\'"'),
         "from_xml": (
-            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+            '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+            "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+            "max_nodes: 'int' = 1000000, "
+            'max_int_digits: \'int\' = 4300) -> "\'Doc\'"'),
         "from_yaml": (
-            "(text: 'str', *, schema: \"Optional['Schema']\" = None, "
-            "max_alias_expansion: 'int' = 50, max_expanded_slots: 'int' = 1000000, "
-            "max_input_bytes: 'int' = 67108864) -> \"'Doc'\""),
+            '(text: \'str\', *, schema: "Optional[\'Schema\']" = None, '
+            "max_alias_expansion: 'int' = 50, "
+            "max_expanded_slots: 'int' = 1000000, "
+            "max_input_bytes: 'int' = 67108864, max_depth: 'int' = 200, "
+            "max_nodes: 'int' = 1000000, "
+            'max_int_digits: \'int\' = 4300) -> "\'Doc\'"'),
         "get": "(self, label: 'str') -> \"List['Doc']\"",
         "get_one": "(self, label: 'str') -> \"'Doc'\"",
         "labels": "(self) -> 'List[str]'",

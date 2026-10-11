@@ -15,6 +15,7 @@ the change in a :class:`~omnist.report.WriteReport`.  Pass
 from __future__ import annotations
 
 import datetime as _dt
+import functools
 import json as _json
 import math as _math
 import re as _re
@@ -22,15 +23,25 @@ from typing import TYPE_CHECKING, Any, Optional
 from xml.parsers import expat
 
 from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_encodable, check_input_size, strip_bom
+from ._limits import (
+    DEFAULT_MAX_DEPTH,
+    DEFAULT_MAX_INT_DIGITS,
+    DEFAULT_MAX_NODES,
+    Limits,
+    OverLimitInt,
+    int_or_over_limit,
+    make_limits,
+)
 from ._paths import edge_paths
 from ._position import position
 from ._yaml_alias import (
     DEFAULT_MAX_ALIAS_EXPANSION,
     DEFAULT_MAX_EXPANDED_SLOTS,
     check_alias_limits,
+    reject_forbidden_tags,
     validate_limit_options,
 )
-from .document import _MAX_DEPTH, _MAX_NODES, _grouped, build_node
+from .document import _MAX_DEPTH, _grouped, build_node
 from .errors import DocumentError, ParseError, WriteError
 from .report import WriteReport, finish_write
 
@@ -112,7 +123,7 @@ def _check_interleaving(node: Any, rep: WriteReport) -> None:
                 "warning")
 
 
-def _check_json_text_depth(text: str) -> None:
+def _check_json_text_depth(text: str, max_depth: int) -> None:
     """Reject deeply-nested JSON *before* handing it to ``json.loads`` (#307):
     the standard library parser has no depth limit of its own, so a
     malicious payload can raise an uncaught ``RecursionError`` from inside
@@ -136,8 +147,8 @@ def _check_json_text_depth(text: str) -> None:
             in_string = True
         elif ch in "{[":
             depth += 1
-            if depth > _MAX_DEPTH:
-                raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+            if depth > max_depth:
+                raise ParseError(f"nesting exceeds the maximum depth ({max_depth})",
                                  code="document.limit.depth", path="$")
         elif ch in "}]":
             depth -= 1
@@ -145,9 +156,10 @@ def _check_json_text_depth(text: str) -> None:
 
 def _int_digits_limit(message: str) -> ParseError:
     """The int-digits limit (D-13, ``document.limit.int-digits``) as a reader
-    raises it: CPython's own guard fires inside the codec's library, before
-    any Document exists, so the offending literal's Document path is not
-    available and the whole-document path ``$`` is reported."""
+    raises it when it cannot tell which leaf holds the literal: the whole
+    document, ``$``. Every reader now marks the literal instead
+    (``OverLimitInt``) and ``build_node`` refuses it at its own path; this is
+    the fallback of the one reader that cannot always do that (TOML)."""
     return ParseError(message, code="document.limit.int-digits", path="$")
 
 
@@ -184,23 +196,39 @@ def _toml_position(exc: Any, text: str) -> str:
 
 
 # --------------------------------------------------------------- JSON
+def _json_int_hook(max_digits: int) -> Any:
+    """``json.loads``'s ``parse_int``: an integer literal of more than
+    ``max_digits`` digits is not converted (CPython's own int-string guard
+    would raise a bare ``ValueError`` with no Document path) but returned as
+    an ``OverLimitInt``, which ``build_node`` refuses at the leaf's path."""
+    return functools.partial(int_or_over_limit, max_digits=max_digits)
+
+
 def read_json(text: str, *, schema: Optional["Schema"] = None,
-              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+              max_depth: int = DEFAULT_MAX_DEPTH,
+              max_nodes: int = DEFAULT_MAX_NODES,
+              max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> Any:
+    """Read JSON text into a node.
+
+    ``max_input_bytes`` (default 64 MiB) is D-23's input size limit.
+    ``max_depth`` (default and ceiling 200), ``max_nodes`` (default 1 000 000,
+    ceiling 10 000 000) and ``max_int_digits`` (default and ceiling 4300) are
+    the safety limits of Sec2.4 for this read; exceeding one is
+    ``document.limit.depth``, ``.nodes`` or ``.int-digits`` (D-13), the last at
+    the Document path of the literal (E-4a). A key repeated in an object keeps
+    the last value at the first position (C-11). A number literal beyond
+    binary64 reads as an infinity (D-29)."""
+    limits = make_limits(max_depth, max_nodes, max_int_digits)
     check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
-    _check_json_text_depth(text)
+    _check_json_text_depth(text, limits.max_depth)
     try:
-        node = build_node(_json.loads(text))
+        data = _json.loads(text, parse_int=_json_int_hook(limits.max_int_digits))
     except _json.JSONDecodeError as exc:
         raise ParseError(f"invalid JSON: {exc}", code="parse.codec-syntax",
                          path=f"{exc.lineno}:{exc.colno}") from exc
-    except ValueError as exc:
-        # json.loads converts integer literals to `int` while parsing, so an
-        # over-digit-limit literal trips CPython's int-string-conversion
-        # guard here -- before build_node ever sees a value -- as a bare
-        # ValueError, not a JSONDecodeError.  That is the int-digits limit
-        # (D-13), reported like build_node's own.
-        raise _int_digits_limit(f"invalid JSON: {exc}") from exc
+    node = build_node(data, limits=limits)
     return _materialize(node, schema)
 
 
@@ -245,11 +273,24 @@ def _iso(o: Any) -> str:
 def read_yaml(text: str, *, schema: Optional["Schema"] = None,
               max_alias_expansion: int = DEFAULT_MAX_ALIAS_EXPANSION,
               max_expanded_slots: int = DEFAULT_MAX_EXPANDED_SLOTS,
-              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+              max_depth: int = DEFAULT_MAX_DEPTH,
+              max_nodes: int = DEFAULT_MAX_NODES,
+              max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> Any:
     """Read YAML text into a node.
 
     ``max_input_bytes`` (default 64 MiB) is the largest input, in UTF-8 bytes,
     that is read at all (D-23); see ``docs/api.md``.
+
+    ``max_depth`` (default and ceiling 200), ``max_nodes`` (default 1 000 000,
+    ceiling 10 000 000) and ``max_int_digits`` (default and ceiling 4300) are
+    the safety limits of Sec2.4 for this read; exceeding one is
+    ``document.limit.depth``, ``.nodes`` or ``.int-digits`` (D-13), the last at
+    the Document path of the literal, whose digits are counted in its
+    *value* whatever the spelling: ``0xFFF``, ``0o7777`` and ``4_095`` all have
+    four (D-28). A mapping that repeats a key is refused as
+    ``parse.codec-syntax`` (C-12), and a node tagged ``!!pairs``, ``!!omap`` or
+    ``!!set`` as ``format.tag-forbidden`` (C-13).
 
     ``max_alias_expansion`` (default 50, at most 10 000) is the largest
     expansion factor ``W / S`` any mapping or sequence may have (D-18), and
@@ -261,36 +302,42 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None,
     key is exempt from the second. See ``docs/formats/yaml.md``.
     """
     validate_limit_options(max_alias_expansion, max_expanded_slots)
+    limits = make_limits(max_depth, max_nodes, max_int_digits)
     check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: before anything else is read
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     yaml = _need("yaml", "pip install pyyaml")
     loader = None
     try:
         loader = _yaml_loader(yaml)(text)
+        loader.omnist_max_int_digits = limits.max_int_digits
         # compose -> check the anchor/alias graph -> only then construct, so
         # no alias is ever expanded for an input that is over a limit (D-19).
         root = loader.get_single_node()
         data = None
         if root is not None:
+            reject_forbidden_tags(root, yaml.nodes)     # C-13
             check_alias_limits(root, yaml.nodes, saw_alias=loader.omnist_saw_alias,
                                max_alias_expansion=max_alias_expansion,
                                max_expanded_slots=max_expanded_slots)
             data = loader.construct_document(root)
-        node = build_node(data)
+        node = build_node(data, limits=limits)
     except yaml.YAMLError as exc:
         raise ParseError(f"invalid YAML: {exc}", code="parse.codec-syntax",
                          path=_yaml_position(exc, text)) from exc
     except ValueError as exc:
-        # Same int-string-conversion guard as read_json (see its comment):
-        # PyYAML converts an integer scalar to `int` while loading.
-        raise _int_digits_limit(f"invalid YAML: {exc}") from exc
+        # What is left is PyYAML's timestamp resolver: `2001-13-45` matches
+        # YAML 1.1's timestamp pattern, then fails to be a date. The library
+        # gives no position for it. (An over-long integer never gets here: the
+        # loader marks it, see construct_yaml_int, and build_node refuses it.)
+        raise ParseError(f"invalid YAML: {exc}", code="parse.codec-syntax",
+                         path="1:1") from exc
     except RecursionError as exc:
         # #307: unlike JSON's bracket grammar, YAML nesting (indentation,
         # flow collections, anchors) isn't cheap to bound from raw text
         # without reimplementing the grammar -- this is a safety net that
         # converts an uncaught crash into the same clean error a depth
         # violation always raises, rather than precise prevention.
-        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+        raise ParseError(f"nesting exceeds the maximum depth ({limits.max_depth})",
                          code="document.limit.depth", path="$") from exc
     finally:
         if loader is not None:
@@ -303,6 +350,7 @@ _YAML_LOADER_CACHE: dict[Any, Any] = {}
 _YAML_MERGE_TAG = "tag:yaml.org,2002:merge"
 _YAML_VALUE_TAG = "tag:yaml.org,2002:value"
 _YAML_STR_TAG = "tag:yaml.org,2002:str"
+_YAML_NONZERO_DIGITS = tuple("123456789")
 
 
 def _yaml_loader(yaml: Any) -> type[Any]:
@@ -339,6 +387,8 @@ def _yaml_loader(yaml: Any) -> type[Any]:
             #: whether the composer resolved any alias (PyYAML nodes do not
             #: record their anchors); D-22 applies only when one was seen.
             self.omnist_saw_alias = False
+            #: the integer-digit limit of this read (D-9, D-28); read_yaml sets it
+            self.omnist_max_int_digits = DEFAULT_MAX_INT_DIGITS
 
         def compose_node(self, parent: Any, index: Any) -> Any:
             if self.check_event(AliasEvent):
@@ -352,8 +402,21 @@ def _yaml_loader(yaml: Any) -> type[Any]:
                     self.anchors.pop(anchor, None)
             return super().compose_node(parent, index)
 
+        def construct_yaml_int(self, node: Any) -> Any:
+            """A plain decimal literal of more than the limit's digits is not
+            converted (PyYAML's ``int()`` would raise CPython's bare
+            ``ValueError`` past 4300 digits, with no Document path): it reads
+            as an ``OverLimitInt`` and ``build_node`` refuses it at the leaf's
+            path. A hex, octal or binary literal converts without that guard
+            and is checked on its value (D-28)."""
+            text = self.construct_scalar(node).replace("_", "")
+            if text.lstrip("+-")[:1] in _YAML_NONZERO_DIGITS and ":" not in text:
+                return int_or_over_limit(text, self.omnist_max_int_digits)
+            return super().construct_yaml_int(node)
+
         def flatten_mapping(self, node: Any) -> None:
             merged: list[list[Any]] = []       # one entry list per merged mapping
+            written: set[Any] = set()          # C-12: the keys this mapping writes itself
             index = 0
             while index < len(node.value):
                 key_node, value_node = node.value[index]
@@ -371,10 +434,20 @@ def _yaml_loader(yaml: Any) -> type[Any]:
                         for subnode in value_node.value:
                             self.flatten_mapping(subnode)
                             merged.append(list(subnode.value))
-                elif key_node.tag == _YAML_VALUE_TAG:
-                    key_node.tag = _YAML_STR_TAG
-                    index += 1
                 else:
+                    if key_node.tag == _YAML_VALUE_TAG:
+                        key_node.tag = _YAML_STR_TAG
+                    key = self._merge_key(node, key_node)
+                    # C-12: a key written twice in one mapping is refused. A key
+                    # a merge key supplies is not a repeat of one written here
+                    # (the merge below resolves that), so only this mapping's
+                    # own entries are counted; (type, value) keeps 1 and 1.0
+                    # and "1" apart, as the keys they construct are.
+                    if (type(key), key) in written:
+                        raise ConstructorError(
+                            "while constructing a mapping", node.start_mark,
+                            f"found duplicate key {key!r}", key_node.start_mark)
+                    written.add((type(key), key))
                     index += 1
             if merged:
                 node.value = self._merge_entries(node, merged)
@@ -404,6 +477,8 @@ def _yaml_loader(yaml: Any) -> type[Any]:
                     "found unhashable key", key_node.start_mark) from exc
             return key
 
+    _OmnistYamlLoader.add_constructor("tag:yaml.org,2002:int",
+                                      _OmnistYamlLoader.construct_yaml_int)
     _YAML_LOADER_CACHE[yaml] = _OmnistYamlLoader
     return _OmnistYamlLoader
 
@@ -483,25 +558,124 @@ def _yaml_dumper(yaml: Any) -> type[Any]:
 
 
 # --------------------------------------------------------------- TOML
+_TOML_DECIMAL = _re.compile(r"[+-]?[0-9](?:_?[0-9])*(?=[\s,\]}#]|\Z)")
+
+
+def _toml_string_end(text: str, i: int) -> int:
+    """The offset just past the TOML string that starts at ``text[i]``."""
+    quote, n = text[i], len(text)
+    if text.startswith(quote * 3, i):                       # multi-line
+        j = i + 3
+        while j < n:
+            if quote == '"' and text[j] == "\\":
+                j += 2
+            elif text.startswith(quote * 3, j):
+                j += 3
+                for _ in range(2):                          # up to two quotes of content
+                    if j < n and text[j] == quote:
+                        j += 1
+                return j
+            else:
+                j += 1
+        return n
+    j = i + 1                                               # single-line
+    while j < n and text[j] not in (quote, "\n"):
+        j += 2 if quote == '"' and text[j] == "\\" else 1
+    return min(j + 1, n)
+
+
+def _toml_mark_over_limit(text: str, max_digits: int) -> Optional[tuple[str, str]]:
+    """Rewrite each decimal integer literal of more than ``max_digits`` digits
+    in a TOML value position (after ``=``, ``,``, ``[`` or ``{``; strings and
+    comments are skipped) to the float spelling ``marker``, and return
+    ``(new_text, marker)``; ``None`` when there is none.
+
+    ``tomllib`` converts an integer with the builtin ``int`` and has no hook
+    for it, so a literal past CPython's int-string guard fails with a bare
+    ``ValueError`` and no position. Marking it lets ``parse_float`` (which
+    ``tomllib`` does have) hand back an ``OverLimitInt`` at the leaf, so the
+    refusal can carry the Document path of the literal (E-4a). A heuristic that
+    misses a literal falls back to the whole-document path ``$``."""
+    marker_exponent = 400
+    while f"1e-{marker_exponent}" in text:
+        marker_exponent += 1
+    marker = f"1e-{marker_exponent}"
+    out: list[str] = []
+    i, n, prev, replaced = 0, len(text), "\n", False
+    while i < n:
+        ch = text[i]
+        if ch == "#":
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            out.append(text[i:j])
+            i = j
+        elif ch in "\"'":
+            j = _toml_string_end(text, i)
+            out.append(text[i:j])
+            i, prev = j, ch
+        elif ch.isspace():
+            out.append(ch)
+            i += 1
+        else:
+            m = _TOML_DECIMAL.match(text, i) if prev in "=,[{" else None
+            if m is not None and sum(c.isdigit() for c in m[0]) > max_digits:
+                out.append(marker)
+                i, prev, replaced = m.end(), "1", True
+            else:
+                out.append(ch)
+                i, prev = i + 1, ch
+    return ("".join(out), marker) if replaced else None
+
+
+def _toml_loads(text: str, max_digits: int) -> Any:
+    import tomllib
+    try:
+        return tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        raise
+    except ValueError as exc:
+        # CPython's int-string guard (an integer of more than 4300 digits, or
+        # whatever limit the process has set), which tomllib does not catch.
+        marked = _toml_mark_over_limit(text, max_digits)
+        if marked is not None:
+            new_text, marker = marked
+            try:
+                return tomllib.loads(
+                    new_text, parse_float=lambda s: OverLimitInt() if s == marker else float(s))
+            except ValueError:
+                pass
+        raise _int_digits_limit(f"invalid TOML: {exc}") from exc
+
+
 def read_toml(text: str, *, schema: Optional["Schema"] = None,
-              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+              max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+              max_depth: int = DEFAULT_MAX_DEPTH,
+              max_nodes: int = DEFAULT_MAX_NODES,
+              max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> Any:
+    """Read TOML text into a node.
+
+    ``max_depth`` (default and ceiling 200), ``max_nodes`` (default 1 000 000,
+    ceiling 10 000 000) and ``max_int_digits`` (default and ceiling 4300) are
+    the safety limits of Sec2.4 for this read; exceeding one is
+    ``document.limit.depth``, ``.nodes`` or ``.int-digits`` (D-13), the last at
+    the Document path of the literal, whose digits are counted in its *value*
+    whatever the spelling (D-28). A repeated key is refused as
+    ``parse.codec-syntax`` (C-12); a float literal beyond binary64 reads as an
+    infinity (D-29)."""
+    limits = make_limits(max_depth, max_nodes, max_int_digits)
     check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     import tomllib
     try:
-        node = build_node(tomllib.loads(text))
+        node = build_node(_toml_loads(text, limits.max_int_digits), limits=limits)
     except tomllib.TOMLDecodeError as exc:
         raise ParseError(f"invalid TOML: {exc}", code="parse.codec-syntax",
                          path=_toml_position(exc, text)) from exc
-    except ValueError as exc:
-        # Same int-string-conversion guard as read_json (see its comment):
-        # tomllib converts an integer literal to `int` while loading.
-        raise _int_digits_limit(f"invalid TOML: {exc}") from exc
     except RecursionError as exc:
         # #307: same safety net as read_yaml -- TOML nesting (inline
         # tables/arrays, dotted keys) isn't cheap to bound from raw text
         # without reimplementing the grammar.
-        raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
+        raise ParseError(f"nesting exceeds the maximum depth ({limits.max_depth})",
                          code="document.limit.depth", path="$") from exc
     return _materialize(node, schema)
 
@@ -569,7 +743,21 @@ _XML_ILLEGAL_CHAR = _re.compile(
 
 def read_xml(text: str, *, schema: Optional["Schema"] = None,
             report: Optional[WriteReport] = None,
-            max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+            max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+            max_depth: int = DEFAULT_MAX_DEPTH,
+            max_nodes: int = DEFAULT_MAX_NODES,
+            max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> Any:
+    """Read XML text into a node.
+
+    ``max_depth`` (default and ceiling 200), ``max_nodes`` (default 1 000 000,
+    ceiling 10 000 000) and ``max_int_digits`` (default and ceiling 4300) are
+    the safety limits of Sec2.4 for this read; exceeding one is
+    ``document.limit.depth``, ``.nodes`` or ``.int-digits`` (D-13). Nodes are
+    counted as every other format counts them: the root and each element with
+    child elements (E-4a), not a leaf element. The digit limit applies to an
+    integer leaf pretyped against ``schema`` (D-28), refused at the leaf's
+    Document path."""
+    limits = make_limits(max_depth, max_nodes, max_int_digits)
     check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     root = _xml_fromstring(text)
@@ -580,7 +768,7 @@ def read_xml(text: str, *, schema: Optional["Schema"] = None,
     # scheme mixed-content errors already use and report on.
     root_epath = f"$.{root_local}"
     _check_xml_drops(root, root_epath, report)
-    node = [(root_local, _xml_to_node(root, "$", 0, [0], report, root_epath))]
+    node = [(root_local, _xml_to_node(root, "$", 0, [1], report, root_epath, limits))]
     if schema is not None:
         # #288: recover boolean/integer/number from XML's untyped text
         # before the shared materialize() sees it. This is XML-specific,
@@ -588,40 +776,49 @@ def read_xml(text: str, *, schema: Optional["Schema"] = None,
         # rejecting a string that merely looks numeric (a string is a
         # deliberate choice in JSON/YAML/TOML/OML, never an untyped
         # placeholder the way it always is in XML).
-        node = _xml_pretype(node, schema, schema.root)
+        node = _xml_pretype(node, schema, schema.root, "$", limits)
     return _materialize(node, schema)
 
 
-def _xml_pretype(node: Any, schema: "Schema", t: Any) -> Any:
+def _xml_pretype(node: Any, schema: "Schema", t: Any, path: str, limits: Limits) -> Any:
     from .schema import AnyType, Scalar
     d = schema.resolve(t)
     if isinstance(d, AnyType):
         return node
     if isinstance(d, Scalar):
-        return _xml_pretype_scalar(node, d)
+        return _xml_pretype_scalar(node, d, path, limits)
     if not isinstance(node, list):
         return node
     out = []
-    for label, child in node:
+    for label, child, child_path in edge_paths(path, node):
         f = d.field(label)
-        out.append((label, _xml_pretype(child, schema, f.type) if f else child))
+        out.append((label, _xml_pretype(child, schema, f.type, child_path, limits)
+                    if f else child))
     return out
 
 
-def _xml_pretype_scalar(value: Any, s: "Scalar") -> Any:
+def _xml_pretype_scalar(value: Any, s: "Scalar", path: str, limits: Limits) -> Any:
     # value is always the str _xml_to_node produced -- _xml_pretype is only
     # ever called on a freshly-built XML node, never a value from elsewhere.
     if s.name == "boolean" and value in ("true", "false"):
         return value == "true"
     if s.name == "integer" and _XML_INT_RE.fullmatch(value):
-        return int(value)
+        number = int_or_over_limit(value, limits.max_int_digits)
+        if isinstance(number, OverLimitInt):
+            # D-28/E-4a: the digit limit of an integer leaf, at the leaf's path
+            # (it used to be CPython's bare ValueError).
+            raise DocumentError(
+                f"{path}: integer has more than {limits.max_int_digits} digits, "
+                "exceeding the digit limit (security: unbounded-digit int-to-str "
+                "conversion is superlinear)", code="document.limit.int-digits", path=path)
+        return number
     if s.name == "number" and _XML_NUM_RE.fullmatch(value):
         return float(value)
     return value
 
 
 def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
-                 report: Optional[WriteReport], epath: str) -> Any:
+                 report: Optional[WriteReport], epath: str, limits: Limits) -> Any:
     # budget is a shared running node count across the whole call tree, the
     # same mechanism build_node uses (document.py) -- unlike build_node's
     # readers, XML's ElementTree parse has no aliasing mechanism to create a
@@ -629,16 +826,22 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
     # expansion vector upstream), so there's no _MAX_DEPTH-bypassing
     # amplification vector here. This guard exists for the same size
     # ceiling every other reader now has, not because an exploit is known.
-    budget[0] += 1
-    if budget[0] > _MAX_NODES:
+    #
+    # Depth and nodes are counted as the other readers count them (E-4a): the
+    # value of this element's edge sits one level below its container, a leaf
+    # as much as a container, and only a container is a node -- the root is
+    # the one already in ``budget``, then each element with child elements.
+    if depth + 1 > limits.max_depth:
         raise DocumentError(
-            f"{path}: too many nodes materialized (over {_MAX_NODES})",
-            code="document.limit.nodes", path="$")
-    if depth > _MAX_DEPTH:
-        raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})",
-                            code="document.limit.depth", path="$")
+            f"{path}: nesting exceeds the maximum depth ({limits.max_depth})",
+            code="document.limit.depth", path="$")
     children = list(elem)
     if children:
+        budget[0] += 1
+        if budget[0] > limits.max_nodes:
+            raise DocumentError(
+                f"{path}: too many nodes materialized (over {limits.max_nodes})",
+                code="document.limit.nodes", path="$")
         if elem.text and elem.text.strip():
             raise ParseError(
                 f"{path}: mixed content (text alongside child elements) is "
@@ -658,7 +861,8 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
         for (c_local, c), (_, _, cepath) in zip(edges, edge_paths(epath, edges)):
             p = f"{path}.{c_local}"
             _check_xml_drops(c, cepath, report)
-            out.append((c_local, _xml_to_node(c, p, depth + 1, budget, report, cepath)))
+            out.append((c_local, _xml_to_node(c, p, depth + 1, budget, report, cepath,
+                                              limits)))
         return out
     return elem.text or ""
 

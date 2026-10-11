@@ -120,6 +120,10 @@ enforces on parse. See [the API reference](../api.md#reading--writing-formats).
 
 ## Notes
 
+- **A repeated key is refused** (C-12): `a = 1` followed by `a = 2`, a repeated
+  dotted key, and an inline table that repeats a key are all
+  `parse.codec-syntax` at the line and column `tomllib` reports; what counts as
+  defining a key twice is TOML's own rule.
 - TOML round-trips `date`/`time`/`datetime` natively in both directions —
   there's no `format.temporal-stringified` adjustment for TOML the way there is for
   JSON/XML.
