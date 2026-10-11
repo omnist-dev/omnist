@@ -591,8 +591,51 @@ def test_the_osd_oml_operations_are_an_e20_skip_citing_the_tracking_issue(op):
 
 
 @pytest.mark.parametrize("key", sorted(vr._LIMIT_KEYS))
-def test_declared_limit_vectors_are_an_e20_skip(key):
-    assert vr.skip_reason(_v("parse", format="oml", text="x", **{key: 3})) == vr.SKIP_LIMITS
+def test_declared_limit_vectors_are_run_not_skipped(key):
+    assert vr.skip_reason(_v("parse", format="oml", text="x", **{key: 3})) is None
+    assert not hasattr(vr, "SKIP_LIMITS")
+
+
+def _limit_vector(fmt, text, expect, **declared):
+    inp = {"format": fmt, "text": text, **declared}
+    return {"name": "n", "operation": "parse", "input": inp, "expect": expect}
+
+
+_ONE_DIGIT_OVER = {"ok": False,
+                   "diagnostics": [{"path": "$.a", "code": "document.limit.int-digits"}]}
+
+
+@pytest.mark.parametrize("fmt, at, past", [
+    ("json", '{"a": 999}', '{"a": 1000}'), ("yaml", "a: 999\n", "a: 1000\n"),
+    ("toml", "a = 999\n", "a = 1000\n"), ("oml", "a: 999", "a: 1000")])
+def test_a_declared_limit_runs_the_reader_with_exactly_that_value(fmt, at, past):
+    document = {"edges": [["a", {"scalar": {"kind": "integer", "value": 999}}]]}
+    assert vr.run_vector(_limit_vector(
+        fmt, at, {"ok": True, "document": document}, declared_max_int_digits=3)) == ("pass", "ok")
+    assert vr.run_vector(_limit_vector(
+        fmt, past, _ONE_DIGIT_OVER, declared_max_int_digits=3)) == ("pass", "ok")
+    # not declared: the default applies, so the same input is a success, not the expected failure
+    status, msg = vr.run_vector(_limit_vector(fmt, past, _ONE_DIGIT_OVER))
+    assert status == "fail" and msg == "expected failure, command succeeded"
+
+
+def test_a_declared_depth_or_node_limit_is_honoured():
+    depth = {"ok": False, "diagnostics": [{"path": "$", "code": "document.limit.depth"}]}
+    nodes = {"ok": False, "diagnostics": [{"path": "$", "code": "document.limit.nodes"}]}
+    assert vr.run_vector(_limit_vector(
+        "oml", "a: { b: { c: { d: 1 } } }", depth, declared_max_depth=3)) == ("pass", "ok")
+    assert vr.run_vector(_limit_vector(
+        "oml", "a: { b: 1 }", nodes, declared_max_nodes=1)) == ("pass", "ok")
+
+
+def test_a_limit_vector_with_the_wrong_path_or_code_is_a_fail():
+    wrong_path = {"ok": False,
+                  "diagnostics": [{"path": "$", "code": "document.limit.int-digits"}]}
+    wrong_code = {"ok": False, "diagnostics": [{"path": "$.a", "code": "document.limit.depth"}]}
+    for expect in (wrong_path, wrong_code):
+        status, msg = vr.run_vector(_limit_vector(
+            "json", '{"a": 1000}', expect, declared_max_int_digits=3))
+        assert status == "fail" and "diagnostics differ" in msg
 
 
 @pytest.mark.parametrize("key", sorted(vr._ALIAS_KEYS))

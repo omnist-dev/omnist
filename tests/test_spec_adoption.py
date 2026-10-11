@@ -310,12 +310,13 @@ class TestDocumentCodes:
         with pytest.raises(ParseError) as exc:
             read_oml("a: " + "{ b: " * 300 + "1" + " }" * 300)
         assert (exc.value.code, exc.value.path) == ("document.limit.depth", "$")
-        with pytest.raises(ParseError) as exc:
+        # E-4a: the int-digits limit is reported at the Document path of the leaf
+        with pytest.raises(DocumentError) as exc:
             read_json('{"n": ' + "9" * 5000 + "}")
-        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$")
+        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.n")
         with pytest.raises(ParseError) as exc:
             read_oml("n: " + "9" * 5000)
-        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$")
+        assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.n")
         with pytest.raises(DocumentError) as exc:
             Doc.of({"n": 10 ** 5000})
         assert (exc.value.code, exc.value.path) == ("document.limit.int-digits", "$.n")

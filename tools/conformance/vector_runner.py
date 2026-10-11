@@ -22,15 +22,16 @@ nonzero fail count fails the build).
 category in the run's summary:
 
 * *E-20, not yet implemented*: the OSD-OML extension operations
-  (``omnist#341``) and the safety-limit vectors (this omnist hardcodes
-  ``_MAX_DEPTH`` etc. as module constants, Sec2.4 only says an
-  implementation MAY expose them). The YAML alias limits are NOT skipped any
-  more: ``max_alias_expansion`` (D-18) and ``max_expanded_slots`` (D-22) are
-  options of ``read_yaml``, so a vector declaring ``declared_max_alias_expansion``
-  or ``declared_max_expanded_slots`` runs through the library with exactly that
-  value (the CLI has no flag for them) -- never against the default, which
-  would be a false result. declared_max_input_bytes (D-23) is the same
-  for the max_input_bytes option of every reader (any format).
+  (``omnist#341``), and nothing else. No limit vector is skipped: every limit
+  is an option of the readers, so a vector declaring one runs through the
+  library with exactly that value (the CLI has no flag for them) -- never
+  against the default, which would be a false result.
+  ``declared_max_depth``, ``declared_max_nodes`` and ``declared_max_int_digits``
+  (Sec2.4) are the ``max_depth``, ``max_nodes`` and ``max_int_digits`` options of
+  every reader, ``declared_max_alias_expansion`` (D-18) and
+  ``declared_max_expanded_slots`` (D-22) those of ``read_yaml``, and
+  ``declared_max_input_bytes`` (D-23) the ``max_input_bytes`` option of every
+  reader (any format).
 * E-21 (documented divergence) is used for nothing today.
 
 An unknown ``operation`` is a **fail**, never a skip; so is an unknown
@@ -74,10 +75,10 @@ VECTOR_SUITE_DIR = (
 
 COMPARISON_MODE = "strict: diagnostics compared as (path, code) sets, Sec8.5.2 E-17"
 
-# The three universal limits (Sec2.4) are module constants here, not
-# runtime-configurable: a vector declaring one cannot be run against the
-# value it declares.
-_LIMIT_KEYS = {"declared_max_depth", "declared_max_nodes", "declared_max_int_digits"}
+# The three universal limits (Sec2.4): configurable per call (the options of
+# every reader), so a vector carrying one runs, with that value.
+_LIMIT_KEYS = {"declared_max_depth": "max_depth", "declared_max_nodes": "max_nodes",
+               "declared_max_int_digits": "max_int_digits"}
 # D-18's and D-22's keys: configurable (read_yaml's max_alias_expansion and
 # max_expanded_slots), so a vector carrying one runs, with that value.
 _ALIAS_KEYS = {"declared_max_alias_expansion": "max_alias_expansion",
@@ -85,7 +86,7 @@ _ALIAS_KEYS = {"declared_max_alias_expansion": "max_alias_expansion",
 # D-23's key: configurable (the ``max_input_bytes`` option of every reader),
 # for any format. E-20a: a key this runner does not know FAILS the vector.
 _INPUT_SIZE_KEYS = {"declared_max_input_bytes": "max_input_bytes"}
-_LIBRARY_KEYS = {**_ALIAS_KEYS, **_INPUT_SIZE_KEYS}
+_LIBRARY_KEYS = {**_LIMIT_KEYS, **_ALIAS_KEYS, **_INPUT_SIZE_KEYS}
 
 # OSD-OML extension operations (extensions/osd-oml.md Sec E.11): nothing
 # implements them yet here (omnist#341).
@@ -96,8 +97,6 @@ Result = Tuple[str, str]
 Pair = Tuple[Optional[str], Optional[str]]
 
 SKIP_OSD_OML = "E-20 not yet implemented: OSD-OML extension (omnist#341)"
-SKIP_LIMITS = ("E-20 not yet implemented: safety limits are module constants, "
-               "not runtime-configurable (Sec2.4 MAY)")
 
 
 # ---------------------------------------------------------------------------
@@ -251,11 +250,12 @@ def _write_input(v: Dict[str, Any], dir_: Path, name: str) -> Path:
 # ---------------------------------------------------------------------------
 
 def _run_parse_library_limits(v: Dict[str, Any]) -> Result:
-    """A vector declaring ``declared_max_alias_expansion`` and/or
-    ``declared_max_expanded_slots`` (D-18, D-22: YAML text) or
-    ``declared_max_input_bytes`` (D-23: any format): driven through the
-    library with exactly the declared maxima, because the CLI has no flag for
-    them. An undeclared one keeps its default."""
+    """A vector declaring ``declared_max_depth``, ``declared_max_nodes`` or
+    ``declared_max_int_digits`` (Sec2.4), ``declared_max_alias_expansion``
+    and/or ``declared_max_expanded_slots`` (D-18, D-22: YAML text) or
+    ``declared_max_input_bytes`` (D-23): driven through the library with
+    exactly the declared maxima, because the CLI has no flag for them. An
+    undeclared one keeps its default."""
     inp, expect = v["input"], v["expect"]
     if "text" not in inp:
         raise ValueError("a library-limit vector is text")
@@ -526,22 +526,18 @@ def iter_vectors() -> Any:
 
 
 def skip_reason(v: Dict[str, Any]) -> Optional[str]:
-    """The E-20/E-21 reason this vector cannot be run, or ``None``. Every
+    """The E-20/E-21 reason this vector cannot be run, or ``None``. The one
     reason is true of *every* vector it is returned for: the OSD-OML
-    operations are unimplemented, and a vector declaring a limit cannot be
-    run against a value this omnist cannot be configured to."""
+    operations are unimplemented."""
     if v["operation"] in _OSD_OML_OPS:
         return SKIP_OSD_OML
-    declared = {k for k in v["input"] if k.startswith("declared_")}
-    if declared & _LIMIT_KEYS:
-        return SKIP_LIMITS
     return None
 
 
 def run_vector(v: Dict[str, Any]) -> Result:
     op = v["operation"]
     unknown = {k for k in v["input"]
-               if k.startswith("declared_") and k not in _LIMIT_KEYS | _LIBRARY_KEYS.keys()}
+               if k.startswith("declared_") and k not in _LIBRARY_KEYS}
     if unknown:
         return "fail", (f"unknown declared-limit key(s) {sorted(unknown)}: teach the runner "
                         "(running against this omnist's default would be a false result)")

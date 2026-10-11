@@ -35,8 +35,17 @@ import re as _re
 from typing import TYPE_CHECKING, Any, List, Optional, Pattern, Tuple
 
 from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_encodable, check_input_size, strip_bom
+from ._limits import (
+    DEFAULT_MAX_DEPTH,
+    DEFAULT_MAX_INT_DIGITS,
+    DEFAULT_MAX_NODES,
+    Limits,
+    OverLimitInt,
+    int_or_over_limit,
+    make_limits,
+)
 from ._position import line_col
-from .document import _MAX_DEPTH, _MAX_INT_DIGITS, _MAX_NODES
+from .document import _MAX_DEPTH, find_over_limit
 from .errors import ParseError, WriteError
 from .schema import _DATE_RE, _DATETIME_RE, _TIME_RE
 
@@ -528,8 +537,13 @@ class _Parser:
     """Recursive-descent parser driven directly off the scanner's
     ``(kind, start, end)`` triples -- no Token objects, no token list."""
 
-    def __init__(self, scanner: _Scanner) -> None:
+    def __init__(self, scanner: _Scanner, limits: Limits) -> None:
         self.sc = scanner
+        self.limits = limits
+        #: where, and how long, the first integer literal over the digit limit
+        #: is; it reads as an ``OverLimitInt`` and ``raise_over_limit`` refuses
+        #: it once the Document path of its leaf is known (E-4a).
+        self.over_limit: Optional[Tuple[int, int]] = None
         self.kind, self.start, self.end = scanner.next()
         # #313: build_node() (document.py) enforces this same cap for the
         # other readers, but OML's own recursive-descent parser builds its
@@ -599,9 +613,9 @@ class _Parser:
 
     def parse_node_edges(self, depth: int) -> List[Tuple[str, Any]]:
         self.node_count += 1
-        if self.node_count > _MAX_NODES:
+        if self.node_count > self.limits.max_nodes:
             raise ParseError(
-                f"too many nodes materialized (over {_MAX_NODES}) -- "
+                f"too many nodes materialized (over {self.limits.max_nodes}) -- "
                 "likely a runaway or maliciously large document",
                 code="document.limit.nodes", path="$")
         edges: List[Tuple[str, Any]] = []
@@ -686,14 +700,17 @@ class _Parser:
         raise self._error_for(kind, start, f"expected a label, got {kind} {text!r}")
 
     def parse_value(self, depth: int) -> Any:
+        if depth + 1 > self.limits.max_depth:
+            # The value of an edge of a node at ``depth`` sits at ``depth + 1``,
+            # a scalar as much as a brace subtree (the builder counts both: D-12).
+            # No "line X, col Y:" prefix here, matching the original
+            # scanner exactly: it raises a bare ParseError for this one
+            # message rather than going through its usual self.error()
+            # position-prefixing helper.
+            raise ParseError(
+                f"nesting exceeds the maximum depth ({self.limits.max_depth})",
+                code="document.limit.depth", path="$")
         if self.kind == LBRACE:
-            if depth + 1 > _MAX_DEPTH:
-                # No "line X, col Y:" prefix here, matching the original
-                # scanner exactly: it raises a bare ParseError for this one
-                # message rather than going through its usual self.error()
-                # position-prefixing helper.
-                raise ParseError(f"nesting exceeds the maximum depth ({_MAX_DEPTH})",
-                                 code="document.limit.depth", path="$")
             self._advance()
             self.skip_sep()
             edges = self.parse_node_edges(depth + 1)
@@ -769,17 +786,13 @@ class _Parser:
         if kind == INTEGER:
             text = self.sc.s[start:end]
             digits = text[1:] if text[0] == "-" else text
-            if len(digits) > _MAX_INT_DIGITS:
-                # A document.* code takes a Document path (E-11); the
-                # literal's own path is not tracked by this parser, so the
-                # whole-document `$` is reported.
-                raise self.sc.error_at(
-                    start,
-                    f"integer literal has {len(digits)} digits, exceeding "
-                    f"the {_MAX_INT_DIGITS}-digit limit (security: "
-                    "unbounded-digit int-to-str conversion is superlinear)",
-                    code="document.limit.int-digits", path="$")
-            return int(text)
+            value = int_or_over_limit(text, self.limits.max_int_digits)
+            if isinstance(value, OverLimitInt) and self.over_limit is None:
+                # A document.* code takes a Document path (E-11), which this
+                # parser does not track while it reads: remember the literal
+                # and let raise_over_limit() find its leaf in the finished node.
+                self.over_limit = (start, len(digits))
+            return value
         if kind == NUMDEC or kind == NUMEXP:
             return float(self.sc.s[start:end])
         if kind == NANLIT:
@@ -840,6 +853,19 @@ class _Parser:
         text = self._tok_text(kind, start, end)
         raise self._error_for(kind, start, f"expected a value, got {kind} {text!r}")
 
+    def raise_over_limit(self, node: Any) -> None:
+        """E-4a: refuse an integer literal over the digit limit, at the
+        Document path of the leaf that holds it."""
+        if self.over_limit is None:
+            return
+        start, ndigits = self.over_limit
+        raise self.sc.error_at(
+            start,
+            f"integer literal has {ndigits} digits, exceeding the "
+            f"{self.limits.max_int_digits}-digit limit (security: "
+            "unbounded-digit int-to-str conversion is superlinear)",
+            code="document.limit.int-digits", path=find_over_limit(node))
+
     def _string_value(self, start: int, end: int) -> str:
         text = self.sc.s[start:end]
         if text[0] == "'":
@@ -854,14 +880,26 @@ class _Parser:
 # ---------------------------------------------------------------------------
 
 def read_oml(text: str, *, schema: Optional[Any] = None,
-             max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any:
+             max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+             max_depth: int = DEFAULT_MAX_DEPTH,
+             max_nodes: int = DEFAULT_MAX_NODES,
+             max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> Any:
     """Parse OML source into a canonical Document node (edge-list or leaf).
 
     ``max_input_bytes`` (default 64 MiB) is the largest input, in UTF-8 bytes,
-    that is read at all (D-23): over it, ``document.limit.input-size`` at ``$``."""
+    that is read at all (D-23): over it, ``document.limit.input-size`` at ``$``.
+
+    ``max_depth`` (default and ceiling 200), ``max_nodes`` (default 1 000 000,
+    ceiling 10 000 000) and ``max_int_digits`` (default and ceiling 4300) are
+    the safety limits of Sec2.4 for this read; exceeding one is
+    ``document.limit.depth``, ``.nodes`` or ``.int-digits`` (D-13), the last at
+    the path of the offending leaf."""
+    limits = make_limits(max_depth, max_nodes, max_int_digits)
     check_input_size(text, max_input_bytes)      # Sec2.4.2 D-23: first, before anything else
     scanner = _Scanner(strip_bom(text))   # Sec2.5 D-15
-    node = _Parser(scanner).parse_document()
+    parser = _Parser(scanner, limits)
+    node = parser.parse_document()
+    parser.raise_over_limit(node)
     if schema is None:
         return node
     from .deserialize import materialize

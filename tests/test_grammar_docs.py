@@ -11,7 +11,7 @@ import datetime
 import pytest
 
 from omnist import ParseError, SchemaError, parse_schema, read_oml
-from omnist.oml import _MAX_DEPTH, _MAX_INT_DIGITS
+from omnist.document import _MAX_DEPTH, _MAX_INT_DIGITS
 
 # ---------------------------------------------------------------------------
 # docs/design/oml-grammar.md -- Worked examples
@@ -90,14 +90,15 @@ def test_oml_ex12_nested_null_colon_fails_as_explicit_reserved_word():
 
 def test_oml_ex13_limits_at_the_boundary_succeed():
     assert read_oml("9" * _MAX_INT_DIGITS) == int("9" * _MAX_INT_DIGITS)
-    nested = "a: " + ("{a: " * _MAX_DEPTH) + "1" + (" }" * _MAX_DEPTH)
+    # the leaf sits one level below the innermost brace (the builder counts it)
+    nested = "a: " + ("{a: " * (_MAX_DEPTH - 1)) + "1" + (" }" * (_MAX_DEPTH - 1))
     read_oml(nested)  # must not raise
 
 
 def test_oml_ex14_limits_one_past_the_boundary_fail():
     with pytest.raises(ParseError, match="digits"):
         read_oml("9" * (_MAX_INT_DIGITS + 1))
-    nested = "a: " + ("{a: " * (_MAX_DEPTH + 1)) + "1" + (" }" * (_MAX_DEPTH + 1))
+    nested = "a: " + ("{a: " * _MAX_DEPTH) + "1" + (" }" * _MAX_DEPTH)
     with pytest.raises(ParseError, match="nesting"):
         read_oml(nested)
 

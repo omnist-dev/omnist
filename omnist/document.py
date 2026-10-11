@@ -26,6 +26,14 @@ import datetime as _dt
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple
 
 from ._encoding import DEFAULT_MAX_INPUT_BYTES, check_input_size
+from ._limits import (
+    DEFAULT_LIMITS,
+    DEFAULT_MAX_DEPTH,
+    DEFAULT_MAX_INT_DIGITS,
+    DEFAULT_MAX_NODES,
+    Limits,
+    OverLimitInt,
+)
 from ._paths import edge_paths
 from .errors import DocumentError
 
@@ -33,12 +41,12 @@ if TYPE_CHECKING:
     from .report import WriteReport
     from .schema import Schema, ValidationResult
 
-_MAX_DEPTH = 200
-_MAX_INT_DIGITS = 4300    # matches CPython's default sys.get_int_max_str_digits();
-                          # shared with oml.py, which imports this constant so the
-                          # reader and the model enforce exactly the same cap.
-_MAX_INT_MAGNITUDE = 10 ** _MAX_INT_DIGITS
-_MAX_NODES = 1_000_000    # docs/why-omnist.md's own "100k-edge document"
+_MAX_DEPTH = DEFAULT_MAX_DEPTH
+# The reference defaults of Sec2.4, kept under their historical names. Every
+# reader now takes its limits per call (``max_depth`` and the others, see
+# ``_limits.Limits``), these being the defaults it falls back to.
+_MAX_INT_DIGITS = DEFAULT_MAX_INT_DIGITS
+_MAX_NODES = DEFAULT_MAX_NODES    # docs/why-omnist.md's own "100k-edge document"
                           # performance benchmark measures ~132,001 actual
                           # build_node calls once every scalar leaf and
                           # container is counted individually (not just its
@@ -58,22 +66,41 @@ def _is_scalar(v: Any) -> bool:
     return isinstance(v, (str, int, float, _dt.date, _dt.time, _dt.datetime)) or v is None
 
 
-def _check_int_digits(v: Any, path: str) -> None:
-    """Reject ints beyond CPython's str-conversion digit cap.
+def _int_digits_error(path: str, limits: Limits) -> DocumentError:
+    return DocumentError(
+        f"{path}: integer has more than {limits.max_int_digits} digits, exceeding "
+        "the digit limit (security: unbounded-digit int-to-str conversion "
+        "is superlinear)", code="document.limit.int-digits", path=path)
 
-    Compared as an int (``abs(v) >= 10**_MAX_INT_DIGITS``), never via
+
+def _check_int_digits(v: Any, path: str, limits: Limits) -> None:
+    """Reject ints beyond the digit limit (D-9, D-28: the decimal digits of the
+    *value*, whatever the literal's spelling).
+
+    Compared as an int (``abs(v) >= 10**max_int_digits``), never via
     ``str(v)`` -- str-converting an out-of-range int is exactly the
     superlinear operation this guard exists to avoid triggering.  ``bool``
     is an ``int`` subclass but is always 0 or 1, so it can never trip this.
     """
     if not isinstance(v, int) or isinstance(v, bool):
         return
-    if -_MAX_INT_MAGNITUDE < v < _MAX_INT_MAGNITUDE:
+    if -limits.magnitude < v < limits.magnitude:
         return
-    raise DocumentError(
-        f"{path}: integer has more than {_MAX_INT_DIGITS} digits, exceeding "
-        "the digit limit (security: unbounded-digit int-to-str conversion "
-        "is superlinear)", code="document.limit.int-digits", path=path)
+    raise _int_digits_error(path, limits)
+
+
+def find_over_limit(node: Any, path: str = "$") -> Optional[str]:
+    """The Document path of the first :class:`~omnist._limits.OverLimitInt` in
+    ``node``, in document order, or ``None``. For a reader that builds its
+    edge lists directly (OML) rather than through :func:`build_node`."""
+    if isinstance(node, OverLimitInt):
+        return path
+    if isinstance(node, list):
+        for _label, child, child_path in edge_paths(path, node):
+            found = find_over_limit(child, child_path)
+            if found is not None:
+                return found
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +109,8 @@ def _check_int_digits(v: Any, path: str) -> None:
 
 def build_node(value: Any, path: str = "$", depth: int = 0,
                seen: Optional[frozenset[int]] = None,
-               budget: Optional[List[int]] = None) -> Any:
+               budget: Optional[List[int]] = None,
+               limits: Limits = DEFAULT_LIMITS) -> Any:
     """Turn a plain Python value into a canonical node.
 
     A ``dict`` becomes an ordered edge list; a key whose value is a list expands
@@ -98,15 +126,19 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
     node gets walked in full at *every* occurrence, so a chain of ``n``
     doubly-referenced anchors materializes ``O(2**n)`` nodes from an
     ``O(n)``-sized source text ("billion laughs"). ``budget`` bounds that
-    blowup directly, independent of ``_MAX_DEPTH`` (which only bounds
+    blowup directly, independent of the depth limit (which only bounds
     nesting depth, not breadth/repetition) and independent of any single
     caller's input format.
+
+    ``limits`` is the depth, node-count and integer-digit limit of this call
+    (default: the reference defaults, :data:`~omnist._limits.DEFAULT_LIMITS`).
     """
     if budget is None:
         budget = [0]
-    if depth > _MAX_DEPTH:
-        raise DocumentError(f"{path}: nesting exceeds the maximum depth ({_MAX_DEPTH})",
-                            code="document.limit.depth", path="$")
+    if depth > limits.max_depth:
+        raise DocumentError(
+            f"{path}: nesting exceeds the maximum depth ({limits.max_depth})",
+            code="document.limit.depth", path="$")
     if isinstance(value, dict):
         # #309: only an actual container -- omnist-spec Sec2.2's formal
         # `node = [edge, edge, ...]` -- counts against the node budget. A
@@ -119,9 +151,9 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
         # real *container* at every occurrence, so it still increments
         # here at the same rate; only scalar leaves stopped counting.
         budget[0] += 1
-        if budget[0] > _MAX_NODES:
+        if budget[0] > limits.max_nodes:
             raise DocumentError(
-                f"{path}: too many nodes materialized (over {_MAX_NODES}) -- "
+                f"{path}: too many nodes materialized (over {limits.max_nodes}) -- "
                 "likely a YAML alias/anchor amplification (a shared node "
                 "reached via more than one reference is walked in full at "
                 "each occurrence)", code="document.limit.nodes", path="$")
@@ -135,30 +167,32 @@ def build_node(value: Any, path: str = "$", depth: int = 0,
                 raise DocumentError(f"{path}: object key {k!r} is not a string",
                                     code="document.unlabeled-element", path=path)
             kp = _join(path, k)
-            for child in _children(v, kp, depth + 1, seen, budget):
+            for child in _children(v, kp, depth + 1, seen, budget, limits):
                 edges.append((k, child))
         return edges
     if isinstance(value, (list, tuple)):
         raise DocumentError(f"{path}: a bare array has no labeled-edge form "
                             "(arrays appear only as a repeated field)",
                             code="document.unlabeled-element", path=path)
+    if isinstance(value, OverLimitInt):
+        raise _int_digits_error(path, limits)       # E-4a: at the literal's own path
     if _is_scalar(value):
-        _check_int_digits(value, path)
+        _check_int_digits(value, path, limits)
         return value
     raise DocumentError(f"{path}: {type(value).__name__} is not a Document value")
 
 
 def _children(v: Any, path: str, depth: int, seen: frozenset[int],
-              budget: List[int]) -> Iterator[Any]:
+              budget: List[int], limits: Limits) -> Iterator[Any]:
     if isinstance(v, (list, tuple)):
         for i, item in enumerate(v):
             if isinstance(item, (list, tuple)):
                 raise DocumentError(
                     f"{path}[{i}]: an array of arrays has no labeled-edge form",
                     code="document.unlabeled-element", path=f"{path}[{i}]")
-            yield build_node(item, f"{path}[{i}]", depth + 1, seen, budget)
+            yield build_node(item, f"{path}[{i}]", depth + 1, seen, budget, limits)
     else:
-        yield build_node(v, path, depth, seen, budget)
+        yield build_node(v, path, depth, seen, budget, limits)
 
 
 def _join(path: str, key: str) -> str:
@@ -188,63 +222,109 @@ class Doc:
 
     @classmethod
     def from_format(cls, name: str, text: str, *,
-                    max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
+                    max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+                    max_depth: Optional[int] = None,
+                    max_nodes: Optional[int] = None,
+                    max_int_digits: Optional[int] = None) -> "Doc":
         """Parse source text using the registered format named ``name`` into a Doc.
 
         ``max_input_bytes`` (default 64 MiB, D-23) is passed to a reader that
         takes it (every built-in does); for any other reader (a plugin's) the
-        input is checked here, before it runs."""
+        input is checked here, before it runs. ``max_depth``, ``max_nodes`` and
+        ``max_int_digits`` (Sec2.4) are passed to the reader only when given:
+        a plugin reader that does not take them raises ``TypeError``."""
         import inspect
 
         from .registry import get_format
         read: Any = get_format(name).read
+        limits = {key: value for key, value in (
+            ("max_depth", max_depth), ("max_nodes", max_nodes),
+            ("max_int_digits", max_int_digits)) if value is not None}
         if "max_input_bytes" in inspect.signature(read).parameters:
-            return cls(read(text, max_input_bytes=max_input_bytes))
+            return cls(read(text, max_input_bytes=max_input_bytes, **limits))
         check_input_size(text, max_input_bytes)
-        return cls(read(text))
+        return cls(read(text, **limits))
 
     @classmethod
     def from_json(cls, text: str, *, schema: Optional["Schema"] = None,
-                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
-        """Parse JSON text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+                  max_depth: int = DEFAULT_MAX_DEPTH,
+                  max_nodes: int = DEFAULT_MAX_NODES,
+                  max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> "Doc":
+        """Parse JSON text into a Doc, optionally upgrading leaves against ``schema`` (spec §4).
+
+        ``max_depth``, ``max_nodes`` and ``max_int_digits`` are the safety
+        limits of Sec2.4 for this read; see :func:`~omnist.formats.read_json`."""
         from .formats import read_json
-        return cls(read_json(text, schema=schema, max_input_bytes=max_input_bytes))
+        return cls(read_json(text, schema=schema, max_input_bytes=max_input_bytes,
+                             max_depth=max_depth, max_nodes=max_nodes,
+                             max_int_digits=max_int_digits))
 
     @classmethod
     def from_yaml(cls, text: str, *, schema: Optional["Schema"] = None,
                   max_alias_expansion: int = 50,
                   max_expanded_slots: int = 1_000_000,
-                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+                  max_depth: int = DEFAULT_MAX_DEPTH,
+                  max_nodes: int = DEFAULT_MAX_NODES,
+                  max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> "Doc":
         """Parse YAML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4).
 
         ``max_alias_expansion`` and ``max_expanded_slots`` are the alias limits
         of :func:`~omnist.formats.read_yaml` (D-18, D-22); ``max_input_bytes``
-        (default 64 MiB) is the input size limit of D-23."""
+        (default 64 MiB) is the input size limit of D-23; ``max_depth``,
+        ``max_nodes`` and ``max_int_digits`` are the limits of Sec2.4."""
         from .formats import read_yaml
         return cls(read_yaml(text, schema=schema, max_alias_expansion=max_alias_expansion,
                              max_expanded_slots=max_expanded_slots,
-                             max_input_bytes=max_input_bytes))
+                             max_input_bytes=max_input_bytes, max_depth=max_depth,
+                             max_nodes=max_nodes, max_int_digits=max_int_digits))
 
     @classmethod
     def from_toml(cls, text: str, *, schema: Optional["Schema"] = None,
-                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
-        """Parse TOML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
+                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+                  max_depth: int = DEFAULT_MAX_DEPTH,
+                  max_nodes: int = DEFAULT_MAX_NODES,
+                  max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> "Doc":
+        """Parse TOML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4).
+
+        ``max_depth``, ``max_nodes`` and ``max_int_digits`` are the safety
+        limits of Sec2.4 for this read."""
         from .formats import read_toml
-        return cls(read_toml(text, schema=schema, max_input_bytes=max_input_bytes))
+        return cls(read_toml(text, schema=schema, max_input_bytes=max_input_bytes,
+                             max_depth=max_depth, max_nodes=max_nodes,
+                             max_int_digits=max_int_digits))
 
     @classmethod
     def from_xml(cls, text: str, *, schema: Optional["Schema"] = None,
-                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
-        """Parse XML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
+                 max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+                 max_depth: int = DEFAULT_MAX_DEPTH,
+                 max_nodes: int = DEFAULT_MAX_NODES,
+                 max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> "Doc":
+        """Parse XML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4).
+
+        ``max_depth``, ``max_nodes`` and ``max_int_digits`` are the safety
+        limits of Sec2.4 for this read (the digit limit applies to an
+        integer leaf pretyped against ``schema``)."""
         from .formats import read_xml
-        return cls(read_xml(text, schema=schema, max_input_bytes=max_input_bytes))
+        return cls(read_xml(text, schema=schema, max_input_bytes=max_input_bytes,
+                            max_depth=max_depth, max_nodes=max_nodes,
+                            max_int_digits=max_int_digits))
 
     @classmethod
     def from_oml(cls, text: str, *, schema: Optional["Schema"] = None,
-                  max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> "Doc":
-        """Parse OML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4)."""
+                 max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+                 max_depth: int = DEFAULT_MAX_DEPTH,
+                 max_nodes: int = DEFAULT_MAX_NODES,
+                 max_int_digits: int = DEFAULT_MAX_INT_DIGITS) -> "Doc":
+        """Parse OML text into a Doc, optionally upgrading leaves against ``schema`` (spec §4).
+
+        ``max_depth``, ``max_nodes`` and ``max_int_digits`` are the safety
+        limits of Sec2.4 for this read."""
         from .oml import read_oml
-        return cls(read_oml(text, schema=schema, max_input_bytes=max_input_bytes))
+        return cls(read_oml(text, schema=schema, max_input_bytes=max_input_bytes,
+                            max_depth=max_depth, max_nodes=max_nodes,
+                            max_int_digits=max_int_digits))
 
     # -- shape ----------------------------------------------------------
     @property

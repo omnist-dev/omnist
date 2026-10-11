@@ -6,7 +6,7 @@ same Documents as the other formats. `defusedxml` is a hard requirement for
 extra). Without it, `read_xml` raises `ImportError` immediately rather than
 falling back to the standard library's parser, which is vulnerable to
 entity-expansion / XXE attacks on untrusted input.
-Element nesting is also capped at 200 levels, the same `_MAX_DEPTH` bound
+Element nesting is also capped at 200 levels (`max_depth`), the same bound
 every other reader enforces via `build_node` — deeper input raises a clean
 `DocumentError` naming the limit rather than exhausting the call stack.
 
