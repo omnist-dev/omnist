@@ -26,7 +26,7 @@ from .errors import WriteError
 
 class Adjustment(NamedTuple):
     path: str        # e.g. "$.order.total" — same path style as validation
-    code: str        # stable, machine-checkable, e.g. "null.omitted"
+    code: str        # stable, machine-checkable, e.g. "format.temporal-stringified"
     message: str     # human-readable sentence
     severity: str    # "warning" | "error"
 

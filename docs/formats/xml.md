@@ -127,7 +127,7 @@ Doc.of({"order": {"id": "A1"}}).to_xml()
 > [adjustment reports](../api.md#adjustment-reports-lossy-writes) to
 > inspect either, or `strict=True` to raise instead of adjusting.
 >
-> Five other cases have **no safe substitute at all**, and fail
+> Four other cases have **no safe substitute at all**, and fail
 > unconditionally (`WriteError`, `code="write.unsupported-value"`) instead
 > of substituting and reporting a warning -- issues #323/#325 found each of
 > the old substitutions could collide, on read-back, with some other,
