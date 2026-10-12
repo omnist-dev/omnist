@@ -124,9 +124,11 @@ enforces on parse. See [the API reference](../api.md#reading--writing-formats).
   dotted key, and an inline table that repeats a key are all
   `parse.codec-syntax` at the line and column `tomllib` reports; what counts as
   defining a key twice is TOML's own rule.
-- TOML round-trips `date`/`time`/`datetime` natively in both directions —
-  there's no `format.temporal-stringified` adjustment for TOML the way there is for
-  JSON/XML.
+- TOML round-trips `date`/`time`/`datetime` natively in both directions, with
+  one exception (E-37, omnist-spec v0.35.0-beta): TOML has no offset time, so a
+  `time` with an offset (`12:00:00+01:00`) is written as a double-quoted ISO-8601
+  string with a `format.temporal-stringified` warning (it used to raise). A
+  `datetime` is written with the `T` separator (`2024-01-15T12:00:00+01:00`).
 - See [the comparison table](overview.md#special-features-mapped-to-oml) for
   how TOML's native temporal types and array-of-tables stack up against the
   other formats.

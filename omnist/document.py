@@ -34,7 +34,7 @@ from ._limits import (
     Limits,
     OverLimitInt,
 )
-from ._paths import edge_paths
+from ._paths import edge_paths, label_segment
 from .errors import DocumentError
 
 if TYPE_CHECKING:
@@ -196,7 +196,7 @@ def _children(v: Any, path: str, depth: int, seen: frozenset[int],
 
 
 def _join(path: str, key: str) -> str:
-    return f"{path}.{key}" if key.isidentifier() else f'{path}["{key}"]'
+    return f"{path}{label_segment(key)}"
 
 
 # ---------------------------------------------------------------------------
@@ -397,7 +397,7 @@ class Doc:
         grows.  Returns ``self`` for chaining."""
         self._require_internal("add")
         self._node.append(
-            (label, build_node(value, f"{self.path}.{label}", self.depth + 1)))
+            (label, build_node(value, f"{self.path}{label_segment(label)}", self.depth + 1)))
         return self
 
     def remove(self, label: str) -> "Doc":
@@ -410,7 +410,7 @@ class Doc:
         """Replace all edges under ``label`` with a single new edge (positioned
         at the first old occurrence); ``set`` = ``remove`` + ``add``."""
         self._require_internal("set")
-        new = build_node(value, f"{self.path}.{label}", self.depth + 1)
+        new = build_node(value, f"{self.path}{label_segment(label)}", self.depth + 1)
         first = None
         kept: List[Edge] = []
         for lbl, child in self._node:

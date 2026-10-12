@@ -90,9 +90,12 @@ Doc.of({"name": "Ada"}).to_yaml()
 # 'name: Ada\n'
 ```
 
-> YAML carries `date`/`datetime` natively, but has no standalone time-of-day
-> type, so a bare `time` leaf is written as a string and reported as
-> `format.temporal-stringified` (a warning).
+> YAML carries `date`/`datetime` natively (a `datetime` is written with the `T`
+> separator, `2024-01-15T12:00:00+01:00`, E-37), but has no standalone
+> time-of-day type, so a bare `time` leaf is written as a double-quoted string
+> (`"12:00:00"`) and reported as `format.temporal-stringified` (a warning). A
+> `\xXX` or `\uXXXX` escape in a double-quoted string uses lowercase hex digits
+> (C-14).
 
 > Grouping same-label edges together can also lose their original relative
 > position against *other* labels -- `[(m,A),(x,X),(m,B)]` groups to
