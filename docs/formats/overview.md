@@ -143,8 +143,9 @@ that's distinctive, and concretely how OML / the Document model handles it
   date/time/datetime grammar directly into the matching Python types with
   no schema needed — confirmed for all three kinds (`d = 2024-01-01`,
   `t = 12:00:00`, `dt = 2024-01-01T12:00:00`). Writing round-trips the
-  same way: TOML is the one format with no `format.temporal-stringified`
-  adjustment in either direction. OML still has no native temporal
+  same way, except that TOML has no offset time, so a `time` with an
+  offset is stringified with `format.temporal-stringified` (E-37); every
+  other temporal is native in both directions. OML still has no native temporal
   literal, so going OML round-trip-equivalent would stringify where TOML
   wouldn't — this is the one case where TOML is *more* capable than OML
   on a specific scalar kind.

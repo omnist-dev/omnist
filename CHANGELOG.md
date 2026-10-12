@@ -31,10 +31,11 @@ passed, 0 failed, 28 skipped of 731 (the 28 OSD-OML skips, nothing else).
   `￿`).
 - Fixed the `read_yaml` docstring, which gave `0o7777` as a four-digit YAML
   octal (PyYAML reads `0o17` as a string; the spelling is `07777`).
-- Performance: the 100,000-flat-key JSON and XML read gap seen after 0.16.0
-  was re-measured and is within run-to-run noise on this shared machine (the
-  same code measured JSON 410-560 ms and XML 520-740 ms across runs), with no
-  single removable cost in the profile; no change made.
+- Performance: reading 100,000 flat keys, median of 7 alternating runs against
+  v0.16.0 on a noisy shared machine: JSON 514 ms (v0.16.0) vs 515 ms, XML
+  616 ms vs 606 ms, so no measurable cost. An ASCII-identifier fast path in the
+  label-quoting check keeps the common label to one `isidentifier` call. (The
+  slowdown reported against v0.15.x was not reproducible against v0.16.0.)
 
 ## [v0.16.0] — adopts omnist-spec v0.34.0-beta: C-12 duplicate keys, C-13 tags, configurable limits
 

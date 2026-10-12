@@ -13,6 +13,8 @@ _SHORT = {'"': '\\"', "\\": "\\\\", "\n": "\\n", "\r": "\\r", "\t": "\\t"}
 def label_segment(label: str) -> str:
     """The path segment for ``label`` (E-36): ``.label`` when bare, else
     ``["label"]`` with the pinned escapes (lowercase ``\\uXXXX``)."""
+    if label.isascii() and label.isidentifier():
+        return "." + label      # fast path: no character here needs quoting
     if label and not _NEEDS_QUOTE.search(label):
         return "." + label
     out = []
