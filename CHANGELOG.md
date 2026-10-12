@@ -6,6 +6,37 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.17.0] — adopts omnist-spec v0.35.0-beta: E-36 path labels, E-37 temporal writers, C-14 YAML escapes
+
+A **minor** bump under the beta rule. `vendor/omnist-spec` moves from
+`v0.34.0-beta` to `v0.35.0-beta` (`237ef00`).
+
+Conformance, before any fix (from the pin bump alone): Track 1 19/19; Track 2
+666 passed, 37 failed, 28 skipped of 731. After: Track 1 19/19; Track 2 703
+passed, 0 failed, 28 skipped of 731 (the 28 OSD-OML skips, nothing else).
+
+- **E-36: a Document path quotes a label that needs it.** A label that is
+  empty or holds `.`, `[`, `]`, `"`, `\`, a control character, U+007F, U+0085,
+  U+2028 or U+2029 prints as `["label"]` with the pinned escapes (lowercase
+  `\uXXXX`); every other label stays `.label`. This applies to every path in a
+  report, error or `Doc.path`. **Migration:** a label that is not a plain
+  identifier but is otherwise safe (`a b`) used to print as `$["a b"]` for a
+  `Doc` built from a Python mapping and now prints `$.a b`.
+- **E-37: temporal writers.** TOML writes a `datetime` with the `T` separator
+  and a `time` with an offset as a double-quoted ISO-8601 string with
+  `format.temporal-stringified` (it used to raise `ValueError`). YAML writes a
+  `datetime` with `T` and a `time` as a double-quoted string
+  (`format.temporal-stringified`).
+- **C-14: YAML escapes are lowercase** (`\x1f`, `\x7f`, `\x80`, `￾`,
+  `￿`).
+- Fixed the `read_yaml` docstring, which gave `0o7777` as a four-digit YAML
+  octal (PyYAML reads `0o17` as a string; the spelling is `07777`).
+- Performance: reading 100,000 flat keys, median of 7 alternating runs against
+  v0.16.0 on a noisy shared machine: JSON 514 ms (v0.16.0) vs 515 ms, XML
+  616 ms vs 606 ms, so no measurable cost. An ASCII-identifier fast path in the
+  label-quoting check keeps the common label to one `isidentifier` call. (The
+  slowdown reported against v0.15.x was not reproducible against v0.16.0.)
+
 ## [v0.16.0] — adopts omnist-spec v0.34.0-beta: C-12 duplicate keys, C-13 tags, configurable limits
 
 A **minor** bump under the beta rule: inputs that used to be accepted are now

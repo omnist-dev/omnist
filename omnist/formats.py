@@ -32,7 +32,7 @@ from ._limits import (
     int_or_over_limit,
     make_limits,
 )
-from ._paths import edge_paths
+from ._paths import edge_paths, label_segment
 from ._position import position
 from ._yaml_alias import (
     DEFAULT_MAX_ALIAS_EXPANSION,
@@ -287,7 +287,7 @@ def read_yaml(text: str, *, schema: Optional["Schema"] = None,
     the safety limits of Sec2.4 for this read; exceeding one is
     ``document.limit.depth``, ``.nodes`` or ``.int-digits`` (D-13), the last at
     the Document path of the literal, whose digits are counted in its
-    *value* whatever the spelling: ``0xFFF``, ``0o7777`` and ``4_095`` all have
+    *value* whatever the spelling: ``0xFFF``, ``07777`` and ``4_095`` all have
     four (D-28). A mapping that repeats a key is refused as
     ``parse.codec-syntax`` (C-12), and a node tagged ``!!pairs``, ``!!omap`` or
     ``!!set`` as ``format.tag-forbidden`` (C-13).
@@ -533,8 +533,46 @@ def _prepare_yaml(node: Any, depth: int = 0) -> Any:
         _check_write_depth(depth)
         return [(label, _prepare_yaml(c, depth + 1)) for label, c in node]
     if isinstance(node, _dt.time):
-        return node.isoformat()
+        return _YamlQuoted(node.isoformat())      # E-37 rule 4: double-quoted
     return node
+
+
+class _YamlQuoted(str):
+    """A string that must be written double-quoted (E-37 rule 4)."""
+
+
+def _yaml_quoted_representer(dumper: Any, data: str) -> Any:
+    return dumper.represent_scalar("tag:yaml.org,2002:str", str(data), style='"')
+
+
+def _yaml_datetime_representer(dumper: Any, data: _dt.datetime) -> Any:
+    # E-37 rule 3: ISO-8601 with the ``T`` separator (PyYAML's default is a space).
+    return dumper.represent_scalar("tag:yaml.org,2002:timestamp", data.isoformat())
+
+
+_YAML_ESCAPE = _re.compile(r"\\[xuU][0-9A-F]+\Z")
+
+
+class _LowerEscapes:
+    """Stream wrapper: PyYAML writes each escape sequence in one ``write`` call
+    and never writes a backslash inside a plain text segment, so a whole-write
+    an escape sequence matched whole; C-14 pins its digits lowercase."""
+
+    def __init__(self, stream: Any) -> None:
+        self._stream = stream
+
+    def write(self, data: str) -> Any:
+        return self._stream.write(data[:2] + data[2:].lower() if _YAML_ESCAPE.match(data) else data)
+
+
+def _yaml_write_double_quoted(self: Any, text: str, split: bool = True) -> None:
+    orig = self.stream
+    self.stream = _LowerEscapes(orig)
+    try:
+        _need("yaml", "pip install pyyaml").emitter.Emitter.write_double_quoted(
+            self, text, split)
+    finally:
+        self.stream = orig
 
 
 def _yaml_str_representer(dumper: Any, data: str) -> Any:
@@ -551,8 +589,11 @@ def _yaml_dumper(yaml: Any) -> type[Any]:
     """A SafeDumper subclass whose str representer escapes U+0085 safely."""
     dumper = _YAML_DUMPER_CACHE.get(yaml)
     if dumper is None:
-        dumper = type("_OmnistYamlDumper", (yaml.SafeDumper,), {})
+        dumper = type("_OmnistYamlDumper", (yaml.SafeDumper,),
+                      {"write_double_quoted": _yaml_write_double_quoted})
         dumper.add_representer(str, _yaml_str_representer)  # type: ignore[attr-defined]
+        dumper.add_representer(_YamlQuoted, _yaml_quoted_representer)  # type: ignore[attr-defined]
+        dumper.add_representer(_dt.datetime, _yaml_datetime_representer)  # type: ignore[attr-defined]
         _YAML_DUMPER_CACHE[yaml] = dumper
     return dumper
 
@@ -703,6 +744,18 @@ def check_toml(node: Any) -> WriteReport:
     return rep
 
 
+class _TomlDatetime(_dt.datetime):
+    """A datetime whose ``str`` (what tomli_w writes) uses the ``T`` separator."""
+
+    @classmethod
+    def of(cls, d: _dt.datetime) -> "_TomlDatetime":
+        return cls(d.year, d.month, d.day, d.hour, d.minute, d.second,
+                   d.microsecond, d.tzinfo, fold=d.fold)
+
+    def __str__(self) -> str:
+        return self.isoformat()
+
+
 def _strip_nulls(node: Any, path: str, rep: WriteReport, depth: int = 0) -> Any:
     """Reject a null leaf (TOML can't hold null, and there is no substitute
     value to fall back to).
@@ -718,6 +771,14 @@ def _strip_nulls(node: Any, path: str, rep: WriteReport, depth: int = 0) -> Any:
     _check_write_depth(depth)
     out: list[tuple[str, Any]] = []
     for label, child, p in edge_paths(path, node):
+        if isinstance(child, _dt.time) and child.tzinfo is not None:
+            # E-37 rule 4: TOML has no offset time -- string + warning.
+            rep.add(p, "format.temporal-stringified",
+                    "time with an offset written as an ISO-8601 string "
+                    "(TOML has no offset time)", "warning")
+            child = child.isoformat()
+        elif isinstance(child, _dt.datetime):
+            child = _TomlDatetime.of(child)         # E-37 rule 3: ``T`` separator
         if child is None:
             raise WriteError(f"{p}: null has no representation in TOML",
                               code="write.unsupported-value", path=p)
@@ -848,7 +909,7 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
                 "outside the data-XML profile", code="format.mixed-content", path="$")
         for c in children:
             if c.tail and c.tail.strip():
-                p = f"{path}.{_local(c.tag)}"
+                p = f"{path}{label_segment(_local(c.tag))}"
                 raise ParseError(
                     f"{p}: mixed content (text alongside "
                     "child elements) is outside the data-XML profile",
@@ -859,7 +920,7 @@ def _xml_to_node(elem: Any, path: str, depth: int, budget: list[int],
         # shared edge_paths helper, not by hand.
         edges = [(_local(c.tag), c) for c in children]
         for (c_local, c), (_, _, cepath) in zip(edges, edge_paths(epath, edges)):
-            p = f"{path}.{c_local}"
+            p = f"{path}{label_segment(c_local)}"
             _check_xml_drops(c, cepath, report)
             out.append((c_local, _xml_to_node(c, p, depth + 1, budget, report, cepath,
                                               limits)))

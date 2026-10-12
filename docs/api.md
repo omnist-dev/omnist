@@ -10,7 +10,7 @@ a field's type is always exactly one `Scalar` or one `Ref`. See the
 
 ```python
 import omnist
-omnist.__version__        # "0.16.0"
+omnist.__version__        # "0.17.0"
 ```
 <!-- verified-by: tests/test_docs.py::test_docs_version_examples_match_live_version -->
 
@@ -360,7 +360,7 @@ A named tuple `Adjustment(path, code, message, severity)` — `severity` is
 `"warning"` or `"error"`. Stable codes (a null leaf is never a report entry: TOML and
 XML both fail it with an unconditional `WriteError`, per above):
 `format.temporal-stringified`
-(JSON/YAML/XML), `format.value-stringified` (XML — a non-string scalar written as
+(JSON/YAML/XML, and a TOML time with an offset), `format.value-stringified` (XML — a non-string scalar written as
 text), and `format.string-line-break-char`
 (YAML — a label or value containing U+0085 NEL, which YAML's line-break rules would
 otherwise normalize to a space; written double-quoted to round-trip correctly).
