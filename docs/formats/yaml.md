@@ -52,6 +52,12 @@ There's no standalone "time of day" type in YAML's core schema, so a bare
 `12:00:00` is parsed as the sexagesimal integer `43200` (`12*3600`), not a
 `datetime.time` — that's PyYAML's own resolver, not omnist.
 
+A fractional second holds at most six digits (microseconds, the OML grammar's
+`1*6DIGIT`). Zeros beyond the sixth are insignificant and dropped, but a
+**non-zero seventh or later digit fails the read** with `parse.codec-syntax`
+(at the literal) instead of being truncated silently: `00:32:00.9999999` is an
+error. Through 0.17.0 it read as `.999999`. Offsets are kept, never converted.
+
 ### With a schema
 
 Because PyYAML already hands back a real `date`/`datetime` for those forms,
