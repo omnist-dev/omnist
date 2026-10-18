@@ -6,6 +6,35 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [v0.18.0] — the JSON reader refuses the NaN and Infinity tokens (spec v0.36.0-beta)
+
+Adopts omnist-spec `v0.36.0-beta` (`vendor/omnist-spec` moves from `v0.35.0-beta`;
+the suite grows from 731 to 793 vectors, 28 OSD-OML vectors skipped, nothing
+else). One behaviour change a caller can observe.
+
+- **Breaking: JSON text with a bare `NaN`, `Infinity` or `-Infinity` token is
+  `parse.codec-syntax` (C-19, DIV-45).** CPython's `json` module reads the three
+  tokens as non-finite floats, so `read_json('{"a": NaN}')` used to succeed.
+  JSON has no such token. YAML (`.nan`, `.inf`), TOML and OML (`nan`, `inf`)
+  still spell them, and a number literal beyond binary64 (`1e999`) still reads
+  as an infinity (D-29). The error path is `1:1`: the decoder does not report
+  where the token is. **Migration:** write the value as a string, or as a
+  literal in a format that spells it.
+- **Runner: two NaN leaves compare equal (E-33, DIV-47).** `tools/conformance`
+  compared the parsed Document with the library's equality, in which a NaN is
+  not equal to itself, so the three `nan-is-a-number` vectors failed whatever
+  the reader returned. The referee now walks the two nodes and treats two NaNs
+  as equal; the library equality is untouched.
+- **Checked and clean: XML pretyping (C-18, D-28, D-29).** The `integer` and
+  `number` forms already follow C-18, an `integer` over 4300 digits is
+  `document.limit.int-digits` at the leaf, and a `number` reads past binary64 as
+  an infinity. The grammar check runs before any big-integer or float parse, so
+  1 to 8 MB leaves of `99...9x`, `-99...9x`, `99...9.` and `99...9e` are
+  refused in linear time (8 MB: 0.3 s for an `integer` leaf, 1.2 s for a
+  `number` leaf). Pinned by `tests/test_spec_v036.py`.
+- **Vectors.** Track 1 (fixtures) 19 of 19; Track 2 (vector suite) 759 passed
+  and 6 failed before the fix, 765 passed and 28 skipped after.
+
 ## [v0.17.1] — a YAML or TOML fraction past six digits fails instead of truncating
 
 Bug-fix release; `vendor/omnist-spec` stays at `v0.35.0-beta`. One behaviour

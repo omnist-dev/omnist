@@ -9,6 +9,8 @@ those. Ported from omnist-spec's conformance/orchestrator/referee.py
 """
 from __future__ import annotations
 
+from typing import Any
+
 from omnist import parse_schema, read_oml
 
 
@@ -18,7 +20,19 @@ def compare_document(actual_oml_text: str, expected_oml_text: str) -> bool:
     needed for Document comparison)."""
     actual = read_oml(actual_oml_text)
     expected = read_oml(expected_oml_text)
-    return bool(actual == expected)
+    return _nodes_equal(actual, expected)
+
+
+def _nodes_equal(a: Any, b: Any) -> bool:
+    """The node equality of Doc.__eq__, with one runner-side difference (Sec8.5.4 E-33): two NaN
+    leaves compare equal, where the language's own equality says a NaN is not
+    equal to itself. The library comparison is left as it is."""
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(
+            la == lb and _nodes_equal(ca, cb) for (la, ca), (lb, cb) in zip(a, b))
+    if isinstance(a, float) and isinstance(b, float) and a != a and b != b:
+        return True
+    return bool(a == b)
 
 
 def compare_schema(actual_osd_text: str, expected_osd_text: str, mode: str) -> bool:
