@@ -6,6 +6,21 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
+## [Unreleased] — docs: fix a broken anchor in the CLI design spec
+
+Docs only; no version bump, no code, API or behaviour change, no migration.
+`vendor/omnist-spec` stays at `v0.35.0-beta`.
+
+- **`docs/design/cli-spec.md`: broken `§1a` anchor (#339).** The link used
+  `#1a-json-machine-mode-shared`; mkdocs slugifies the heading
+  `## 1a. \ (machine mode, shared)` to `1a---json-machine-mode-shared`.
+  `mkdocs build --strict` no longer reports it.
+- **#350 needs no code change.** All five items already shipped: coded
+  `--json` errors and the documented residual uncoded cases (0.13.0), the
+  runner identity check (0.13.0), success-path diagnostics comparison
+  (0.13.0), the lone-surrogate writer refusal (C-9, 0.14.0) and the XML
+  re-check comment.
+
 ## [v0.17.0] — adopts omnist-spec v0.35.0-beta: E-36 path labels, E-37 temporal writers, C-14 YAML escapes
 
 A **minor** bump under the beta rule. `vendor/omnist-spec` moves from

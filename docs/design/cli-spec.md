@@ -31,7 +31,7 @@ omnist schema equivalent       <a> <b>        [--result-format text|json|oml] [-
 no `--from`/`--to`.
 
 `--json` is a **shared flag on every command** (an `argparse` parent parser),
-specified once in [§1a](#1a-json-machine-mode-shared) rather than repeated per
+specified once in [§1a](#1a---json-machine-mode-shared) rather than repeated per
 command below.
 
 ## 1a. `--json` (machine mode, shared)
