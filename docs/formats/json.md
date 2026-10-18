@@ -107,6 +107,12 @@ Doc.of({"tag": ["x", "y"]}).to_json()         # '{"tag": ["x", "y"]}'
 > was genuinely `null` to begin with. `write_json` now fails unconditionally
 > on a `NaN`/`Infinity`/`-Infinity` leaf -- `code="write.unsupported-value"`
 > -- lenient or `strict=True` alike (issue #325).
+>
+> The reader refuses them too (C-19, omnist-spec v0.36.0-beta): the bare
+> tokens `NaN`, `Infinity` and `-Infinity` are `parse.codec-syntax`, where
+> CPython's `json` module would read them as non-finite floats. A number literal
+> beyond binary64 (`1e999`) still reads as an infinity (D-29). YAML (`.nan`,
+> `.inf`), TOML and OML (`nan`, `inf`) keep spelling them.
 
 ```python
 from omnist import WriteError, write_json

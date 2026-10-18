@@ -84,7 +84,14 @@ never inspects the shape of the text.
 
 `schema=` upgrades a leaf to match the schema's declared scalar wherever the
 conversion is value-exact — this is what turns the date string above into a
-real `datetime.date`:
+real `datetime.date`. The spellings an `integer` leaf upgrades from are
+`-?(0|[1-9][0-9]*)` and a `number` leaf from a JSON number (C-18): `+5`, `007`,
+`0x1F`, `1_000`, `5.0`, `NaN` and `INF` stay strings, so they fail the schema.
+An `integer` of more than 4300 digits (the sign is not counted) is
+`document.limit.int-digits` at the leaf (D-28); a `number` has no length limit
+and reads past binary64 as an infinity, underflow as `0.0` (D-29). The grammar
+is checked before any conversion, so a megabyte-long malformed leaf is refused
+in linear time.
 
 ```python
 from omnist import parse_schema, read_xml

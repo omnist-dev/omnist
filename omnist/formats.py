@@ -204,6 +204,14 @@ def _json_int_hook(max_digits: int) -> Any:
     return functools.partial(int_or_over_limit, max_digits=max_digits)
 
 
+def _json_reject_constant(token: str) -> Any:
+    """``json.loads``'s ``parse_constant``: JSON has no ``NaN``, ``Infinity``
+    or ``-Infinity`` token (C-19), which CPython's decoder would otherwise
+    read as a non-finite float. The hook has no position, so it raises a
+    ``JSONDecodeError`` whose position the caller leaves at 1:1."""
+    raise _json.JSONDecodeError(f"{token} is not a JSON token", token, 0)
+
+
 def read_json(text: str, *, schema: Optional["Schema"] = None,
               max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES,
               max_depth: int = DEFAULT_MAX_DEPTH,
@@ -224,7 +232,8 @@ def read_json(text: str, *, schema: Optional["Schema"] = None,
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     _check_json_text_depth(text, limits.max_depth)
     try:
-        data = _json.loads(text, parse_int=_json_int_hook(limits.max_int_digits))
+        data = _json.loads(text, parse_int=_json_int_hook(limits.max_int_digits),
+                           parse_constant=_json_reject_constant)
     except _json.JSONDecodeError as exc:
         raise ParseError(f"invalid JSON: {exc}", code="parse.codec-syntax",
                          path=f"{exc.lineno}:{exc.colno}") from exc
