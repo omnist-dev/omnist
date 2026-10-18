@@ -6,11 +6,30 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
-## [Unreleased] — docs: fix a broken anchor in the CLI design spec
+## [v0.17.1] — a YAML or TOML fraction past six digits fails instead of truncating
 
-Docs only; no version bump, no code, API or behaviour change, no migration.
-`vendor/omnist-spec` stays at `v0.35.0-beta`.
+Bug-fix release; `vendor/omnist-spec` stays at `v0.35.0-beta`. One behaviour
+change a caller can observe.
 
+- **A YAML or TOML time or datetime fraction past six digits fails (#366).**
+  PyYAML and `tomllib` cut the fraction to six digits without a word:
+  `00:32:00.9999999` read as `.999999` and
+  `2024-01-15T12:00:00.000000001+01:00` as `12:00:00`. The Document holds
+  microseconds at most, so a non-zero digit past the sixth is now
+  `parse.codec-syntax` at the literal (`line:col`, like the readers' other
+  syntax errors); zeros past the sixth are dropped; an offset is kept, never
+  converted. **Migration:** shorten the literal or quote it to read it as a
+  string.
+- **Checked and clean.** JSON and XML keep the text verbatim; OML refuses a
+  seventh digit as a syntax error. No writer can emit a fraction its reader
+  refuses: a Python `time`/`datetime` holds microseconds, so `.999999` is the
+  widest value a writer is handed (round trips pinned for OML, YAML and TOML;
+  the `check_*` paths report no `format.temporal-stringified`). Hostile input,
+  timed and linear, nothing to fix: a 4 MB hex, octal or binary integer
+  literal is refused as `document.limit.int-digits` (TOML 0.5 to 1.0 s, YAML
+  about 2.2 s; 8 MB about 2 to 5 s), an 8 MB XML attribute reads in 0.1 s, XML
+  depth 1k to 100k is `document.limit.depth` in under 0.1 s, and OML with
+  100,000 `"` fails in 0.04 s.
 - **`docs/design/cli-spec.md`: broken `§1a` anchor (#339).** The link used
   `#1a-json-machine-mode-shared`; mkdocs slugifies the heading
   `## 1a. \ (machine mode, shared)` to `1a---json-machine-mode-shared`.

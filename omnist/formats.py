@@ -414,6 +414,18 @@ def _yaml_loader(yaml: Any) -> type[Any]:
                 return int_or_over_limit(text, self.omnist_max_int_digits)
             return super().construct_yaml_int(node)
 
+        def construct_yaml_timestamp(self, node: Any) -> Any:
+            """PyYAML cuts a fraction to six digits without a word. The
+            Document holds microseconds at most, so a non-zero digit past the
+            sixth is refused (fail, don't invent); zeros past it are dropped."""
+            if fraction_inexact(self.construct_scalar(node)):
+                raise ConstructorError(
+                    None, None,
+                    "a fractional second has more than six digits (the Document "
+                    "model holds at most microseconds); it would be altered",
+                    node.start_mark)
+            return super().construct_yaml_timestamp(node)
+
         def flatten_mapping(self, node: Any) -> None:
             merged: list[list[Any]] = []       # one entry list per merged mapping
             written: set[Any] = set()          # C-12: the keys this mapping writes itself
@@ -479,6 +491,8 @@ def _yaml_loader(yaml: Any) -> type[Any]:
 
     _OmnistYamlLoader.add_constructor("tag:yaml.org,2002:int",
                                       _OmnistYamlLoader.construct_yaml_int)
+    _OmnistYamlLoader.add_constructor("tag:yaml.org,2002:timestamp",
+                                      _OmnistYamlLoader.construct_yaml_timestamp)
     _YAML_LOADER_CACHE[yaml] = _OmnistYamlLoader
     return _OmnistYamlLoader
 
@@ -668,6 +682,58 @@ def _toml_mark_over_limit(text: str, max_digits: int) -> Optional[tuple[str, str
     return ("".join(out), marker) if replaced else None
 
 
+_TOML_FRACTION_PROBE = _re.compile(r"\.[0-9]{7}")
+_TOML_TEMPORAL = _re.compile(
+    r"(?:[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ])?[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+")
+
+
+def fraction_inexact(text: str) -> bool:
+    """Whether a temporal literal's fractional second has a non-zero digit
+    past the sixth: such a value cannot be held (the Document keeps
+    microseconds) without altering it. Zeros past the sixth are insignificant."""
+    dot = text.find(".")
+    if dot < 0:
+        return False
+    digits = 0
+    for ch in text[dot + 1:]:
+        if not "0" <= ch <= "9":
+            break
+        digits += 1
+    return digits > 6 and text[dot + 7:dot + 1 + digits].strip("0") != ""
+
+
+def _toml_check_fractions(text: str) -> None:
+    """``tomllib`` cuts a fraction to six digits without a word. Refuse a time
+    or datetime literal (value position; strings and comments skipped) whose
+    fraction has a non-zero digit past the sixth: ``parse.codec-syntax`` at the
+    literal. Runs on text ``tomllib`` accepted, and only when seven fraction
+    digits appear somewhere in it."""
+    if _TOML_FRACTION_PROBE.search(text) is None:
+        return
+    i, n, prev = 0, len(text), "\n"
+    while i < n:
+        ch = text[i]
+        if ch == "#":
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+        elif ch in "\"'":
+            i, prev = _toml_string_end(text, i), ch
+        elif ch.isspace():
+            i += 1
+        else:
+            m = _TOML_TEMPORAL.match(text, i) if prev in "=,[{" else None
+            if m is not None:
+                if fraction_inexact(m[0]):
+                    raise ParseError(
+                        "invalid TOML: a fractional second has more than six digits "
+                        "(the Document model holds at most microseconds); "
+                        "it would be altered",
+                        code="parse.codec-syntax", path=position(text, i))
+                i, prev = m.end(), "1"
+            else:
+                i, prev = i + 1, ch
+
+
 def _toml_loads(text: str, max_digits: int) -> Any:
     import tomllib
     try:
@@ -708,7 +774,9 @@ def read_toml(text: str, *, schema: Optional["Schema"] = None,
     text = strip_bom(text, reject_second=True)   # Sec2.5 D-15/D-21
     import tomllib
     try:
-        node = build_node(_toml_loads(text, limits.max_int_digits), limits=limits)
+        data = _toml_loads(text, limits.max_int_digits)
+        _toml_check_fractions(text)
+        node = build_node(data, limits=limits)
     except tomllib.TOMLDecodeError as exc:
         raise ParseError(f"invalid TOML: {exc}", code="parse.codec-syntax",
                          path=_toml_position(exc, text)) from exc

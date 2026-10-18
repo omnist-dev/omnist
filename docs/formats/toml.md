@@ -65,6 +65,12 @@ This is a genuinely different "before" picture than JSON's: reading TOML
 without a schema can already hand back real temporal objects for any of the
 three kinds, not just `date`.
 
+A fractional second holds at most six digits (microseconds, the OML grammar's
+`1*6DIGIT`). Zeros beyond the sixth are insignificant and dropped, but a
+**non-zero seventh or later digit fails the read** with `parse.codec-syntax`
+(at the literal) instead of being truncated silently: `00:32:00.9999999` is an
+error. Through 0.17.0 it read as `.999999`. Offsets are kept, never converted.
+
 ### With a schema
 
 Because TOML's own parser already produces value-exact `date`/`time`/
