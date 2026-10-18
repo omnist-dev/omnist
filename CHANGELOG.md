@@ -6,9 +6,9 @@ based on [Keep a Changelog](https://keepachangelog.com/); this project is
 [stability policy](docs/stability.md) — stable surfaces change only through a
 deprecation cycle, not silently between releases.
 
-## [v0.17.1] — docs: fix a broken anchor in the CLI design spec
+## [Unreleased] — docs: fix a broken anchor in the CLI design spec
 
-A **patch** bump. Docs only; no code, API or behaviour change, no migration.
+Docs only; no version bump, no code, API or behaviour change, no migration.
 `vendor/omnist-spec` stays at `v0.35.0-beta`.
 
 - **`docs/design/cli-spec.md`: broken `§1a` anchor (#339).** The link used
